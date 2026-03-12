@@ -399,6 +399,10 @@ button {
     flex-direction: column;
     gap: 24px;
     height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 24px 16px 18px;
     background:
         radial-gradient(circle at top, rgba(52, 211, 153, 0.12), transparent 36%),
@@ -3135,6 +3139,10 @@ button {
     display: grid;
     place-items: center;
     padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
     z-index: 100;
 }
 
@@ -3942,6 +3950,7 @@ button {
     gap: 22px;
     padding: 28px;
     max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
     grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -3959,6 +3968,8 @@ button {
     gap: 20px;
     min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding-right: 8px;
     scrollbar-gutter: stable;
     scrollbar-width: thin;
@@ -4179,8 +4190,14 @@ button {
 }
 
 @media (max-width: 720px) {
+    .modal-shell {
+        place-items: start center;
+        padding: 10px;
+    }
+
     .stock-dialog-card {
         max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px);
         padding: 22px;
     }
 
