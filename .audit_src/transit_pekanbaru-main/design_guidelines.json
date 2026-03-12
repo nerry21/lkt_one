@@ -1,0 +1,121 @@
+{
+  "project_name": "Pekanbaru Transport Management System",
+  "design_philosophy": {
+    "persona": "E1 - The Anti-AI Designer",
+    "theme_name": "Emerald Prestige",
+    "core_values": ["Reliability", "Wealth", "Efficiency"],
+    "visual_style": "Organic & Earthy meets Swiss High-Contrast"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Plus Jakarta Sans, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#047857",
+        "foreground": "#FFFFFF",
+        "gradient_start": "#065F46",
+        "gradient_end": "#10B981"
+      },
+      "secondary": {
+        "DEFAULT": "#ECFDF5",
+        "foreground": "#064E3B"
+      },
+      "accent": {
+        "DEFAULT": "#F59E0B",
+        "foreground": "#FFFFFF"
+      },
+      "background": {
+        "dashboard": "#F0FDF4",
+        "card": "#FFFFFF",
+        "sidebar": "#022C22"
+      },
+      "status": {
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444",
+        "info": "#3B82F6"
+      }
+    },
+    "gradients": {
+      "primary_btn": "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600",
+      "sidebar": "bg-gradient-to-b from-emerald-900 to-emerald-950",
+      "card_highlight": "bg-gradient-to-br from-white to-emerald-50"
+    }
+  },
+  "layout_strategy": {
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-12 gap-6 p-8",
+    "bento_grid": {
+      "hero_stat": "col-span-12 md:col-span-6 lg:col-span-4",
+      "standard_stat": "col-span-12 md:col-span-6 lg:col-span-2",
+      "chart_container": "col-span-12 lg:col-span-8 row-span-2"
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "element_gap": "gap-4 md:gap-6"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "h-10 px-6 rounded-full font-medium shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95",
+      "secondary": "h-10 px-6 rounded-full border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+    },
+    "cards": {
+      "base": "rounded-xl border border-emerald-100 bg-white shadow-sm hover:shadow-md transition-shadow duration-300",
+      "stat_card": "relative overflow-hidden p-6 flex flex-col justify-between h-full"
+    },
+    "inputs": {
+      "base": "h-10 rounded-lg border-emerald-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white/50 backdrop-blur-sm"
+    },
+    "tables": {
+      "wrapper": "rounded-xl border border-emerald-100 overflow-hidden bg-white shadow-sm",
+      "header": "bg-emerald-50/50 text-emerald-900 font-semibold",
+      "row": "hover:bg-emerald-50/30 transition-colors border-b border-emerald-50 last:border-0"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-md bg-white/70 border border-white/20 shadow-xl",
+    "gradients": "Use subtle noise textures over gradients to avoid 'plastic' look",
+    "shadows": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+  },
+  "image_urls": {
+    "login_background": "https://images.unsplash.com/photo-1606188521935-278fd50f7a36?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBidXMlMjBvbiUyMGhpZ2h3YXklMjBzY2VuaWMlMjBpbmRvbmVzaWF8ZW58MHx8fHwxNzczMjQyNDYzfDA&ixlib=rb-4.1.0&q=85",
+    "driver_placeholder": "https://images.unsplash.com/photo-1746676388300-0b83f9627f62?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBhc2lhbiUyMGRyaXZlciUyMHBvcnRyYWl0fGVufDB8fHx8MTc3MzI0MjQ2OXww&ixlib=rb-4.1.0&q=85",
+    "scenic_accent": "https://images.unsplash.com/photo-1599791940254-8f274eacd398?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHw0fHxsdXh1cnklMjBidXMlMjBvbiUyMGhpZ2h3YXklMjBzY2VuaWMlMjBpbmRvbmVzaWF8ZW58MHx8fHwxNzczMjQyNDYzfDA&ixlib=rb-4.1.0&q=85"
+  },
+  "page_specific_instructions": {
+    "login": {
+      "layout": "Split screen. Left: 60% width with 'login_background' and heavy emerald overlay. Right: 40% clean white form.",
+      "elements": "Glassmorphic login card if using full background. Otherwise, clean minimal form on white.",
+      "branding": "Large typography quote on the image side: 'Mengantar Anda dengan Aman & Nyaman'."
+    },
+    "dashboard": {
+      "layout": "Sidebar navigation (fixed left). Main content area with 'bento_grid'.",
+      "charts": "Use Recharts. Line chart for Revenue (Pendapatan), Bar chart for Passenger counts. Color: Emerald tones.",
+      "stats": "Display: Total Revenue, Total Departures, Active Drivers, Total Cars."
+    },
+    "data_keberangkatan": {
+      "features": "CRUD Table. Auto-calculation fields. Date picker (Shadcn Calendar).",
+      "calculation_logic": "Uang PC = (Jumlah Uang Penumpang + Jumlah Uang Paket) * 0.85. Uang Bersih = Total - Uang PC."
+    }
+  },
+  "universal_guidelines": [
+    "Use 'sonner' for all toast notifications.",
+    "All interactive elements MUST have 'data-testid'.",
+    "Do NOT use generic 'Inter' for headings. Use 'Plus Jakarta Sans'.",
+    "Ensure high contrast for text on green backgrounds.",
+    "Use 'lucide-react' for icons.",
+    "Implement 'Lenis' for smooth scrolling if possible, or at least smooth CSS scrolling."
+  ]
+}

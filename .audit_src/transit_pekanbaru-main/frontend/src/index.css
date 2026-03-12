@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 138 76% 97%;
+        --foreground: 160 84% 8%;
+        --card: 0 0% 100%;
+        --card-foreground: 160 84% 8%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 160 84% 8%;
+        --primary: 160 84% 24%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 151 81% 96%;
+        --secondary-foreground: 160 84% 16%;
+        --muted: 138 30% 90%;
+        --muted-foreground: 160 30% 40%;
+        --accent: 38 92% 50%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 160 30% 82%;
+        --input: 160 30% 82%;
+        --ring: 160 84% 24%;
+        --chart-1: 160 84% 24%;
+        --chart-2: 160 60% 40%;
+        --chart-3: 38 92% 50%;
+        --chart-4: 160 40% 60%;
+        --chart-5: 160 84% 35%;
+        --radius: 0.75rem;
+        --sidebar-bg: 160 70% 8%;
+        --sidebar-foreground: 0 0% 100%;
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+code, pre, .mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+}
+
+@layer utilities {
+    .gradient-primary {
+        @apply bg-gradient-to-r from-emerald-700 to-emerald-500;
+    }
+    
+    .gradient-sidebar {
+        @apply bg-gradient-to-b from-emerald-900 to-emerald-950;
+    }
+    
+    .glass {
+        @apply backdrop-blur-md bg-white/70 border border-white/20;
+    }
+    
+    .card-shadow {
+        box-shadow: 0 8px 30px rgb(0 0 0 / 0.04);
+    }
+    
+    .text-balance {
+        text-wrap: balance;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+}
+
+/* Animation classes */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-in {
+    animation: slideIn 0.4s ease-out forwards;
+}
+
+/* Stagger animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Table styles */
+.table-wrapper {
+    @apply rounded-xl border border-emerald-100 overflow-hidden bg-white shadow-sm;
+}
+
+.table-header {
+    @apply bg-emerald-50/50 text-emerald-900 font-semibold;
+}
+
+.table-row {
+    @apply hover:bg-emerald-50/30 transition-colors border-b border-emerald-50 last:border-0;
+}
+
+/* Button hover effects */
+.btn-primary {
+    @apply bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 
+           text-white font-medium rounded-full shadow-lg shadow-emerald-500/20 
+           transition-all duration-300 hover:scale-105 active:scale-95;
+}
+
+.btn-secondary {
+    @apply border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 
+           font-medium rounded-full transition-all duration-300;
+}
+
+/* Input focus styles */
+input:focus, select:focus, textarea:focus {
+    @apply ring-2 ring-emerald-500/20 border-emerald-500;
+}
+
+/* Sidebar active state */
+.sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 
+           text-emerald-100/70 hover:text-white hover:bg-white/10;
+}
+
+.sidebar-item.active {
+    @apply text-white bg-gradient-to-r from-emerald-600/50 to-emerald-500/30 
+           border-l-4 border-emerald-400;
+}
+
+/* Card hover effect */
+.stat-card {
+    @apply relative overflow-hidden p-6 rounded-xl border border-emerald-100 bg-white 
+           shadow-sm hover:shadow-md transition-all duration-300;
+}
+
+.stat-card::before {
+    content: '';
+    @apply absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100/50 to-transparent 
+           rounded-full -translate-y-1/2 translate-x-1/2;
+}

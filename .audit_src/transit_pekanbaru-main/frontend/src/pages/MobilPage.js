@@ -1,0 +1,455 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Car,
+  Tag
+} from 'lucide-react';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+const MobilPage = () => {
+  const { getAuthHeader } = useAuth();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [filterJenis, setFilterJenis] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [deleteItem, setDeleteItem] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    kode_mobil: '',
+    jenis_mobil: 'Hiace'
+  });
+
+  const limit = 10;
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [mobilRes, countRes] = await Promise.all([
+        axios.get(`${API_URL}/api/mobil`, {
+          headers: getAuthHeader(),
+          params: { 
+            page, 
+            limit, 
+            search: search || undefined,
+            jenis: filterJenis || undefined
+          }
+        }),
+        axios.get(`${API_URL}/api/mobil/count`, {
+          headers: getAuthHeader(),
+          params: { 
+            search: search || undefined,
+            jenis: filterJenis || undefined
+          }
+        })
+      ]);
+      
+      setData(mobilRes.data);
+      setTotalCount(countRes.data.count);
+    } catch (error) {
+      toast.error('Gagal memuat data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [page, search, filterJenis]);
+
+  const handleOpenDialog = (item = null) => {
+    if (item) {
+      setEditItem(item);
+      setFormData({
+        kode_mobil: item.kode_mobil,
+        jenis_mobil: item.jenis_mobil
+      });
+    } else {
+      setEditItem(null);
+      setFormData({
+        kode_mobil: '',
+        jenis_mobil: 'Hiace'
+      });
+    }
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      if (editItem) {
+        await axios.put(
+          `${API_URL}/api/mobil/${editItem.id}`,
+          formData,
+          { headers: getAuthHeader() }
+        );
+        toast.success('Data mobil berhasil diperbarui');
+      } else {
+        await axios.post(
+          `${API_URL}/api/mobil`,
+          formData,
+          { headers: getAuthHeader() }
+        );
+        toast.success('Mobil berhasil ditambahkan');
+      }
+      setIsDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error('Gagal menyimpan data', { description: error.response?.data?.detail });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await axios.delete(
+        `${API_URL}/api/mobil/${deleteItem.id}`,
+        { headers: getAuthHeader() }
+      );
+      toast.success('Mobil berhasil dihapus');
+      setIsDeleteDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error('Gagal menghapus data');
+    }
+  };
+
+  const handleExport = () => {
+    window.open(`${API_URL}/api/export/mobil/csv`, '_blank');
+  };
+
+  const totalPages = Math.ceil(totalCount / limit);
+
+  const getJenisColor = (jenis) => {
+    if (jenis === 'Hiace') {
+      return 'bg-blue-100 text-blue-700';
+    }
+    return 'bg-purple-100 text-purple-700';
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-emerald-900">Data Mobil</h1>
+          <p className="text-emerald-600">Kelola data armada mobil</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            data-testid="export-mobil-btn"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button
+            onClick={() => handleOpenDialog()}
+            className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
+            data-testid="add-mobil-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Tambah Mobil
+          </Button>
+        </div>
+      </div>
+
+      {/* Search & Filter */}
+      <Card className="border-emerald-100">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+              <Input
+                placeholder="Cari kode mobil..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-10 border-emerald-200"
+                data-testid="search-mobil-input"
+              />
+            </div>
+            <Select
+              value={filterJenis}
+              onValueChange={(value) => {
+                setFilterJenis(value === 'all' ? '' : value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48 border-emerald-200" data-testid="filter-jenis-mobil">
+                <SelectValue placeholder="Filter Jenis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Jenis</SelectItem>
+                <SelectItem value="Hiace">Hiace</SelectItem>
+                <SelectItem value="Reborn">Reborn</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card className="border-emerald-100 overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-emerald-50/50 hover:bg-emerald-50/50">
+                  <TableHead className="text-emerald-900 font-semibold w-12">#</TableHead>
+                  <TableHead className="text-emerald-900 font-semibold">Kode Mobil</TableHead>
+                  <TableHead className="text-emerald-900 font-semibold">Jenis Mobil</TableHead>
+                  <TableHead className="text-emerald-900 font-semibold text-center">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-emerald-600">Memuat data...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-12 text-emerald-500">
+                      Belum ada data mobil
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.map((item, index) => (
+                    <TableRow key={item.id} className="hover:bg-emerald-50/30" data-testid={`mobil-row-${item.id}`}>
+                      <TableCell className="text-emerald-500 font-mono">
+                        {((page - 1) * limit) + index + 1}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-400 flex items-center justify-center shadow-sm">
+                            <Car className="w-5 h-5 text-white" />
+                          </div>
+                          <span className="font-mono font-semibold text-emerald-900">{item.kode_mobil}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${getJenisColor(item.jenis_mobil)}`}>
+                          <Tag className="w-3.5 h-3.5" />
+                          {item.jenis_mobil}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenDialog(item)}
+                            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            data-testid={`edit-mobil-${item.id}`}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setDeleteItem(item);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            data-testid={`delete-mobil-${item.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-emerald-100">
+              <p className="text-sm text-emerald-600">
+                Menampilkan {((page - 1) * limit) + 1} - {Math.min(page * limit, totalCount)} dari {totalCount} data
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="border-emerald-200"
+                  data-testid="prev-page-btn"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm text-emerald-700 px-3">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="border-emerald-200"
+                  data-testid="next-page-btn"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-900">
+              {editItem ? 'Edit Data Mobil' : 'Tambah Mobil Baru'}
+            </DialogTitle>
+            <DialogDescription>
+              Isi form di bawah untuk {editItem ? 'memperbarui' : 'menambahkan'} data mobil
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="kode_mobil">Kode Mobil</Label>
+              <div className="relative">
+                <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                <Input
+                  id="kode_mobil"
+                  value={formData.kode_mobil}
+                  onChange={(e) => setFormData({ ...formData, kode_mobil: e.target.value.toUpperCase() })}
+                  placeholder="Contoh: PB-001"
+                  className="pl-10 border-emerald-200 font-mono"
+                  required
+                  data-testid="input-kode-mobil"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jenis_mobil">Jenis Mobil</Label>
+              <Select
+                value={formData.jenis_mobil}
+                onValueChange={(value) => setFormData({ ...formData, jenis_mobil: value })}
+              >
+                <SelectTrigger className="border-emerald-200" data-testid="select-jenis-mobil">
+                  <SelectValue placeholder="Pilih jenis mobil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Hiace">Hiace</SelectItem>
+                  <SelectItem value="Reborn">Reborn</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="border-emerald-200"
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
+                data-testid="submit-mobil-btn"
+              >
+                {isSubmitting ? 'Menyimpan...' : (editItem ? 'Perbarui' : 'Simpan')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Hapus Mobil</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus mobil <strong>{deleteItem?.kode_mobil}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              data-testid="confirm-delete-mobil-btn"
+            >
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default MobilPage;
