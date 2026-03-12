@@ -120,7 +120,7 @@
         <div class="modal-shell" id="stock-form-modal" hidden>
             <div class="modal-backdrop" data-modal-close="stock-form-modal"></div>
 
-            <div class="modal-card stock-dialog-card">
+            <div class="modal-card stock-dialog-card stock-form-dialog-card">
                 <div class="stock-dialog-head">
                     <div>
                         <h3 id="stock-form-title">Tambah Stok Baru</h3>
