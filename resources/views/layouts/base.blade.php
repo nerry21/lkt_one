@@ -26,7 +26,7 @@
     <script>
         window.transitAuthUser = @json($transitAuthUser);
     </script>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('layouts.partials.vite-assets')
 </head>
 <body
     class="transit-body"
