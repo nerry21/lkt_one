@@ -3941,6 +3941,8 @@ button {
     display: grid;
     gap: 22px;
     padding: 28px;
+    max-height: calc(100vh - 32px);
+    grid-template-rows: auto minmax(0, 1fr);
 }
 
 .stock-delete-dialog-card {
@@ -3955,6 +3957,25 @@ button {
 .stock-form {
     display: grid;
     gap: 20px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16, 185, 129, 0.45) transparent;
+}
+
+.stock-form::-webkit-scrollbar {
+    width: 10px;
+}
+
+.stock-form::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.stock-form::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.4);
 }
 
 .stock-form-grid {
@@ -4158,6 +4179,11 @@ button {
 }
 
 @media (max-width: 720px) {
+    .stock-dialog-card {
+        max-height: calc(100vh - 20px);
+        padding: 22px;
+    }
+
     .stock-page-actions,
     .stock-dialog-actions,
     .stock-pagination {
