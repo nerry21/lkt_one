@@ -1,3 +1,7 @@
+@php
+    $currentUser = auth()->user();
+@endphp
+
 <aside class="dashboard-sidebar" data-sidebar>
     <div class="sidebar-brand">
         <div class="sidebar-brand-mark" aria-hidden="true">
@@ -26,13 +30,21 @@
         @foreach ($menuItems as $item)
             @php
                 $isActive = request()->routeIs(...($item['active_patterns'] ?? [$item['route']]));
+                $roleScope = !empty($item['requires_super']) ? 'super' : (!empty($item['requires_admin']) ? 'admin' : null);
+                $canView = match ($roleScope) {
+                    'super' => $currentUser?->isSuperAdmin() ?? false,
+                    'admin' => $currentUser?->isAdmin() ?? false,
+                    default => true,
+                };
             @endphp
             <a
                 href="{{ route($item['route']) }}"
                 class="sidebar-link {{ $isActive ? 'is-active' : '' }}"
                 data-testid="{{ $item['testid'] }}"
-                @if (!empty($item['requires_admin']))
-                    data-role-scope="admin"
+                @if ($roleScope)
+                    data-role-scope="{{ $roleScope }}"
+                @endif
+                @if (! $canView)
                     hidden
                 @endif
             >

@@ -22,6 +22,26 @@
                 </div>
 
                 <div class="dashboard-page-actions">
+                    @if (auth()->user()?->isAdmin())
+                        <a
+                            class="dashboard-ghost-button"
+                            href="{{ route('admin.departures.index') }}"
+                            data-testid="manifest-dashboard-btn"
+                        >
+                            <span class="dashboard-button-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M8 4H16C18.7614 4 21 6.23858 21 9V15C21 16.1046 20.1046 17 19 17H5C3.89543 17 3 16.1046 3 15V9C3 6.23858 5.23858 4 8 4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M7 17L6 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M17 17L18 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M7 13H7.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                                    <path d="M17 13H17.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                                    <path d="M6 9H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            <span>Manifest Driver</span>
+                        </a>
+                    @endif
+
                     <a
                         class="dashboard-primary-button"
                         href="{{ route('stock.index') }}"
