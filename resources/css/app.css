@@ -1265,6 +1265,13 @@ button {
     font-size: 0.86rem;
 }
 
+.dashboard-mobil-passengers {
+    margin: 2px 0 0;
+    color: #047857;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
 .dashboard-mobil-value {
     color: #047857;
     font-family: 'Plus Jakarta Sans', sans-serif;

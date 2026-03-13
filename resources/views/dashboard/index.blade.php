@@ -196,9 +196,8 @@
                                     <span class="dashboard-mobil-dot" style="background-color: {{ $color }}"></span>
                                     <div>
                                         <p class="dashboard-mobil-code">{{ $item['kode_mobil'] }}</p>
-                                        <p class="dashboard-mobil-trips">
-                                            {{ $formatNumber($item['total_trips']) }} trip / {{ $formatNumber($item['total_penumpang']) }} penumpang
-                                        </p>
+                                        <p class="dashboard-mobil-trips">{{ $formatNumber($item['total_trips']) }} trip</p>
+                                        <p class="dashboard-mobil-passengers">{{ $formatNumber($item['total_penumpang']) }} penumpang</p>
                                     </div>
                                 </div>
                                 <p class="dashboard-mobil-value">{{ $formatCurrency($item['total_uang_bersih']) }}</p>

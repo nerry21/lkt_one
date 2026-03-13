@@ -14,7 +14,8 @@ function In(e,t){return function(){return e.apply(t,arguments)}}const{toString:i
                 <span class="dashboard-mobil-dot" style="background-color: ${Me[a%Me.length]}"></span>
                 <div>
                     <p class="dashboard-mobil-code">${g(n.kode_mobil)}</p>
-                    <p class="dashboard-mobil-trips">${$(n.total_trips)} trip / ${$(n.total_penumpang)} penumpang</p>
+                    <p class="dashboard-mobil-trips">${$(n.total_trips)} trip</p>
+                    <p class="dashboard-mobil-passengers">${$(n.total_penumpang)} penumpang</p>
                 </div>
             </div>
             <p class="dashboard-mobil-value">${x(n.total_uang_bersih)}</p>

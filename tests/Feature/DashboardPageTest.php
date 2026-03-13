@@ -42,6 +42,7 @@ class DashboardPageTest extends TestCase
         $this->get('/dashboard')
             ->assertOk()
             ->assertSee('Total pendapatan bersih dan total penumpang berdasarkan kode mobil')
-            ->assertSee('1 trip / 7 penumpang');
+            ->assertSee('1 trip')
+            ->assertSee('7 penumpang');
     }
 }
