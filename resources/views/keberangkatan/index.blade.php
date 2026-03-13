@@ -72,7 +72,7 @@
                             <th>Kode Mobil</th>
                             <th>Driver</th>
                             <th class="text-right">Penumpang</th>
-                            <th class="text-right">Uang Penumpang</th>
+                            <th class="text-right">Jumlah Tarif</th>
                             <th class="text-right">Paket</th>
                             <th class="text-right">Uang Paket</th>
                             <th class="text-right">Snack</th>
@@ -290,7 +290,7 @@
                     <div class="keberangkatan-form-section">
                         <div class="keberangkatan-form-section-head">
                             <h4>Penumpang dan Paket</h4>
-                            <p>Isi jumlah penumpang, tarif, dan paket untuk hitungan pendapatan.</p>
+                            <p>Isi jumlah penumpang, jumlah tarif, dan paket untuk hitungan pendapatan.</p>
                         </div>
 
                         <div class="keberangkatan-form-grid">
@@ -310,7 +310,7 @@
                             </div>
 
                             <div class="keberangkatan-form-group">
-                                <label for="keberangkatan-tarif-penumpang">Tarif Penumpang (Rp)</label>
+                                <label for="keberangkatan-tarif-penumpang">Jumlah Tarif (Rp)</label>
                                 <div class="keberangkatan-input-shell">
                                     <input
                                         id="keberangkatan-tarif-penumpang"
@@ -400,7 +400,7 @@
                         <h4>Preview Perhitungan:</h4>
                         <div class="keberangkatan-preview-grid">
                             <div class="keberangkatan-preview-row">
-                                <span>Uang Penumpang:</span>
+                                <span>Jumlah Tarif:</span>
                                 <strong data-calc="jumlah_uang_penumpang">Rp0</strong>
                             </div>
                             <div class="keberangkatan-preview-row">

@@ -314,7 +314,7 @@ function renderRows() {
                         <strong>${formatNumber(item.jumlah_air_mineral)} botol</strong>
                     </div>
                     <div class="keberangkatan-mobile-item keberangkatan-mobile-item-full">
-                        <span>Uang Penumpang</span>
+                        <span>Jumlah Tarif</span>
                         <strong>${formatCurrency(item.jumlah_uang_penumpang)}</strong>
                     </div>
                     <div class="keberangkatan-mobile-item keberangkatan-mobile-item-full">
