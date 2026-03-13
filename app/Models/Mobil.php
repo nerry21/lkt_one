@@ -23,6 +23,10 @@ class Mobil extends Model
     protected $fillable = [
         'kode_mobil',
         'jenis_mobil',
+        'brand',
+        'model',
+        'seat_capacity',
+        'status',
         'created_at',
     ];
 
@@ -36,5 +40,25 @@ class Mobil extends Model
     public function keberangkatan(): HasMany
     {
         return $this->hasMany(Keberangkatan::class, 'kode_mobil', 'kode_mobil');
+    }
+
+    public function departures(): HasMany
+    {
+        return $this->hasMany(Departure::class, 'mobil_id', 'id');
+    }
+
+    public function getPlateNumberAttribute(): string
+    {
+        return $this->kode_mobil;
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        $name = trim(implode(' ', array_filter([
+            $this->brand,
+            $this->model,
+        ])));
+
+        return $name !== '' ? $name : (string) $this->jenis_mobil;
     }
 }

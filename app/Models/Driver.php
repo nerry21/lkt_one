@@ -21,6 +21,9 @@ class Driver extends Model
     protected $fillable = [
         'nama',
         'lokasi',
+        'phone',
+        'license_number',
+        'status',
         'created_at',
     ];
 
@@ -34,5 +37,15 @@ class Driver extends Model
     public function keberangkatan(): HasMany
     {
         return $this->hasMany(Keberangkatan::class, 'driver_id', 'id');
+    }
+
+    public function departures(): HasMany
+    {
+        return $this->hasMany(Departure::class, 'driver_id', 'id');
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->nama;
     }
 }

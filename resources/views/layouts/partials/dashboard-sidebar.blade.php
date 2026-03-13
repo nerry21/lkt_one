@@ -25,7 +25,7 @@
     <nav class="sidebar-nav">
         @foreach ($menuItems as $item)
             @php
-                $isActive = request()->routeIs($item['route']);
+                $isActive = request()->routeIs(...($item['active_patterns'] ?? [$item['route']]));
             @endphp
             <a
                 href="{{ route($item['route']) }}"
