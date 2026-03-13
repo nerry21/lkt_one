@@ -17,6 +17,8 @@ class UpdateKeberangkatanRequest extends FormRequest
     {
         return [
             'tanggal' => ['sometimes', 'date'],
+            'jam_keberangkatan' => ['sometimes', 'string', Rule::in(array_keys(Keberangkatan::JAM_KEBERANGKATAN_OPTIONS))],
+            'tipe_layanan' => ['sometimes', 'string', Rule::in(Keberangkatan::TIPE_LAYANAN_OPTIONS)],
             'kode_mobil' => ['sometimes', 'string'],
             'driver_id' => ['sometimes', 'string'],
             'jumlah_penumpang' => ['sometimes', 'integer'],

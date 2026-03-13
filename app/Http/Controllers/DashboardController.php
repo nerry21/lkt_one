@@ -62,6 +62,8 @@ class DashboardController extends Controller
             Driver::query()->delete();
             Mobil::query()->delete();
             Stock::query()->delete();
+            $jamKeberangkatanOptions = array_keys(Keberangkatan::JAM_KEBERANGKATAN_OPTIONS);
+            $tipeLayananOptions = Keberangkatan::TIPE_LAYANAN_OPTIONS;
 
             $drivers = collect([
                 ['nama' => 'Ahmad Rizki', 'lokasi' => 'Pekanbaru'],
@@ -90,11 +92,12 @@ class DashboardController extends Controller
                 $driver = $drivers->random();
                 $armada = $mobil->random();
                 $jumlahPaket = rand(0, 10);
+                $jamKeberangkatan = $jamKeberangkatanOptions[array_rand($jamKeberangkatanOptions)];
                 $payload = [
                     'tanggal' => $tanggal,
-                    'jam_keberangkatan' => '08:00',
-                    'jam_label' => 'Jam Pagi 08:00 WIB',
-                    'tipe_layanan' => ['Reguler', 'Dropping', 'Rental'][array_rand(['Reguler', 'Dropping', 'Rental'])],
+                    'jam_keberangkatan' => $jamKeberangkatan,
+                    'jam_label' => Keberangkatan::jamKeberangkatanLabel($jamKeberangkatan),
+                    'tipe_layanan' => $tipeLayananOptions[array_rand($tipeLayananOptions)],
                     'kode_mobil' => $armada->kode_mobil,
                     'driver_id' => $driver->id,
                     'driver_nama' => $driver->nama,

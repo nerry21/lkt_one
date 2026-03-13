@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Driver;
+use App\Models\Keberangkatan;
 use App\Models\Mobil;
 use App\Models\Stock;
 use App\Models\User;
@@ -53,6 +54,8 @@ class StockKeberangkatanFlowTest extends TestCase
 
         $response = $this->postJson('/api/keberangkatan', [
             'tanggal' => '2026-04-01',
+            'jam_keberangkatan' => Keberangkatan::DEFAULT_JAM_KEBERANGKATAN,
+            'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
             'kode_mobil' => $mobil->kode_mobil,
             'driver_id' => $driver->id,
             'jumlah_penumpang' => 6,
@@ -66,6 +69,8 @@ class StockKeberangkatanFlowTest extends TestCase
 
         $response->assertOk()
             ->assertJson([
+                'jam_keberangkatan' => Keberangkatan::DEFAULT_JAM_KEBERANGKATAN,
+                'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
                 'jumlah_snack' => 3,
                 'jumlah_air_mineral' => 2,
             ]);
@@ -112,6 +117,8 @@ class StockKeberangkatanFlowTest extends TestCase
 
         $createResponse = $this->postJson('/api/keberangkatan', [
             'tanggal' => '2026-04-02',
+            'jam_keberangkatan' => Keberangkatan::DEFAULT_JAM_KEBERANGKATAN,
+            'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
             'kode_mobil' => $mobil->kode_mobil,
             'driver_id' => $driver->id,
             'jumlah_penumpang' => 4,
@@ -138,6 +145,8 @@ class StockKeberangkatanFlowTest extends TestCase
             'jumlah_snack' => 2,
             'jumlah_air_mineral' => 1,
             'tanggal' => '2026-04-02',
+            'jam_keberangkatan' => '16:00',
+            'tipe_layanan' => 'Dropping',
             'kode_mobil' => $mobil->kode_mobil,
             'driver_id' => $driver->id,
             'jumlah_penumpang' => 4,
@@ -201,6 +210,8 @@ class StockKeberangkatanFlowTest extends TestCase
 
         $response = $this->postJson('/api/keberangkatan', [
             'tanggal' => '2026-04-03',
+            'jam_keberangkatan' => Keberangkatan::DEFAULT_JAM_KEBERANGKATAN,
+            'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
             'kode_mobil' => $mobil->kode_mobil,
             'driver_id' => $driver->id,
             'jumlah_penumpang' => 4,

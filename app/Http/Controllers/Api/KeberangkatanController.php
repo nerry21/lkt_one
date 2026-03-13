@@ -140,9 +140,15 @@ class KeberangkatanController extends Controller
 
     protected function payload(Keberangkatan $item): array
     {
+        $jamKeberangkatan = $item->jam_keberangkatan ?: Keberangkatan::DEFAULT_JAM_KEBERANGKATAN;
+        $tipeLayanan = $item->tipe_layanan ?: Keberangkatan::DEFAULT_TIPE_LAYANAN;
+
         return [
             'id' => $item->id,
             'tanggal' => $item->tanggal,
+            'jam_keberangkatan' => $jamKeberangkatan,
+            'jam_keberangkatan_label' => Keberangkatan::jamKeberangkatanLabel($jamKeberangkatan),
+            'tipe_layanan' => $tipeLayanan,
             'hari' => $item->hari,
             'bulan' => $item->bulan,
             'tahun' => $item->tahun,
@@ -178,6 +184,8 @@ class KeberangkatanController extends Controller
                     $subQuery
                         ->where('kode_mobil', 'like', "%{$search}%")
                         ->orWhere('driver_nama', 'like', "%{$search}%")
+                        ->orWhere('tipe_layanan', 'like', "%{$search}%")
+                        ->orWhere('jam_keberangkatan', 'like', "%{$search}%")
                         ->orWhere('status_pembayaran', 'like', "%{$search}%");
                 });
             })

@@ -17,6 +17,17 @@ const state = {
 };
 
 const limit = 10;
+const departureTimeOptions = {
+    '05:00': 'Subuh (05.00 WIB)',
+    '08:00': 'Pagi (08.00 WIB)',
+    '10:00': 'Pagi (10.00 WIB)',
+    '14:00': 'Siang (14.00 WIB)',
+    '16:00': 'Sore (16.00 WIB)',
+    '19:00': 'Malam (19.00 WIB)',
+};
+const defaultDepartureTime = '08:00';
+const serviceTypeOptions = ['Reguler', 'Dropping', 'Rental'];
+const defaultServiceType = 'Reguler';
 
 function editIcon() {
     return `
@@ -48,6 +59,14 @@ function paymentStatusBadge(status) {
     const modifier = label === 'Lunas' ? 'is-paid' : 'is-unpaid';
 
     return `<span class="keberangkatan-payment-badge ${modifier}">${escapeHtml(label)}</span>`;
+}
+
+function departureTimeLabel(value) {
+    return departureTimeOptions[value] || departureTimeOptions[defaultDepartureTime];
+}
+
+function serviceTypeLabel(value) {
+    return serviceTypeOptions.includes(value) ? value : defaultServiceType;
 }
 
 function calculatePreviewValues() {
@@ -136,7 +155,7 @@ function renderLoadingState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="15" class="keberangkatan-table-state">
+            <td colspan="17" class="keberangkatan-table-state">
                 <div class="keberangkatan-loading-inline">
                     <span class="keberangkatan-loading-inline-spinner" aria-hidden="true"></span>
                     <span>Memuat data...</span>
@@ -168,7 +187,7 @@ function renderEmptyState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="15" class="keberangkatan-table-state keberangkatan-empty-copy">
+            <td colspan="17" class="keberangkatan-table-state keberangkatan-empty-copy">
                 Belum ada data keberangkatan
             </td>
         </tr>
@@ -206,6 +225,8 @@ function renderRows() {
         <tr class="keberangkatan-row" data-testid="keberangkatan-row-${item.id}">
             <td class="keberangkatan-hari-cell">${escapeHtml(item.hari)}</td>
             <td>${escapeHtml(item.tanggal)}</td>
+            <td>${escapeHtml(item.jam_keberangkatan_label || departureTimeLabel(item.jam_keberangkatan))}</td>
+            <td>${escapeHtml(serviceTypeLabel(item.tipe_layanan))}</td>
             <td>
                 <span class="keberangkatan-kode-badge">${escapeHtml(item.kode_mobil)}</span>
             </td>
@@ -255,6 +276,7 @@ function renderRows() {
                     <div>
                         <p class="keberangkatan-mobile-day">${escapeHtml(item.hari)}</p>
                         <h3 class="keberangkatan-mobile-date">${escapeHtml(item.tanggal)}</h3>
+                        <p>${escapeHtml(item.jam_keberangkatan_label || departureTimeLabel(item.jam_keberangkatan))}</p>
                     </div>
                     <div class="keberangkatan-mobile-head-side">
                         <span class="keberangkatan-kode-badge">${escapeHtml(item.kode_mobil)}</span>
@@ -271,6 +293,10 @@ function renderRows() {
                     <div class="keberangkatan-mobile-item keberangkatan-mobile-item-status">
                         <span>Validasi</span>
                         ${paymentStatusBadge(item.status_pembayaran)}
+                    </div>
+                    <div class="keberangkatan-mobile-item">
+                        <span>Layanan</span>
+                        <strong>${escapeHtml(serviceTypeLabel(item.tipe_layanan))}</strong>
                     </div>
                     <div class="keberangkatan-mobile-item">
                         <span>Penumpang</span>
@@ -394,7 +420,9 @@ function resetForm() {
     const title = document.getElementById('keberangkatan-form-title');
     const description = document.getElementById('keberangkatan-form-description');
     const tanggal = document.getElementById('keberangkatan-tanggal');
+    const jamKeberangkatan = document.getElementById('keberangkatan-jam-keberangkatan');
     const tripKe = document.getElementById('keberangkatan-trip-ke');
+    const tipeLayanan = document.getElementById('keberangkatan-tipe-layanan');
     const jumlahPenumpang = document.getElementById('keberangkatan-jumlah-penumpang');
     const tarifPenumpang = document.getElementById('keberangkatan-tarif-penumpang');
     const jumlahPaket = document.getElementById('keberangkatan-jumlah-paket');
@@ -420,6 +448,10 @@ function resetForm() {
         tanggal.value = todayString();
     }
 
+    if (jamKeberangkatan) {
+        jamKeberangkatan.value = defaultDepartureTime;
+    }
+
     populateSelect(
         'keberangkatan-kode-mobil',
         state.mobilList,
@@ -440,12 +472,16 @@ function resetForm() {
         tripKe.value = '1';
     }
 
+    if (tipeLayanan) {
+        tipeLayanan.value = defaultServiceType;
+    }
+
     if (jumlahPenumpang) {
         jumlahPenumpang.value = '0';
     }
 
     if (tarifPenumpang) {
-        tarifPenumpang.value = '150000';
+        tarifPenumpang.value = '';
     }
 
     if (jumlahPaket) {
@@ -481,7 +517,9 @@ async function openEditDialog(id) {
     state.editItem = item;
     document.getElementById('keberangkatan-id').value = item.id;
     document.getElementById('keberangkatan-tanggal').value = item.tanggal;
+    document.getElementById('keberangkatan-jam-keberangkatan').value = item.jam_keberangkatan || defaultDepartureTime;
     document.getElementById('keberangkatan-trip-ke').value = item.trip_ke;
+    document.getElementById('keberangkatan-tipe-layanan').value = serviceTypeLabel(item.tipe_layanan);
     document.getElementById('keberangkatan-jumlah-penumpang').value = item.jumlah_penumpang;
     document.getElementById('keberangkatan-tarif-penumpang').value = item.tarif_penumpang;
     document.getElementById('keberangkatan-jumlah-paket').value = item.jumlah_paket;
@@ -579,6 +617,8 @@ export default function initKeberangkatanPage() {
 
         const payload = {
             tanggal: document.getElementById('keberangkatan-tanggal')?.value || '',
+            jam_keberangkatan: document.getElementById('keberangkatan-jam-keberangkatan')?.value || defaultDepartureTime,
+            tipe_layanan: serviceTypeLabel(document.getElementById('keberangkatan-tipe-layanan')?.value || defaultServiceType),
             kode_mobil: document.getElementById('keberangkatan-kode-mobil')?.value || '',
             driver_id: document.getElementById('keberangkatan-driver-id')?.value || '',
             jumlah_penumpang: Number(document.getElementById('keberangkatan-jumlah-penumpang')?.value || 0),

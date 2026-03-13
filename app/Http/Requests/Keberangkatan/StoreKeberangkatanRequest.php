@@ -17,6 +17,8 @@ class StoreKeberangkatanRequest extends FormRequest
     {
         return [
             'tanggal' => ['required', 'date'],
+            'jam_keberangkatan' => ['required', 'string', Rule::in(array_keys(Keberangkatan::JAM_KEBERANGKATAN_OPTIONS))],
+            'tipe_layanan' => ['required', 'string', Rule::in(Keberangkatan::TIPE_LAYANAN_OPTIONS)],
             'kode_mobil' => ['required', 'string'],
             'driver_id' => ['required', 'string'],
             'jumlah_penumpang' => ['required', 'integer'],

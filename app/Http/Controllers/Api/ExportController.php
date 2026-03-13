@@ -18,6 +18,8 @@ class ExportController extends Controller
             [
                 'Hari',
                 'Tanggal',
+                'Jam Keberangkatan',
+                'Layanan',
                 'Tahun',
                 'Kode Mobil',
                 'Driver',
@@ -38,6 +40,8 @@ class ExportController extends Controller
                     fputcsv($handle, [
                         $item->hari,
                         $item->tanggal,
+                        Keberangkatan::jamKeberangkatanLabel($item->jam_keberangkatan),
+                        $item->tipe_layanan ?: Keberangkatan::DEFAULT_TIPE_LAYANAN,
                         $item->tahun,
                         $item->kode_mobil,
                         $item->driver_nama,

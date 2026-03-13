@@ -13,6 +13,25 @@ class Keberangkatan extends Model
     use HasFactory;
     use HasUuids;
 
+    public const DEFAULT_JAM_KEBERANGKATAN = '08:00';
+
+    public const JAM_KEBERANGKATAN_OPTIONS = [
+        '05:00' => 'Subuh (05.00 WIB)',
+        '08:00' => 'Pagi (08.00 WIB)',
+        '10:00' => 'Pagi (10.00 WIB)',
+        '14:00' => 'Siang (14.00 WIB)',
+        '16:00' => 'Sore (16.00 WIB)',
+        '19:00' => 'Malam (19.00 WIB)',
+    ];
+
+    public const DEFAULT_TIPE_LAYANAN = 'Reguler';
+
+    public const TIPE_LAYANAN_OPTIONS = [
+        'Reguler',
+        'Dropping',
+        'Rental',
+    ];
+
     public const STATUS_LUNAS = 'Lunas';
 
     public const STATUS_BELUM_LUNAS = 'Belum Lunas';
@@ -32,6 +51,8 @@ class Keberangkatan extends Model
 
     protected $fillable = [
         'tanggal',
+        'jam_keberangkatan',
+        'tipe_layanan',
         'hari',
         'bulan',
         'tahun',
@@ -72,6 +93,16 @@ class Keberangkatan extends Model
     protected static function booted(): void
     {
         static::saving(function (self $keberangkatan): void {
+            $jamKeberangkatan = (string) ($keberangkatan->jam_keberangkatan ?? '');
+            $keberangkatan->jam_keberangkatan = array_key_exists($jamKeberangkatan, self::JAM_KEBERANGKATAN_OPTIONS)
+                ? $jamKeberangkatan
+                : self::DEFAULT_JAM_KEBERANGKATAN;
+
+            $tipeLayanan = (string) ($keberangkatan->tipe_layanan ?? '');
+            $keberangkatan->tipe_layanan = in_array($tipeLayanan, self::TIPE_LAYANAN_OPTIONS, true)
+                ? $tipeLayanan
+                : self::DEFAULT_TIPE_LAYANAN;
+
             if ($keberangkatan->tanggal) {
                 $date = CarbonImmutable::parse($keberangkatan->tanggal);
                 $keberangkatan->hari = self::dayName($date);
@@ -131,5 +162,14 @@ class Keberangkatan extends Model
     protected static function monthName(int $month): string
     {
         return ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][$month - 1];
+    }
+
+    public static function jamKeberangkatanLabel(?string $jamKeberangkatan): string
+    {
+        $value = is_string($jamKeberangkatan) && array_key_exists($jamKeberangkatan, self::JAM_KEBERANGKATAN_OPTIONS)
+            ? $jamKeberangkatan
+            : self::DEFAULT_JAM_KEBERANGKATAN;
+
+        return self::JAM_KEBERANGKATAN_OPTIONS[$value];
     }
 }

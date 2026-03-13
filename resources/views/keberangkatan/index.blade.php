@@ -53,7 +53,7 @@
                 <input
                     id="keberangkatan-search-input"
                     type="search"
-                    placeholder="Cari kode mobil, driver, atau status..."
+                    placeholder="Cari kode mobil, driver, layanan, atau status..."
                     autocomplete="off"
                     data-testid="search-keberangkatan-input"
                 >
@@ -67,6 +67,8 @@
                         <tr>
                             <th>Hari</th>
                             <th>Tanggal</th>
+                            <th>Jam</th>
+                            <th>Layanan</th>
                             <th>Kode Mobil</th>
                             <th>Driver</th>
                             <th class="text-right">Penumpang</th>
@@ -84,7 +86,7 @@
                     </thead>
                     <tbody id="keberangkatan-table-body">
                         <tr>
-                            <td colspan="15" class="keberangkatan-table-state">
+                            <td colspan="17" class="keberangkatan-table-state">
                                 <div class="keberangkatan-loading-inline">
                                     <span class="keberangkatan-loading-inline-spinner" aria-hidden="true"></span>
                                     <span>Memuat data...</span>
@@ -179,6 +181,27 @@
                             </div>
 
                             <div class="keberangkatan-form-group">
+                                <label for="keberangkatan-jam-keberangkatan">Jam Keberangkatan</label>
+                                <div class="keberangkatan-select-shell">
+                                    <select
+                                        id="keberangkatan-jam-keberangkatan"
+                                        name="jam_keberangkatan"
+                                        required
+                                        data-testid="select-jam-keberangkatan"
+                                    >
+                                        @foreach ($jamKeberangkatanOptions as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="keberangkatan-select-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="keberangkatan-form-group">
                                 <label for="keberangkatan-kode-mobil">Kode Mobil</label>
                                 <div class="keberangkatan-select-shell">
                                     <select id="keberangkatan-kode-mobil" name="kode_mobil" required data-testid="select-kode-mobil">
@@ -218,6 +241,27 @@
                                         required
                                         data-testid="input-trip-ke"
                                     >
+                                </div>
+                            </div>
+
+                            <div class="keberangkatan-form-group">
+                                <label for="keberangkatan-tipe-layanan">Layanan Keberangkatan</label>
+                                <div class="keberangkatan-select-shell">
+                                    <select
+                                        id="keberangkatan-tipe-layanan"
+                                        name="tipe_layanan"
+                                        required
+                                        data-testid="select-tipe-layanan"
+                                    >
+                                        @foreach ($tipeLayananOptions as $tipeLayanan)
+                                            <option value="{{ $tipeLayanan }}">{{ $tipeLayanan }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="keberangkatan-select-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
                                 </div>
                             </div>
 
@@ -272,9 +316,8 @@
                                         id="keberangkatan-tarif-penumpang"
                                         type="number"
                                         min="0"
-                                        step="1000"
                                         name="tarif_penumpang"
-                                        value="150000"
+                                        placeholder="Masukkan tarif penumpang"
                                         required
                                         data-testid="input-tarif-penumpang"
                                     >

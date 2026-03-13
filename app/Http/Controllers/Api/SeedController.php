@@ -23,6 +23,8 @@ class SeedController extends Controller
             Driver::query()->delete();
             Mobil::query()->delete();
             Keberangkatan::query()->delete();
+            $jamKeberangkatanOptions = array_keys(Keberangkatan::JAM_KEBERANGKATAN_OPTIONS);
+            $tipeLayananOptions = Keberangkatan::TIPE_LAYANAN_OPTIONS;
 
             $drivers = collect([
                 ['nama' => 'Ahmad Rizki', 'lokasi' => 'Pekanbaru'],
@@ -55,6 +57,8 @@ class SeedController extends Controller
                 $tarifPenumpang = [150000, 175000, 200000, 250000][array_rand([150000, 175000, 200000, 250000])];
                 $jumlahPaket = rand(0, 10);
                 $uangPaket = $jumlahPaket * [25000, 30000, 35000][array_rand([25000, 30000, 35000])];
+                $jamKeberangkatan = $jamKeberangkatanOptions[array_rand($jamKeberangkatanOptions)];
+                $tipeLayanan = $tipeLayananOptions[array_rand($tipeLayananOptions)];
                 $calculated = $this->calculationService->calculate($jumlahPenumpang, $tarifPenumpang, $uangPaket);
 
                 Keberangkatan::query()->create(array_merge(
@@ -62,6 +66,8 @@ class SeedController extends Controller
                     $calculated,
                     [
                         'tanggal' => $tanggal,
+                        'jam_keberangkatan' => $jamKeberangkatan,
+                        'tipe_layanan' => $tipeLayanan,
                         'kode_mobil' => $mobil->kode_mobil,
                         'driver_id' => $driver->id,
                         'driver_nama' => $driver->nama,
