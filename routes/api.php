@@ -5,51 +5,12 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\KeberangkatanController;
 use App\Http\Controllers\Api\MobilController;
-use App\Http\Controllers\Api\RegulerBookingController;
 use App\Http\Controllers\Api\RootController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StatisticsController;
-use App\Models\Booking;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', RootController::class)->name('api.root');
-
-Route::get('/reguler/stops', [RegulerBookingController::class, 'stops']);
-Route::get('/reguler/seats', [RegulerBookingController::class, 'seats']);
-Route::post('/reguler/quote', [RegulerBookingController::class, 'quote']);
-Route::post('/reguler/bookings', [RegulerBookingController::class, 'store']);
-Route::get('/reguler/bookings/{id}', [RegulerBookingController::class, 'show']);
-Route::get('/bookings/{id}/passengers', [RegulerBookingController::class, 'passengers']);
-
-Route::get('/passengers', function (Request $request) {
-    $bookingId = (int) $request->query('bookingId', 0);
-
-    if (! $bookingId) {
-        return response()->json([]);
-    }
-
-    $booking = Booking::query()->with('passengers')->find($bookingId);
-
-    if (! $booking) {
-        return response()->json([]);
-    }
-
-    return response()->json(
-        $booking->passengers->map(function ($item) use ($booking) {
-            return [
-                'id' => $item->id,
-                'bookingId' => $booking->id,
-                'bookingCode' => $booking->booking_code,
-                'name' => $item->name,
-                'phone' => $item->phone,
-                'seat' => $item->seat_no,
-                'selectedSeats' => $item->seat_no,
-                'ticketStatus' => $item->ticket_status,
-            ];
-        })->values()
-    );
-});
 
 Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::middleware('admin.role:admin')->group(function () {

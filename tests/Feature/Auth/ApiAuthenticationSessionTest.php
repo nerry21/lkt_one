@@ -10,7 +10,7 @@ class ApiAuthenticationSessionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_api_login_also_authenticates_web_session_for_admin_routes(): void
+    public function test_api_login_also_authenticates_web_session_for_dashboard_routes(): void
     {
         $user = User::factory()->create([
             'role' => 'Admin',
@@ -24,9 +24,9 @@ class ApiAuthenticationSessionTest extends TestCase
         $response->assertOk();
         $this->assertAuthenticatedAs($user);
 
-        $this->get('/admin/departures')
+        $this->get('/dashboard')
             ->assertOk()
-            ->assertSee('Data Keberangkatan / Manifest Driver');
+            ->assertSee('Dashboard');
     }
 
     public function test_api_logout_clears_web_session(): void
