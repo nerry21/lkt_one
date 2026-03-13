@@ -1,5 +1,5 @@
 @php
-    $viteManifestPath = base_path('../build/manifest.json');
+    $viteManifestPath = public_path('build/manifest.json');
     $viteManifest = file_exists($viteManifestPath)
         ? json_decode(file_get_contents($viteManifestPath), true)
         : null;
