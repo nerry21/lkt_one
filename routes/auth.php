@@ -12,5 +12,6 @@ Route::prefix('api/auth')->group(function () {
 
     Route::middleware('jwt.auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me'])->name('api.auth.me');
+        Route::post('/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
     });
 });

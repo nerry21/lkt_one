@@ -84,6 +84,16 @@ export async function fetchCurrentUser() {
 }
 
 export async function logout() {
+    try {
+        await apiRequest('/auth/logout', {
+            method: 'POST',
+        });
+    } catch (error) {
+        if (error?.status !== 401) {
+            throw error;
+        }
+    }
+
     clearSession();
     setPendingToast({
         type: 'success',

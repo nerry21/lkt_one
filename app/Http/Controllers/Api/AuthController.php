@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\JwtService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -34,6 +35,9 @@ class AuthController extends Controller
             'role' => $count === 0 ? 'Super Admin' : 'User',
             'password' => Hash::make($request->validated('password')),
         ]);
+
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
 
         return response()->json([
             'access_token' => $this->jwtService->encode(['sub' => $user->id]),
@@ -71,6 +75,9 @@ class AuthController extends Controller
             ]);
         }
 
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+
         return response()->json([
             'access_token' => $this->jwtService->encode(['sub' => $user->id]),
             'token_type' => 'bearer',
@@ -83,6 +90,17 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json($this->userPayload($user));
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json([
+            'message' => 'Logout berhasil',
+        ]);
     }
 
     protected function userPayload(User $user): array
