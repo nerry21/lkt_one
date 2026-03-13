@@ -110,12 +110,11 @@ class Keberangkatan extends Model
                 $keberangkatan->tahun = (string) $date->year;
             }
 
-            $jumlahPenumpang = (int) ($keberangkatan->jumlah_penumpang ?? 0);
             $tarifPenumpang = (int) ($keberangkatan->tarif_penumpang ?? 0);
             $uangPaket = (int) ($keberangkatan->uang_paket ?? 0);
             $keberangkatan->jumlah_snack = max(0, (int) ($keberangkatan->jumlah_snack ?? 0));
             $keberangkatan->jumlah_air_mineral = max(0, (int) ($keberangkatan->jumlah_air_mineral ?? 0));
-            $jumlahUangPenumpang = $jumlahPenumpang * $tarifPenumpang;
+            $jumlahUangPenumpang = $tarifPenumpang;
             $total = $jumlahUangPenumpang + $uangPaket;
 
             $keberangkatan->jumlah_uang_penumpang = $jumlahUangPenumpang;

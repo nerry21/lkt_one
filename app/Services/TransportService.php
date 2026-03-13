@@ -24,7 +24,7 @@ class TransportService
 
     public function hitungKeuangan(array $data): array
     {
-        $jumlahUangPenumpang = ((int) ($data['jumlah_penumpang'] ?? 0)) * ((int) ($data['tarif_penumpang'] ?? 0));
+        $jumlahUangPenumpang = (int) ($data['tarif_penumpang'] ?? 0);
         $biayaSnack = ((int) ($data['jumlah_snack'] ?? 0)) * self::HARGA_SNACK;
         $biayaAir = ((int) ($data['jumlah_air_mineral'] ?? 0)) * self::HARGA_AIR;
         $total = $jumlahUangPenumpang + ((int) ($data['uang_paket'] ?? 0)) + $biayaSnack + $biayaAir;

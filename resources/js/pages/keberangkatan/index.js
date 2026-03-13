@@ -70,12 +70,11 @@ function serviceTypeLabel(value) {
 }
 
 function calculatePreviewValues() {
-    const jumlahPenumpang = Number(document.getElementById('keberangkatan-jumlah-penumpang')?.value || 0);
     const tarifPenumpang = Number(document.getElementById('keberangkatan-tarif-penumpang')?.value || 0);
     const uangPaket = Number(document.getElementById('keberangkatan-uang-paket')?.value || 0);
     const jumlahSnack = Number(document.getElementById('keberangkatan-jumlah-snack')?.value || 0);
     const jumlahAirMineral = Number(document.getElementById('keberangkatan-jumlah-air-mineral')?.value || 0);
-    const jumlahUangPenumpang = jumlahPenumpang * tarifPenumpang;
+    const jumlahUangPenumpang = tarifPenumpang;
     const total = jumlahUangPenumpang + uangPaket;
     const uangPc = total * 0.15;
     const uangBersih = total * 0.85;
@@ -481,7 +480,7 @@ function resetForm() {
     }
 
     if (tarifPenumpang) {
-        tarifPenumpang.value = '';
+        tarifPenumpang.value = '0';
     }
 
     if (jumlahPaket) {

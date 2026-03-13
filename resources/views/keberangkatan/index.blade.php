@@ -310,14 +310,14 @@
                             </div>
 
                             <div class="keberangkatan-form-group">
-                                <label for="keberangkatan-tarif-penumpang">Tarif per Penumpang (Rp)</label>
+                                <label for="keberangkatan-tarif-penumpang">Tarif Penumpang (Rp)</label>
                                 <div class="keberangkatan-input-shell">
                                     <input
                                         id="keberangkatan-tarif-penumpang"
                                         type="number"
                                         min="0"
                                         name="tarif_penumpang"
-                                        placeholder="Masukkan tarif penumpang"
+                                        value="0"
                                         required
                                         data-testid="input-tarif-penumpang"
                                     >

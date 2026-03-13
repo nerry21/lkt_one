@@ -8,7 +8,7 @@ class TransportCalculationService
 {
     public function calculate(int $jumlahPenumpang, int $tarifPenumpang, int $uangPaket): array
     {
-        $jumlahUangPenumpang = $jumlahPenumpang * $tarifPenumpang;
+        $jumlahUangPenumpang = $tarifPenumpang;
         $total = $jumlahUangPenumpang + $uangPaket;
 
         return [

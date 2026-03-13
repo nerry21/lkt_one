@@ -71,6 +71,7 @@ class StockKeberangkatanFlowTest extends TestCase
             ->assertJson([
                 'jam_keberangkatan' => Keberangkatan::DEFAULT_JAM_KEBERANGKATAN,
                 'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
+                'jumlah_uang_penumpang' => 150000,
                 'jumlah_snack' => 3,
                 'jumlah_air_mineral' => 2,
             ]);
