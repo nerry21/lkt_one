@@ -197,7 +197,7 @@
                                     <div>
                                         <p class="dashboard-mobil-code">{{ $item['kode_mobil'] }}</p>
                                         <p class="dashboard-mobil-trips">
-                                            {{ $formatNumber($item['total_trips']) }} trip • {{ $formatNumber($item['total_penumpang']) }} penumpang
+                                            {{ $formatNumber($item['total_trips']) }} trip / {{ $formatNumber($item['total_penumpang']) }} penumpang
                                         </p>
                                     </div>
                                 </div>

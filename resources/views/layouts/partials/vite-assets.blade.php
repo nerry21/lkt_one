@@ -47,16 +47,18 @@
 
     $cssAsset = is_array($viteBuild) ? ($viteBuild['css'] ?? null) : null;
     $jsAsset = is_array($viteBuild) ? ($viteBuild['js'] ?? null) : null;
+    $cssVersion = is_string($cssAsset) ? @filemtime(public_path('build/' . ltrim($cssAsset, '/'))) : null;
+    $jsVersion = is_string($jsAsset) ? @filemtime(public_path('build/' . ltrim($jsAsset, '/'))) : null;
 @endphp
 
 @if (file_exists(public_path('hot')))
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 @else
     @if (is_string($cssAsset) && $cssAsset !== '')
-        <link rel="stylesheet" href="{{ asset('build/' . ltrim($cssAsset, '/')) }}">
+        <link rel="stylesheet" href="{{ asset('build/' . ltrim($cssAsset, '/')) }}{{ $cssVersion ? '?v=' . $cssVersion : '' }}">
     @endif
 
     @if (is_string($jsAsset) && $jsAsset !== '')
-        <script type="module" src="{{ asset('build/' . ltrim($jsAsset, '/')) }}"></script>
+        <script type="module" src="{{ asset('build/' . ltrim($jsAsset, '/')) }}{{ $jsVersion ? '?v=' . $jsVersion : '' }}"></script>
     @endif
 @endif
