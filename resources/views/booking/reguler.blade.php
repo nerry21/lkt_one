@@ -233,6 +233,8 @@
 
             const selectedSeats = new Set();
             const passengerState = new Map();
+            const seatBlueprint = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+            let latestSeatItems = [];
 
             const todayValue = new Date().toISOString().split('T')[0];
 
@@ -362,25 +364,67 @@
                 quoteResult.innerHTML = 'Belum ada estimasi biaya. Pilih kursi lalu klik hitung total.';
             }
 
-            function renderSeatGrid(items) {
+            function seatIconMarkup() {
+                return `
+                    <span class="booking-seat-icon" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" fill="none">
+                            <path d="M20 14C20 9.58172 23.5817 6 28 6H36C40.4183 6 44 9.58172 44 14V24C44 28.4183 40.4183 32 36 32H28C23.5817 32 20 28.4183 20 24V14Z" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="2.5"/>
+                            <path d="M16 38C16 34.6863 18.6863 32 22 32H42C45.3137 32 48 34.6863 48 38V52C48 53.1046 47.1046 54 46 54H18C16.8954 54 16 53.1046 16 52V38Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2.5"/>
+                            <path d="M22 54V60" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M42 54V60" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M22 40H42" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                `;
+            }
+
+            function normalizedSeatItems(items = []) {
+                if (items.length) {
+                    return items;
+                }
+
+                return seatBlueprint.map(function (seat) {
+                    return {
+                        id: seat,
+                        seat: seat,
+                        label: seat,
+                        available: false,
+                        status: 'idle',
+                    };
+                });
+            }
+
+            function renderSeatGrid(items = []) {
+                const normalizedItems = normalizedSeatItems(items);
                 seatGrid.innerHTML = '';
 
-                items.forEach(function (item) {
+                normalizedItems.forEach(function (item) {
                     const button = document.createElement('button');
-                    const isAvailable = Boolean(item.available);
+                    const isIdle = item.status === 'idle';
+                    const isAvailable = Boolean(item.available) && !isIdle;
                     const seat = item.seat;
+                    const statusText = isIdle
+                        ? 'Isi rute dulu'
+                        : isAvailable
+                            ? 'Tersedia'
+                            : 'Sudah dibooking';
 
                     button.type = 'button';
-                    button.className = `booking-seat-card ${isAvailable ? '' : 'is-booked'}`.trim();
+                    button.className = `booking-seat-card ${isIdle ? 'is-idle' : isAvailable ? '' : 'is-booked'}`.trim();
                     button.dataset.seat = seat;
                     button.disabled = !isAvailable;
                     button.innerHTML = `
-                        <span>Seat</span>
+                        ${seatIconMarkup()}
+                        <span>Kursi</span>
                         <strong>${item.label}</strong>
-                        <small>${isAvailable ? 'Tersedia' : 'Terisi'}</small>
+                        <small>${statusText}</small>
                     `;
 
                     if (isAvailable) {
+                        if (selectedSeats.has(seat)) {
+                            button.classList.add('is-selected');
+                        }
+
                         button.addEventListener('click', function () {
                             clearAlert();
 
@@ -476,7 +520,8 @@
 
                 selectedSeats.clear();
                 passengerState.clear();
-                seatGrid.innerHTML = '';
+                latestSeatItems = [];
+                renderSeatGrid();
                 renderPassengerFields();
                 resetQuote();
 
@@ -498,9 +543,11 @@
                         throw new Error(resolveErrorMessage(data, 'Gagal memuat kursi.'));
                     }
 
-                    renderSeatGrid(data);
+                    latestSeatItems = data;
+                    renderSeatGrid(latestSeatItems);
                 } catch (error) {
-                    seatGrid.innerHTML = '<div class="booking-empty">Kursi tidak berhasil dimuat.</div>';
+                    latestSeatItems = [];
+                    renderSeatGrid();
                     showAlert('danger', error.message || 'Gagal memuat kursi.');
                 } finally {
                     loadSeatsBtn.disabled = false;
@@ -634,13 +681,24 @@
                 }
             }
 
-            passengerCountEl.addEventListener('change', function () {
+            function resetSeatSelection(keepSeatInventory = false) {
                 selectedSeats.clear();
                 passengerState.clear();
-                seatGrid.innerHTML = '';
                 renderPassengerFields();
                 resetQuote();
                 clearAlert();
+                renderSeatGrid(keepSeatInventory ? latestSeatItems : []);
+            }
+
+            passengerCountEl.addEventListener('change', function () {
+                resetSeatSelection(true);
+            });
+
+            [fromEl, toEl, dateEl, timeEl].forEach(function (element) {
+                element.addEventListener('change', function () {
+                    latestSeatItems = [];
+                    resetSeatSelection(false);
+                });
             });
 
             loadSeatsBtn.addEventListener('click', loadSeats);
@@ -648,6 +706,7 @@
             form.addEventListener('submit', submitBooking);
 
             loadStops();
+            renderSeatGrid();
             renderPassengerFields();
             resetQuote();
         });

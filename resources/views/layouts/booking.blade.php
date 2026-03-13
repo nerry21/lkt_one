@@ -282,13 +282,33 @@
 
         .booking-seat-grid {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(2, minmax(0, 150px));
+            justify-content: center;
+            gap: 18px 36px;
+            width: min(100%, 420px);
+            margin: 0 auto;
+            padding: 18px;
+            border-radius: 28px;
+            background:
+                linear-gradient(180deg, rgba(240, 253, 244, 0.9), rgba(255, 255, 255, 0.98)),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent calc(50% - 12px),
+                    rgba(148, 163, 184, 0.08) calc(50% - 12px),
+                    rgba(148, 163, 184, 0.08) calc(50% + 12px),
+                    transparent calc(50% + 12px),
+                    transparent
+                );
+            border: 1px solid rgba(16, 185, 129, 0.12);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
         }
 
         .booking-seat-card {
             display: grid;
-            gap: 6px;
+            justify-items: center;
+            gap: 8px;
+            min-height: 128px;
             padding: 16px 12px;
             border-radius: 20px;
             border: 1px solid rgba(148, 163, 184, 0.2);
@@ -296,6 +316,20 @@
             color: #0f172a;
             text-align: center;
             transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .booking-seat-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            color: #0f766e;
+        }
+
+        .booking-seat-icon svg {
+            width: 100%;
+            height: 100%;
         }
 
         .booking-seat-card:hover:not(:disabled) {
@@ -320,6 +354,15 @@
             color: #64748b;
         }
 
+        .booking-seat-card.is-idle {
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+            border-style: dashed;
+        }
+
+        .booking-seat-card.is-idle .booking-seat-icon {
+            color: #94a3b8;
+        }
+
         .booking-seat-card.is-selected {
             background: linear-gradient(135deg, #047857, #10b981);
             border-color: rgba(5, 150, 105, 0.8);
@@ -327,7 +370,8 @@
         }
 
         .booking-seat-card.is-selected span:first-child,
-        .booking-seat-card.is-selected small {
+        .booking-seat-card.is-selected small,
+        .booking-seat-card.is-selected .booking-seat-icon {
             color: rgba(236, 253, 245, 0.82);
         }
 
@@ -339,7 +383,8 @@
         }
 
         .booking-seat-card.is-booked span:first-child,
-        .booking-seat-card.is-booked small {
+        .booking-seat-card.is-booked small,
+        .booking-seat-card.is-booked .booking-seat-icon {
             color: #b91c1c;
         }
 
@@ -555,7 +600,6 @@
                 align-items: flex-start;
             }
 
-            .booking-seat-grid,
             .booking-stat-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -581,9 +625,15 @@
                 width: 100%;
             }
 
-            .booking-seat-grid,
             .booking-stat-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .booking-seat-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 14px 18px;
+                width: 100%;
+                padding: 16px;
             }
 
             .booking-card-header,
