@@ -8,29 +8,33 @@
     $viteBuild = collect($viteBuildDirectories)
         ->map(function (string $directory): ?array {
             $manifestPath = $directory . DIRECTORY_SEPARATOR . 'manifest.json';
+            $manifest = file_exists($manifestPath)
+                ? json_decode(file_get_contents($manifestPath), true)
+                : null;
 
-            if (! file_exists($manifestPath)) {
-                return null;
+            $cssAsset = is_array($manifest)
+                ? ($manifest['resources/css/app.css']['file'] ?? null)
+                : null;
+
+            $jsAsset = is_array($manifest)
+                ? ($manifest['resources/js/app.js']['file'] ?? null)
+                : null;
+
+            if (! is_string($cssAsset) || ! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($cssAsset, '/'))) {
+                $cssAsset = collect(glob($directory . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'app*.css') ?: [])
+                    ->sortDesc()
+                    ->map(fn (string $path): string => 'assets/' . basename($path))
+                    ->first();
             }
 
-            $manifest = json_decode(file_get_contents($manifestPath), true);
-
-            if (! is_array($manifest)) {
-                return null;
+            if (! is_string($jsAsset) || ! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($jsAsset, '/'))) {
+                $jsAsset = collect(glob($directory . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'app*.js') ?: [])
+                    ->sortDesc()
+                    ->map(fn (string $path): string => 'assets/' . basename($path))
+                    ->first();
             }
-
-            $cssAsset = $manifest['resources/css/app.css']['file'] ?? null;
-            $jsAsset = $manifest['resources/js/app.js']['file'] ?? null;
 
             if (! is_string($cssAsset) || ! is_string($jsAsset)) {
-                return null;
-            }
-
-            if (! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($cssAsset, '/'))) {
-                return null;
-            }
-
-            if (! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($jsAsset, '/'))) {
                 return null;
             }
 
