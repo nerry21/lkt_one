@@ -281,7 +281,7 @@ function renderMobilList(data) {
                 <span class="dashboard-mobil-dot" style="background-color: ${PIE_COLORS[index % PIE_COLORS.length]}"></span>
                 <div>
                     <p class="dashboard-mobil-code">${escapeHtml(item.kode_mobil)}</p>
-                    <p class="dashboard-mobil-trips">${formatNumber(item.total_trips)} trip</p>
+                    <p class="dashboard-mobil-trips">${formatNumber(item.total_trips)} trip • ${formatNumber(item.total_penumpang)} penumpang</p>
                 </div>
             </div>
             <p class="dashboard-mobil-value">${formatCurrency(item.total_uang_bersih)}</p>
@@ -293,26 +293,36 @@ function renderMobilChart(data) {
     const canvas = document.getElementById('dashboard-mobil-chart');
     const content = document.getElementById('dashboard-mobil-content');
     const empty = document.getElementById('dashboard-mobil-empty');
+    const chartEmpty = document.getElementById('dashboard-mobil-chart-empty');
     const list = document.getElementById('dashboard-mobil-list');
-    const hasData = Array.isArray(data) && data.length > 0;
+    const hasVehicles = Array.isArray(data) && data.length > 0;
+    const hasRevenueData = hasVehicles && data.some((item) => Number(item.total_uang_bersih) > 0);
 
     destroyChart(state.mobilChart);
 
     if (content) {
-        content.hidden = !hasData;
+        content.hidden = !hasVehicles;
     }
 
     if (empty) {
-        empty.hidden = hasData;
+        empty.hidden = hasVehicles;
     }
 
-    if (hasData) {
+    if (canvas) {
+        canvas.hidden = !hasRevenueData;
+    }
+
+    if (chartEmpty) {
+        chartEmpty.hidden = hasRevenueData;
+    }
+
+    if (hasVehicles) {
         renderMobilList(data);
     } else if (list) {
         list.innerHTML = '';
     }
 
-    if (!canvas || !window.Chart || !hasData) {
+    if (!canvas || !window.Chart || !hasRevenueData) {
         state.mobilChart = null;
         return;
     }
@@ -341,7 +351,8 @@ function renderMobilChart(data) {
                     ...tooltipBase(),
                     callbacks: {
                         label(context) {
-                            return `${context.label}: ${formatCurrency(context.parsed)}`;
+                            const item = data[context.dataIndex] || {};
+                            return `${context.label}: ${formatCurrency(context.parsed)} • ${formatNumber(item.total_penumpang || 0)} penumpang`;
                         },
                     },
                 },

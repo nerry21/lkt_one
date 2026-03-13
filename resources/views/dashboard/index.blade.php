@@ -3,6 +3,7 @@
 @php
     $formatCurrency = static fn ($value): string => 'Rp ' . number_format((float) $value, 0, ',', '.');
     $formatNumber = static fn ($value): string => number_format((float) $value, 0, ',', '.');
+    $hasMobilRevenueChart = collect($mobilRevenue)->contains(fn ($item) => (float) ($item['total_uang_bersih'] ?? 0) > 0);
 @endphp
 
 @section('content')
@@ -173,13 +174,16 @@
                 <div class="dashboard-panel-head">
                     <div>
                         <h3>Pendapatan per Mobil</h3>
-                        <p>Total pendapatan bersih berdasarkan kode mobil</p>
+                        <p>Total pendapatan bersih dan total penumpang berdasarkan kode mobil</p>
                     </div>
                 </div>
 
                 <div class="dashboard-mobil-grid" id="dashboard-mobil-content" @if (count($mobilRevenue) === 0) hidden @endif>
                     <div class="dashboard-chart-stage dashboard-chart-stage--compact">
-                        <canvas id="dashboard-mobil-chart" height="300"></canvas>
+                        <canvas id="dashboard-mobil-chart" height="300" @if (! $hasMobilRevenueChart) hidden @endif></canvas>
+                        <div class="dashboard-empty-state" id="dashboard-mobil-chart-empty" @if ($hasMobilRevenueChart) hidden @endif>
+                            Belum ada pendapatan per mobil
+                        </div>
                     </div>
 
                     <div class="dashboard-mobil-list" id="dashboard-mobil-list">
@@ -192,7 +196,9 @@
                                     <span class="dashboard-mobil-dot" style="background-color: {{ $color }}"></span>
                                     <div>
                                         <p class="dashboard-mobil-code">{{ $item['kode_mobil'] }}</p>
-                                        <p class="dashboard-mobil-trips">{{ $formatNumber($item['total_trips']) }} trip</p>
+                                        <p class="dashboard-mobil-trips">
+                                            {{ $formatNumber($item['total_trips']) }} trip • {{ $formatNumber($item['total_penumpang']) }} penumpang
+                                        </p>
                                     </div>
                                 </div>
                                 <p class="dashboard-mobil-value">{{ $formatCurrency($item['total_uang_bersih']) }}</p>
@@ -202,7 +208,7 @@
                 </div>
 
                 <div class="dashboard-empty-state dashboard-empty-state--block" id="dashboard-mobil-empty" @if (count($mobilRevenue) > 0) hidden @endif>
-                    Belum ada data pendapatan per mobil
+                    Belum ada data mobil terdaftar
                 </div>
             </section>
         </div>

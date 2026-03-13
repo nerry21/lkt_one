@@ -43,14 +43,23 @@ class DashboardStatisticsService
 
     public function mobilRevenue(): array
     {
-        return Keberangkatan::query()
-            ->get()
+        $revenueByMobil = Keberangkatan::query()
+            ->selectRaw('kode_mobil, SUM(uang_bersih) as total_uang_bersih, COUNT(*) as total_trips, SUM(jumlah_penumpang) as total_penumpang')
             ->groupBy('kode_mobil')
-            ->map(function (Collection $items, string $kodeMobil) {
+            ->get()
+            ->keyBy('kode_mobil');
+
+        return Mobil::query()
+            ->orderBy('kode_mobil')
+            ->get()
+            ->map(function (Mobil $mobil) use ($revenueByMobil) {
+                $summary = $revenueByMobil->get($mobil->kode_mobil);
+
                 return [
-                    'kode_mobil' => $kodeMobil,
-                    'total_uang_bersih' => (float) $items->sum('uang_bersih'),
-                    'total_trips' => $items->count(),
+                    'kode_mobil' => $mobil->kode_mobil,
+                    'total_uang_bersih' => (float) ($summary->total_uang_bersih ?? 0),
+                    'total_trips' => (int) ($summary->total_trips ?? 0),
+                    'total_penumpang' => (int) ($summary->total_penumpang ?? 0),
                 ];
             })
             ->sortByDesc('total_uang_bersih')
