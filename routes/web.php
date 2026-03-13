@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AdminPassengerCheckinController;
 use App\Http\Controllers\Admin\AdminTicketController;
 use App\Http\Controllers\Admin\AdminVehicleController;
 use App\Http\Controllers\BookingPageController;
+use App\Http\Controllers\BuildAssetController;
 use App\Http\Controllers\AdminUsers\AdminUserPageController;
 use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
@@ -17,6 +18,9 @@ use App\Http\Controllers\Stock\StockPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
+Route::get('/build/assets/{asset}', [BuildAssetController::class, 'show'])
+    ->where('asset', '.*')
+    ->name('build.assets.show');
 
 Route::get('/booking/reguler', [BookingPageController::class, 'reguler'])->name('booking.reguler');
 Route::get('/booking/{id}/review', [BookingPageController::class, 'review'])->name('booking.review');
