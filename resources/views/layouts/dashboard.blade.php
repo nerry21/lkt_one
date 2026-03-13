@@ -46,6 +46,13 @@
             'active_patterns' => ['stock.*'],
         ],
         [
+            'route' => 'booking.reguler',
+            'label' => 'Booking Reguler',
+            'testid' => 'nav-booking-reguler',
+            'icon' => 'package',
+            'active_patterns' => ['booking.*'],
+        ],
+        [
             'route' => 'admin.bookings.validation.index',
             'label' => 'Validasi Booking',
             'testid' => 'nav-booking-validation',
