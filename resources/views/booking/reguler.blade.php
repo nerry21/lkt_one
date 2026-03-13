@@ -92,7 +92,24 @@
                             </button>
                         </div>
 
-                        <div id="seatGrid" class="booking-seat-grid"></div>
+                        <div id="seatGrid" class="booking-seat-grid">
+                            @foreach (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as $seat)
+                                <button type="button" class="booking-seat-card is-idle" data-seat="{{ $seat }}" disabled>
+                                    <span class="booking-seat-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 64 64" fill="none">
+                                            <path d="M20 14C20 9.58172 23.5817 6 28 6H36C40.4183 6 44 9.58172 44 14V24C44 28.4183 40.4183 32 36 32H28C23.5817 32 20 28.4183 20 24V14Z" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="2.5"/>
+                                            <path d="M16 38C16 34.6863 18.6863 32 22 32H42C45.3137 32 48 34.6863 48 38V52C48 53.1046 47.1046 54 46 54H18C16.8954 54 16 53.1046 16 52V38Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2.5"/>
+                                            <path d="M22 54V60" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                            <path d="M42 54V60" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                            <path d="M22 40H42" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                    <span>Kursi</span>
+                                    <strong>{{ $seat }}</strong>
+                                    <small>Isi rute dulu</small>
+                                </button>
+                            @endforeach
+                        </div>
 
                         <div class="booking-seat-legend">
                             <span class="booking-seat-legend-item">
@@ -204,7 +221,7 @@
 
 @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        function initRegulerBookingPage() {
             const apiBase = document.body.dataset.apiBase || '/api';
             const form = document.getElementById('bookingForm');
 
@@ -709,6 +726,12 @@
             renderSeatGrid();
             renderPassengerFields();
             resetQuote();
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initRegulerBookingPage, { once: true });
+        } else {
+            initRegulerBookingPage();
+        }
     </script>
 @endpush
