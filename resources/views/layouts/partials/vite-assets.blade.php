@@ -1,24 +1,48 @@
 @php
-    $viteManifestCandidates = [
-        public_path('build/manifest.json'),
-        base_path('../build/manifest.json'),
-        base_path('build/manifest.json'),
+    $viteBuildDirectories = [
+        public_path('build'),
+        base_path('../build'),
+        base_path('build'),
     ];
 
-    $viteManifestPath = collect($viteManifestCandidates)
-        ->first(fn (string $path): bool => file_exists($path));
+    $viteBuild = collect($viteBuildDirectories)
+        ->map(function (string $directory): ?array {
+            $manifestPath = $directory . DIRECTORY_SEPARATOR . 'manifest.json';
 
-    $viteManifest = is_string($viteManifestPath) && $viteManifestPath !== ''
-        ? json_decode(file_get_contents($viteManifestPath), true)
-        : null;
+            if (! file_exists($manifestPath)) {
+                return null;
+            }
 
-    $cssAsset = is_array($viteManifest)
-        ? ($viteManifest['resources/css/app.css']['file'] ?? null)
-        : null;
+            $manifest = json_decode(file_get_contents($manifestPath), true);
 
-    $jsAsset = is_array($viteManifest)
-        ? ($viteManifest['resources/js/app.js']['file'] ?? null)
-        : null;
+            if (! is_array($manifest)) {
+                return null;
+            }
+
+            $cssAsset = $manifest['resources/css/app.css']['file'] ?? null;
+            $jsAsset = $manifest['resources/js/app.js']['file'] ?? null;
+
+            if (! is_string($cssAsset) || ! is_string($jsAsset)) {
+                return null;
+            }
+
+            if (! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($cssAsset, '/'))) {
+                return null;
+            }
+
+            if (! file_exists($directory . DIRECTORY_SEPARATOR . ltrim($jsAsset, '/'))) {
+                return null;
+            }
+
+            return [
+                'css' => $cssAsset,
+                'js' => $jsAsset,
+            ];
+        })
+        ->first(fn (?array $build): bool => is_array($build));
+
+    $cssAsset = is_array($viteBuild) ? ($viteBuild['css'] ?? null) : null;
+    $jsAsset = is_array($viteBuild) ? ($viteBuild['js'] ?? null) : null;
 @endphp
 
 @if (file_exists(public_path('hot')))
