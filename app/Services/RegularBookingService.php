@@ -198,17 +198,21 @@ class RegularBookingService
         ];
     }
 
-    public function seatLayoutState(array $selectedSeatCodes = []): array
+    public function seatLayoutState(array $selectedSeatCodes = [], ?int $passengerCount = null): array
     {
-        $selectedSeatLookup = array_flip($this->sortSeatCodes($selectedSeatCodes));
+        $availableSeatCodes = $passengerCount === null
+            ? $this->selectableSeatCodes()
+            : $this->availableSeatCodesForPassengerCount($passengerCount);
+        $selectedSeatLookup = array_flip($this->sortSeatCodes($selectedSeatCodes, $availableSeatCodes));
 
         return collect($this->seatLayout())
-            ->map(function (array $seat) use ($selectedSeatLookup): array {
+            ->map(function (array $seat) use ($availableSeatCodes, $selectedSeatLookup): array {
                 if ($seat['kind'] !== 'seat') {
                     return $seat;
                 }
 
-                $seat['is_selected'] = array_key_exists($seat['code'], $selectedSeatLookup);
+                $seat['is_visible'] = in_array($seat['code'], $availableSeatCodes, true);
+                $seat['is_selected'] = $seat['is_visible'] && array_key_exists($seat['code'], $selectedSeatLookup);
 
                 return $seat;
             })
@@ -223,13 +227,24 @@ class RegularBookingService
             ->all();
     }
 
-    public function sortSeatCodes(array $seatCodes): array
+    public function availableSeatCodesForPassengerCount(int $passengerCount): array
+    {
+        return collect($this->selectableSeatCodes())
+            ->filter(fn (string $seatCode): bool => $passengerCount >= 6 || $seatCode !== '2B')
+            ->values()
+            ->all();
+    }
+
+    public function sortSeatCodes(array $seatCodes, ?array $allowedSeatCodes = null): array
     {
         $orderMap = $this->seatOrderMap();
+        $allowedSeatLookup = $allowedSeatCodes === null
+            ? $orderMap
+            : array_fill_keys($allowedSeatCodes, true);
 
         $normalizedSeatCodes = collect($seatCodes)
             ->map(fn ($seatCode): string => trim((string) $seatCode))
-            ->filter(fn (string $seatCode): bool => $seatCode !== '' && array_key_exists($seatCode, $orderMap))
+            ->filter(fn (string $seatCode): bool => $seatCode !== '' && array_key_exists($seatCode, $orderMap) && array_key_exists($seatCode, $allowedSeatLookup))
             ->unique()
             ->values()
             ->all();

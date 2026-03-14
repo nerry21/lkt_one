@@ -83,7 +83,10 @@ class RegularBookingPageController extends Controller
             'steps' => $this->steps(2),
             'draft' => $draft,
             'draftSummary' => $drafts->buildSummary($draft, $service),
-            'seatLayout' => $service->seatLayoutState($seatSelectionState['selected_seats']),
+            'seatLayout' => $service->seatLayoutState(
+                $seatSelectionState['selected_seats'],
+                $seatSelectionState['required_seat_count'],
+            ),
             'seatSelectionState' => $seatSelectionState,
             'flashSuccess' => $request->session()->get('regular_booking_success'),
             'flashNotice' => $request->session()->get('regular_booking_notice'),

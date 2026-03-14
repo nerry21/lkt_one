@@ -17,13 +17,17 @@ class StoreRegularBookingSeatsRequest extends FormRequest
 
     public function rules(): array
     {
+        $draft = app(RegularBookingDraftService::class)->get($this->session());
+        $requiredSeatCount = (int) ($draft['passenger_count'] ?? 0);
+        $availableSeatCodes = app(RegularBookingService::class)->availableSeatCodesForPassengerCount($requiredSeatCount);
+
         return [
             'seat_codes' => ['required', 'array'],
             'seat_codes.*' => [
                 'required',
                 'string',
                 'distinct',
-                Rule::in(app(RegularBookingService::class)->selectableSeatCodes()),
+                Rule::in($availableSeatCodes),
             ],
         ];
     }
@@ -56,6 +60,7 @@ class StoreRegularBookingSeatsRequest extends FormRequest
 
                 $draft = app(RegularBookingDraftService::class)->get($this->session());
                 $requiredSeatCount = (int) ($draft['passenger_count'] ?? 0);
+                $service = app(RegularBookingService::class);
 
                 if ($requiredSeatCount < 1) {
                     $validator->errors()->add('seat_codes', 'Lengkapi informasi pemesanan terlebih dahulu sebelum memilih kursi.');
@@ -63,7 +68,10 @@ class StoreRegularBookingSeatsRequest extends FormRequest
                     return;
                 }
 
-                $selectedSeatCodes = app(RegularBookingService::class)->sortSeatCodes((array) $this->input('seat_codes', []));
+                $selectedSeatCodes = $service->sortSeatCodes(
+                    (array) $this->input('seat_codes', []),
+                    $service->availableSeatCodesForPassengerCount($requiredSeatCount),
+                );
 
                 if (count($selectedSeatCodes) !== $requiredSeatCount) {
                     $validator->errors()->add(

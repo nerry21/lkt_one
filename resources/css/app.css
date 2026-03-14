@@ -5022,7 +5022,7 @@ button {
 
 .regular-booking-seat-card[data-seat-area='seat-2b'] {
     position: absolute;
-    top: 58%;
+    top: 56%;
     left: calc(50% - 41px);
 }
 
@@ -5269,6 +5269,7 @@ button {
 
     .regular-booking-seat-card[data-seat-area='seat-2b'] {
         left: calc(50% - 36px);
+        top: 56%;
     }
 
     .regular-booking-passenger-card {

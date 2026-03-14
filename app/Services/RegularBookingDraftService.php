@@ -60,7 +60,8 @@ class RegularBookingDraftService
     public function storeSeatSelection(Session $session, array $seatCodes, RegularBookingService $service): void
     {
         $draft = $this->get($session);
-        $draft['selected_seats'] = $service->sortSeatCodes($seatCodes);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount((int) ($draft['passenger_count'] ?? 0));
+        $draft['selected_seats'] = $service->sortSeatCodes($seatCodes, $allowedSeatCodes);
         $draft['passengers'] = collect($draft['passengers'] ?? [])
             ->filter(fn (array $passenger): bool => in_array($passenger['seat_no'] ?? '', $draft['selected_seats'], true))
             ->values()
@@ -72,7 +73,8 @@ class RegularBookingDraftService
     public function storePassengers(Session $session, array $passengers, RegularBookingService $service): void
     {
         $draft = $this->get($session);
-        $draft['passengers'] = $this->normalizePassengers($passengers, $service->sortSeatCodes($draft['selected_seats'] ?? []), $service);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount((int) ($draft['passenger_count'] ?? 0));
+        $draft['passengers'] = $this->normalizePassengers($passengers, $service->sortSeatCodes($draft['selected_seats'] ?? [], $allowedSeatCodes), $service);
 
         $this->store($session, $draft);
     }
@@ -108,6 +110,8 @@ class RegularBookingDraftService
     public function buildSummary(array $draft, RegularBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($normalizedDraft['passenger_count']);
+        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats'], $allowedSeatCodes);
         $fareAmount = $normalizedDraft['fare_amount'];
         $estimatedTotal = $fareAmount > 0
             ? $fareAmount * max($normalizedDraft['passenger_count'], 1)
@@ -123,7 +127,7 @@ class RegularBookingDraftService
             'fare_amount' => $fareAmount > 0
                 ? $service->formatCurrency($fareAmount)
                 : 'Belum tersedia',
-            'selected_seats' => $service->selectedSeatLabels($normalizedDraft['selected_seats']),
+            'selected_seats' => $service->selectedSeatLabels($selectedSeatCodes),
             'estimated_total' => is_int($estimatedTotal) && $estimatedTotal > 0
                 ? $service->formatCurrency($estimatedTotal)
                 : 'Belum tersedia',
@@ -133,9 +137,10 @@ class RegularBookingDraftService
     public function buildSeatSelectionState(Request $request, array $draft, RegularBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $selectedSeats = $request->old('seat_codes', $normalizedDraft['selected_seats'] ?? []);
-        $selectedSeatCodes = $service->sortSeatCodes(is_array($selectedSeats) ? $selectedSeats : [$selectedSeats]);
         $requiredSeatCount = max((int) ($normalizedDraft['passenger_count'] ?? 0), 0);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($requiredSeatCount);
+        $selectedSeats = $request->old('seat_codes', $normalizedDraft['selected_seats'] ?? []);
+        $selectedSeatCodes = $service->sortSeatCodes(is_array($selectedSeats) ? $selectedSeats : [$selectedSeats], $allowedSeatCodes);
         $selectedCount = count($selectedSeatCodes);
 
         return [
@@ -144,6 +149,7 @@ class RegularBookingDraftService
             'required_seat_count' => $requiredSeatCount,
             'remaining_seat_count' => max($requiredSeatCount - $selectedCount, 0),
             'selected_seats_label' => $service->selectedSeatLabels($selectedSeatCodes),
+            'shows_optional_seat' => $requiredSeatCount >= 6,
             'can_continue' => $requiredSeatCount > 0 && $selectedCount === $requiredSeatCount,
         ];
     }
@@ -151,7 +157,8 @@ class RegularBookingDraftService
     public function buildPassengerFormState(Request $request, array $draft, RegularBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats']);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($normalizedDraft['passenger_count']);
+        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats'], $allowedSeatCodes);
         $oldPassengers = $request->old('passengers');
 
         $sourcePassengers = is_array($oldPassengers)
@@ -189,7 +196,8 @@ class RegularBookingDraftService
     {
         $normalizedDraft = $this->normalizeDraft($draft);
         $requiredSeatCount = max((int) ($normalizedDraft['passenger_count'] ?? 0), 0);
-        $selectedSeatCount = count($service->sortSeatCodes($normalizedDraft['selected_seats']));
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($requiredSeatCount);
+        $selectedSeatCount = count($service->sortSeatCodes($normalizedDraft['selected_seats'], $allowedSeatCodes));
 
         return $requiredSeatCount > 0 && $selectedSeatCount === $requiredSeatCount;
     }
@@ -213,7 +221,8 @@ class RegularBookingDraftService
     public function hasCompletePassengerData(array $draft, RegularBookingService $service): bool
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats']);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($normalizedDraft['passenger_count']);
+        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats'], $allowedSeatCodes);
         $normalizedPassengers = $this->normalizePassengers($normalizedDraft['passengers'], $selectedSeatCodes, $service);
 
         if (count($selectedSeatCodes) === 0 || count($normalizedPassengers) !== count($selectedSeatCodes)) {
@@ -226,7 +235,8 @@ class RegularBookingDraftService
     public function buildReviewState(array $draft, RegularBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats']);
+        $allowedSeatCodes = $service->availableSeatCodesForPassengerCount($normalizedDraft['passenger_count']);
+        $selectedSeatCodes = $service->sortSeatCodes($normalizedDraft['selected_seats'], $allowedSeatCodes);
         $passengers = $this->normalizePassengers($normalizedDraft['passengers'], $selectedSeatCodes, $service);
         $fareAmount = $normalizedDraft['fare_amount'];
         $totalAmount = $fareAmount > 0 ? $fareAmount * max($normalizedDraft['passenger_count'], 1) : 0;

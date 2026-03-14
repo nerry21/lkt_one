@@ -53,7 +53,7 @@
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
                         <h2>Penampang Kursi Mobil</h2>
-                        <p>Pilih tepat {{ $seatSelectionState['required_seat_count'] }} kursi. Kursi 2B ditandai sebagai kursi opsional untuk penumpang ke-6.</p>
+                        <p>Pilih tepat {{ $seatSelectionState['required_seat_count'] }} kursi. Kursi 2B hanya akan ditampilkan saat jumlah penumpang mencapai 6 orang.</p>
                     </div>
 
                     <article class="regular-booking-seat-trip-card">
@@ -130,7 +130,7 @@
                                             </div>
                                             <span class="regular-booking-driver-label">{{ $seat['label'] }}</span>
                                         </article>
-                                    @else
+                                    @elseif ($seat['is_visible'] ?? true)
                                         <label
                                             class="regular-booking-seat-card{{ $seat['is_selected'] ? ' is-selected' : '' }}{{ $seat['is_optional'] ? ' is-optional' : '' }}"
                                             data-seat-card
@@ -233,7 +233,7 @@
 
                     <ul class="regular-booking-note-list">
                         <li>Kursi 1A berada di sebelah supir.</li>
-                        <li>Kursi 2B disediakan sebagai kursi opsional dan akan otomatis ikut terpakai saat jumlah penumpang mencapai 6 orang.</li>
+                        <li>Kursi 2B diposisikan di tengah antara 2A dan 3A, lalu hanya dimunculkan saat jumlah penumpang mencapai 6 orang.</li>
                         <li>Ketika jumlah kursi yang dipilih sudah penuh, kursi lain akan dinonaktifkan sementara sampai ada kursi yang dibatalkan.</li>
                     </ul>
                 </section>

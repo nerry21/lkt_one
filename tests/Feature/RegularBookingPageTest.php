@@ -131,11 +131,25 @@ class RegularBookingPageTest extends TestCase
             ->assertSee('Supir')
             ->assertSee('1A')
             ->assertSee('2A')
-            ->assertSee('2B')
             ->assertSee('3A')
             ->assertSee('4A')
             ->assertSee('5A')
+            ->assertDontSee('data-seat-code="2B"', false)
             ->assertSee('Lanjut ke Data Penumpang');
+    }
+
+    public function test_regular_booking_seat_page_only_shows_2b_for_six_passengers(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->withSession([
+            'regular_booking.information' => $this->makeDraft([
+                'passenger_count' => 6,
+            ]),
+        ])->get('/dashboard/regular-bookings/seats')
+            ->assertOk()
+            ->assertSee('data-seat-code="2B"', false)
+            ->assertSee('Opsional');
     }
 
     public function test_regular_booking_seat_selection_is_saved_to_session_and_redirects_to_passenger_step(): void
@@ -169,6 +183,24 @@ class RegularBookingPageTest extends TestCase
             ->assertRedirect('/dashboard/regular-bookings/seats')
             ->assertSessionHasErrors([
                 'seat_codes' => 'Pilih tepat 4 kursi sesuai jumlah penumpang sebelum melanjutkan.',
+            ]);
+    }
+
+    public function test_regular_booking_rejects_2b_selection_when_passenger_count_is_below_six(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->from('/dashboard/regular-bookings/seats')
+            ->withSession([
+                'regular_booking.information' => $this->makeDraft([
+                    'passenger_count' => 5,
+                ]),
+            ])->post('/dashboard/regular-bookings/seats', [
+                'seat_codes' => ['1A', '2A', '2B', '3A', '4A'],
+            ])
+            ->assertRedirect('/dashboard/regular-bookings/seats')
+            ->assertSessionHasErrors([
+                'seat_codes.2' => 'Ada kursi yang dipilih tetapi tidak tersedia pada penampang kendaraan.',
             ]);
     }
 
