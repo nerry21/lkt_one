@@ -4250,6 +4250,8 @@ button {
 .admin-users-page {
     display: grid;
     gap: 24px;
+    width: 100%;
+    min-width: 0;
 }
 
 .regular-booking-page {
@@ -5298,6 +5300,12 @@ button {
 .admin-users-page-header {
     justify-content: space-between;
     gap: 20px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.admin-users-page-copy {
+    min-width: 0;
 }
 
 .admin-users-page-copy h1,
@@ -5327,6 +5335,7 @@ button {
 .admin-users-page-actions {
     gap: 12px;
     flex-wrap: wrap;
+    max-width: 100%;
 }
 
 .admin-users-primary-button,
@@ -5405,6 +5414,10 @@ button {
 
 .admin-users-search-card,
 .admin-users-table-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     border-radius: 26px;
     border: 1px solid rgba(148, 163, 184, 0.16);
     background: rgba(255, 255, 255, 0.96);
@@ -5448,7 +5461,10 @@ button {
 }
 
 .admin-users-table-wrap {
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .admin-users-table {
