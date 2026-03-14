@@ -376,33 +376,6 @@
             </div>
         </div>
 
-        <div class="modal-shell" id="booking-show-modal" hidden>
-            <div class="modal-backdrop" data-modal-close="booking-show-modal"></div>
-
-            <div class="modal-card admin-users-dialog-card admin-users-show-dialog-card">
-                <div class="admin-users-dialog-head">
-                    <div>
-                        <h3>Detail Pemesanan</h3>
-                        <p>Informasi lengkap pemesanan yang dipilih.</p>
-                    </div>
-                    <button type="button" class="admin-users-dialog-close" data-modal-close="booking-show-modal" aria-label="Tutup">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            <path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="bookings-detail-grid" id="booking-detail-grid"></div>
-
-                <div class="bookings-passenger-list" id="booking-passenger-list"></div>
-
-                <div class="admin-users-dialog-actions">
-                    <button class="admin-users-secondary-button" type="button" data-modal-close="booking-show-modal">Tutup</button>
-                </div>
-            </div>
-        </div>
-
         <div class="modal-shell" id="booking-delete-modal" hidden>
             <div class="modal-backdrop" data-modal-close="booking-delete-modal"></div>
 

@@ -36,6 +36,70 @@ class BookingManagementPageTest extends TestCase
             ->assertSee('Tambah Pemesanan');
     }
 
+    public function test_admin_can_view_booking_detail_page(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'Admin',
+        ]);
+
+        $booking = $this->createBooking([
+            'booking_code' => 'RBK-260314-DET2',
+            'invoice_number' => 'INV-260314-DET2',
+            'ticket_number' => 'ETK-260314-DET2',
+            'qr_token' => 'QRT-260314-DET2',
+            'qr_code_value' => json_encode([
+                'type' => 'regular_booking_ticket',
+                'booking_code' => 'RBK-260314-DET2',
+                'ticket_number' => 'ETK-260314-DET2',
+                'qr_token' => 'QRT-260314-DET2',
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'driver_name' => null,
+            'payment_method' => 'cash',
+            'payment_reference' => 'CSH-260314-DET2',
+            'payment_status' => 'Dibayar Tunai',
+            'booking_status' => 'Diproses',
+            'ticket_status' => 'Siap Terbit',
+            'nominal_payment' => 300000,
+        ]);
+
+        $booking->passengers()->createMany([
+            [
+                'seat_no' => '1A',
+                'name' => 'Budi Santoso',
+                'phone' => '081234567890',
+                'ticket_status' => 'Siap Terbit',
+            ],
+            [
+                'seat_no' => '2A',
+                'name' => 'Siti Aminah',
+                'phone' => '081322223333',
+                'ticket_status' => 'Siap Terbit',
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/dashboard/bookings/' . $booking->id)
+            ->assertOk()
+            ->assertSee('Detail Pemesanan')
+            ->assertSee('Budi Santoso')
+            ->assertSee('081234567890')
+            ->assertSee('SKPD')
+            ->assertSee('Pekanbaru')
+            ->assertSee('1A, 2A')
+            ->assertSee('2')
+            ->assertSee('Reguler')
+            ->assertSee('Rp 300.000')
+            ->assertSee('Jl. Tuanku Tambusai No. 12 Pekanbaru')
+            ->assertSee('Jl. Sudirman No. 8 Pekanbaru')
+            ->assertSee('Cash')
+            ->assertSee('Dibayar Tunai')
+            ->assertSee('INV-260314-DET2')
+            ->assertSee('ETK-260314-DET2')
+            ->assertSee('Menunggu Penetapan Driver')
+            ->assertSee('QR Code Tiket')
+            ->assertSee('QRT-260314-DET2');
+    }
+
     public function test_admin_can_fetch_booking_management_list(): void
     {
         $admin = User::factory()->create([
@@ -347,6 +411,10 @@ class BookingManagementPageTest extends TestCase
 
         $this->actingAs($user)
             ->postJson('/api/bookings', $this->bookingPayload())
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get('/dashboard/bookings')
             ->assertForbidden();
     }
 

@@ -229,7 +229,8 @@ class RegularBookingPaymentService
         $booking->loadMissing('passengers');
         $scanCount = max((int) ($booking->scan_count ?? 0), 0);
         $loyaltyTripCount = max((int) ($booking->loyalty_trip_count ?? 0), 0);
-        $discountEligible = (bool) ($booking->discount_eligible ?? false) || max($scanCount, $loyaltyTripCount) >= 5;
+        $loyaltyCount = max((int) ($booking->loyalty_count ?? 0), $scanCount, $loyaltyTripCount);
+        $discountEligible = (bool) ($booking->eligible_discount ?? $booking->discount_eligible ?? false) || $loyaltyCount >= 5;
         $qrCodeValue = trim((string) ($booking->qr_code_value ?? ''));
         $qrCodeMarkup = $qrCodeValue !== ''
             ? QrCode::format('svg')->size(220)->margin(1)->generate($qrCodeValue)
@@ -253,11 +254,12 @@ class RegularBookingPaymentService
             'qr_code_markup' => $qrCodeMarkup,
             'loyalty_trip_count' => $loyaltyTripCount,
             'scan_count' => $scanCount,
+            'loyalty_count' => $loyaltyCount,
             'loyalty_target' => 5,
             'discount_percentage' => 50,
             'eligible_discount' => $discountEligible,
             'discount_status_label' => $discountEligible ? 'Eligible Diskon 50%' : 'Belum Eligible Diskon',
-            'remaining_loyalty_steps' => max(5 - max($scanCount, $loyaltyTripCount), 0),
+            'remaining_loyalty_steps' => max(5 - $loyaltyCount, 0),
             'passengers' => $booking->passengers->map(fn ($passenger): array => [
                 'seat_no' => (string) $passenger->seat_no,
                 'name' => (string) $passenger->name,

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Booking extends Model
 {
@@ -34,6 +35,7 @@ class Booking extends Model
         'nominal_payment',
         'route_label',
         'driver_name',
+        'driver_id',
         'payment_method',
         'payment_reference',
         'payment_proof_path',
@@ -49,7 +51,9 @@ class Booking extends Model
         'ticket_status',
         'loyalty_trip_count',
         'scan_count',
+        'loyalty_count',
         'discount_eligible',
+        'eligible_discount',
         'departure_id',
         'booking_status',
         'notes',
@@ -64,12 +68,45 @@ class Booking extends Model
         'paid_at' => 'datetime',
         'validated_at' => 'datetime',
         'ticket_issued_at' => 'datetime',
+        'loyalty_count' => 'integer',
         'discount_eligible' => 'boolean',
+        'eligible_discount' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Booking $booking): void {
+            $loyaltyCount = max(
+                (int) ($booking->loyalty_count ?? 0),
+                (int) ($booking->loyalty_trip_count ?? 0),
+                (int) ($booking->scan_count ?? 0),
+            );
+
+            $eligibleDiscount = (bool) ($booking->eligible_discount ?? $booking->discount_eligible ?? false)
+                || $loyaltyCount >= 5;
+
+            $booking->loyalty_count = $loyaltyCount;
+            $booking->eligible_discount = $eligibleDiscount;
+            $booking->discount_eligible = $eligibleDiscount;
+
+            if (filled($booking->driver_id) && blank($booking->driver_name)) {
+                $booking->driver_name = optional($booking->driver()->first())->nama;
+            }
+
+            if (blank($booking->driver_id) && blank($booking->driver_name)) {
+                $booking->driver_name = null;
+            }
+        });
+    }
 
     public function passengers(): HasMany
     {
         return $this->hasMany(BookingPassenger::class);
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(Driver::class);
     }
 
     public function validator(): BelongsTo
@@ -109,5 +146,45 @@ class Booking extends Model
         }
 
         return asset('storage/' . ltrim($this->payment_proof_path, '/'));
+    }
+
+    public function getNomorBookingAttribute(): string
+    {
+        return (string) ($this->booking_code ?? '');
+    }
+
+    public function getNomorInvoiceAttribute(): ?string
+    {
+        return $this->invoice_number;
+    }
+
+    public function getNomorTiketAttribute(): ?string
+    {
+        return $this->ticket_number;
+    }
+
+    public function getStatusBookingAttribute(): string
+    {
+        return (string) ($this->attributes['booking_status'] ?? '');
+    }
+
+    public function getStatusPembayaranAttribute(): string
+    {
+        return (string) ($this->attributes['payment_status'] ?? '');
+    }
+
+    public function getMetodePembayaranAttribute(): ?string
+    {
+        return $this->payment_method ? Str::lower((string) $this->payment_method) : null;
+    }
+
+    public function getNominalPembayaranAttribute(): float
+    {
+        return (float) ($this->nominal_payment ?? 0);
+    }
+
+    public function getNamaDriverAttribute(): ?string
+    {
+        return $this->driver_name;
     }
 }

@@ -228,6 +228,31 @@ class BookingManagementService
         ]);
     }
 
+    public function detailPagePayload(Booking $booking): array
+    {
+        $detail = $this->detailPayload($booking);
+        $ticketState = $this->paymentService->buildTicketState($booking, $this->regularBookingService);
+        $paymentAccountLabel = $booking->payment_account_bank && $booking->payment_account_number
+            ? $booking->payment_account_bank . ' - ' . $booking->payment_account_number
+            : 'Tidak diperlukan';
+
+        return array_merge($detail, [
+            'trip_date_label' => $booking->trip_date?->format('d M Y') ?? '-',
+            'trip_time_label' => $booking->time ?? '-',
+            'price_per_seat_formatted' => $this->regularBookingService->formatCurrency((float) ($booking->price_per_seat ?? 0)),
+            'total_amount_formatted' => $this->regularBookingService->formatCurrency((float) ($booking->total_amount ?? 0)),
+            'nominal_payment_formatted' => $this->regularBookingService->formatCurrency((float) ($booking->nominal_payment ?? $booking->total_amount ?? 0)),
+            'payment_account_label' => $paymentAccountLabel,
+            'qr_token' => $ticketState['qr_token'],
+            'qr_code_markup' => $ticketState['qr_code_markup'],
+            'qr_code_value' => $ticketState['qr_code_value'],
+            'has_qr_code' => trim((string) $ticketState['qr_code_value']) !== '',
+            'ticket_status' => $ticketState['ticket_status'],
+            'loyalty_scan_label' => $ticketState['scan_count'] . ' / ' . $ticketState['loyalty_target'],
+            'discount_status_label' => $ticketState['discount_status_label'],
+        ]);
+    }
+
     public function createBooking(array $validated): Booking
     {
         return DB::transaction(function () use ($validated): Booking {

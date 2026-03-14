@@ -253,9 +253,9 @@ function renderRows() {
             <td><span class="bookings-address-copy">${escapeHtml(item.address_summary)}</span></td>
             <td>
                 <div class="admin-users-action-row">
-                    <button class="admin-users-icon-button" type="button" data-booking-show="${item.id}" data-testid="show-booking-${item.id}" aria-label="Lihat detail pemesanan ${escapeHtml(item.nama_pemesanan)}">
+                    <a class="admin-users-icon-button" href="/dashboard/bookings/${item.id}" data-testid="show-booking-${item.id}" aria-label="Lihat detail pemesanan ${escapeHtml(item.nama_pemesanan)}">
                         ${eyeIcon()}
-                    </button>
+                    </a>
                     <button class="admin-users-icon-button" type="button" data-booking-edit="${item.id}" data-testid="edit-booking-${item.id}" aria-label="Edit pemesanan ${escapeHtml(item.nama_pemesanan)}" ${item.can_edit ? '' : 'disabled'}>
                         ${editIcon()}
                     </button>
@@ -295,105 +295,6 @@ function renderPagination() {
     if (nextButton) {
         nextButton.disabled = state.page >= totalPages;
     }
-}
-
-function renderDetail(item) {
-    const grid = document.getElementById('booking-detail-grid');
-    const passengerList = document.getElementById('booking-passenger-list');
-
-    if (!grid || !passengerList) {
-        return;
-    }
-
-    grid.innerHTML = `
-        <div class="admin-users-detail-item">
-            <span>Nama Pemesanan</span>
-            <strong>${escapeHtml(item.nama_pemesanan)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>No HP</span>
-            <strong>${escapeHtml(item.phone)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Rute</span>
-            <strong>${escapeHtml(item.route_label)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Driver</span>
-            <strong>${escapeHtml(item.driver_name)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Tanggal Keberangkatan</span>
-            <strong>${escapeHtml(item.trip_date_label)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Waktu Keberangkatan</span>
-            <strong>${escapeHtml(item.trip_time)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Kursi</span>
-            <strong>${escapeHtml(item.selected_seats_label)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Jenis Layanan</span>
-            <strong>${escapeHtml(item.service_type)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Biaya</span>
-            <strong>${escapeHtml(item.total_amount_formatted)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Metode Pembayaran</span>
-            <strong>${escapeHtml(item.payment_method)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Status Booking</span>
-            <strong>${escapeHtml(item.booking_status)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Status Pembayaran</span>
-            <strong>${escapeHtml(item.payment_status)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Alamat Penjemputan</span>
-            <p>${escapeHtml(item.pickup_location)}</p>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Alamat Pengantaran</span>
-            <p>${escapeHtml(item.dropoff_location)}</p>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Nomor Invoice</span>
-            <strong>${escapeHtml(item.invoice_number)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Nomor Tiket</span>
-            <strong>${escapeHtml(item.ticket_number)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Referensi Pembayaran</span>
-            <strong>${escapeHtml(item.payment_reference)}</strong>
-        </div>
-        <div class="admin-users-detail-item">
-            <span>Catatan</span>
-            <p>${escapeHtml(item.notes || '-')}</p>
-        </div>
-    `;
-
-    passengerList.innerHTML = `
-        <div class="bookings-detail-section">
-            <h4>Data Penumpang</h4>
-            <div class="bookings-passenger-grid">
-                ${item.passengers.map((passenger) => `
-                    <article class="bookings-passenger-card">
-                        <span class="stock-value-badge stock-value-badge-blue">${escapeHtml(passenger.seat_no)}</span>
-                        <strong>${escapeHtml(passenger.name)}</strong>
-                        <p>${escapeHtml(passenger.phone)}</p>
-                    </article>
-                `).join('')}
-            </div>
-        </div>
-    `;
 }
 
 function syncPassengerDraftMapFromDom() {
@@ -673,11 +574,6 @@ async function fetchData() {
     }
 }
 
-async function openShowDialog(id) {
-    renderDetail(await apiRequest(`/bookings/${id}`));
-    openModal('booking-show-modal');
-}
-
 async function openEditDialog(id) {
     fillForm(await apiRequest(`/bookings/${id}`));
     openModal('booking-form-modal');
@@ -842,16 +738,10 @@ export default function initBookingsPage({ user } = {}) {
     });
 
     tbody.addEventListener('click', async (event) => {
-        const showButton = event.target.closest('[data-booking-show]');
         const editButton = event.target.closest('[data-booking-edit]');
         const deleteButtonTrigger = event.target.closest('[data-booking-delete]');
 
         try {
-            if (showButton) {
-                await openShowDialog(showButton.dataset.bookingShow);
-                return;
-            }
-
             if (editButton) {
                 await openEditDialog(editButton.dataset.bookingEdit);
                 return;

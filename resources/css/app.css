@@ -5780,6 +5780,11 @@ button {
     margin-bottom: 1.25rem;
 }
 
+.bookings-detail-grid--single {
+    grid-template-columns: minmax(0, 1fr);
+    margin-bottom: 0;
+}
+
 .bookings-detail-section h4 {
     color: #064e3b;
     font-size: 1rem;
@@ -5940,6 +5945,44 @@ button {
     min-height: 120px;
 }
 
+.bookings-show-page,
+.bookings-show-main,
+.bookings-show-sidebar,
+.bookings-show-actions {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.bookings-show-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.bookings-show-card {
+    height: fit-content;
+}
+
+.bookings-show-qr-stage {
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 1rem;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.bookings-show-qr-stage svg {
+    width: min(100%, 14rem);
+    height: auto;
+}
+
+.bookings-show-empty {
+    min-height: 180px;
+}
+
 .admin-users-access-note {
     padding: 16px 18px;
     border-radius: 18px;
@@ -5965,6 +6008,10 @@ button {
 
     .bookings-seat-summary {
         grid-template-columns: 1fr;
+    }
+
+    .bookings-show-layout {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
