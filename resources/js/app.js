@@ -13,6 +13,8 @@ import initMobilPage from './pages/mobil/index';
 import initKeberangkatanPage from './pages/keberangkatan/index';
 import initStockPage from './pages/stock/index';
 import initAdminUsersPage from './pages/admin-users/index';
+import initRegularBookingsPage from './pages/regular-bookings/index';
+import initRegularBookingSeatsPage from './pages/regular-bookings/seats';
 
 const pageModules = {
     'admin-users/index': initAdminUsersPage,
@@ -21,6 +23,8 @@ const pageModules = {
     'drivers/index': initDriversPage,
     'mobil/index': initMobilPage,
     'keberangkatan/index': initKeberangkatanPage,
+    'regular-bookings/index': initRegularBookingsPage,
+    'regular-bookings/seats': initRegularBookingSeatsPage,
     'stock/index': initStockPage,
 };
 

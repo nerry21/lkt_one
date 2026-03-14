@@ -6,6 +6,7 @@ use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
 use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
 use App\Http\Controllers\Mobil\MobilPageController;
+use App\Http\Controllers\RegularBookings\RegularBookingPageController;
 use App\Http\Controllers\Stock\StockPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,14 @@ require __DIR__.'/auth.php';
 
 Route::prefix('dashboard')->group(function () {
     Route::get('/', [DashboardPageController::class, 'index'])->name('dashboard');
+    Route::get('/regular-bookings', [RegularBookingPageController::class, 'index'])->name('regular-bookings.index');
+    Route::post('/regular-bookings/information', [RegularBookingPageController::class, 'storeInformation'])->name('regular-bookings.information.store');
+    Route::get('/regular-bookings/seats', [RegularBookingPageController::class, 'seats'])->name('regular-bookings.seats');
+    Route::post('/regular-bookings/seats', [RegularBookingPageController::class, 'storeSeats'])->name('regular-bookings.seats.store');
+    Route::get('/regular-bookings/passengers', [RegularBookingPageController::class, 'passengers'])->name('regular-bookings.passengers');
+    Route::post('/regular-bookings/passengers', [RegularBookingPageController::class, 'storePassengers'])->name('regular-bookings.passengers.store');
+    Route::get('/regular-bookings/review', [RegularBookingPageController::class, 'review'])->name('regular-bookings.review');
+    Route::post('/regular-bookings/review', [RegularBookingPageController::class, 'storeReview'])->name('regular-bookings.review.store');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');

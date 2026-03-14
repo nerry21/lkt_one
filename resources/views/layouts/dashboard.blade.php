@@ -10,6 +10,13 @@
             'active_patterns' => ['dashboard'],
         ],
         [
+            'route' => 'regular-bookings.index',
+            'label' => 'Pemesanan Reguler',
+            'testid' => 'nav-regular-bookings',
+            'icon' => 'bus',
+            'active_patterns' => ['regular-bookings.*'],
+        ],
+        [
             'route' => 'admin-users.index',
             'label' => 'Admin & User',
             'testid' => 'nav-admin-users',
