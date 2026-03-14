@@ -17,6 +17,14 @@
             'active_patterns' => ['regular-bookings.*'],
         ],
         [
+            'route' => 'bookings.index',
+            'label' => 'Data Pemesanan',
+            'testid' => 'nav-bookings',
+            'icon' => 'bus',
+            'requires_admin' => true,
+            'active_patterns' => ['bookings.*'],
+        ],
+        [
             'route' => 'admin-users.index',
             'label' => 'Admin & User',
             'testid' => 'nav-admin-users',

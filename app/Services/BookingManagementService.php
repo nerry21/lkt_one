@@ -1,0 +1,480 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Booking;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class BookingManagementService
+{
+    public function __construct(
+        protected RegularBookingService $regularBookingService,
+        protected RegularBookingPaymentService $paymentService,
+    ) {
+    }
+
+    public function bookingForOptions(): array
+    {
+        return collect($this->regularBookingService->bookingTypes())
+            ->map(fn (array $item): array => [
+                'value' => $item['label'],
+                'label' => $item['label'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function bookingForValues(): array
+    {
+        return array_column($this->bookingForOptions(), 'value');
+    }
+
+    public function locationOptions(): array
+    {
+        return $this->regularBookingService->locations();
+    }
+
+    public function departureTimeOptions(): array
+    {
+        return $this->regularBookingService->departureSchedules();
+    }
+
+    public function passengerCountOptions(): array
+    {
+        return $this->regularBookingService->passengerCounts();
+    }
+
+    public function seatOptions(): array
+    {
+        return collect($this->regularBookingService->seatLayout())
+            ->filter(fn (array $seat): bool => $seat['kind'] === 'seat')
+            ->values()
+            ->all();
+    }
+
+    public function paymentMethodOptions(): array
+    {
+        return $this->paymentService->paymentMethods();
+    }
+
+    public function paymentMethodValues(): array
+    {
+        return $this->paymentService->paymentMethodValues();
+    }
+
+    public function paymentStatusOptions(): array
+    {
+        return [
+            ['value' => 'Belum Bayar', 'label' => 'Belum Bayar'],
+            ['value' => 'Menunggu Pembayaran', 'label' => 'Menunggu Pembayaran'],
+            ['value' => 'Menunggu Verifikasi', 'label' => 'Menunggu Verifikasi'],
+            ['value' => 'Dibayar', 'label' => 'Dibayar'],
+            ['value' => 'Dibayar Tunai', 'label' => 'Dibayar Tunai'],
+        ];
+    }
+
+    public function paymentStatusValues(): array
+    {
+        return array_column($this->paymentStatusOptions(), 'value');
+    }
+
+    public function bookingStatusOptions(): array
+    {
+        return [
+            ['value' => 'Draft', 'label' => 'Draft'],
+            ['value' => 'Menunggu Verifikasi Pembayaran', 'label' => 'Menunggu Verifikasi Pembayaran'],
+            ['value' => 'Diproses', 'label' => 'Diproses'],
+        ];
+    }
+
+    public function bookingStatusValues(): array
+    {
+        return array_column($this->bookingStatusOptions(), 'value');
+    }
+
+    public function serviceTypeOptions(): array
+    {
+        return [
+            ['value' => 'Reguler', 'label' => 'Reguler'],
+        ];
+    }
+
+    public function serviceTypeValues(): array
+    {
+        return array_column($this->serviceTypeOptions(), 'value');
+    }
+
+    public function transferBankAccountOptions(): array
+    {
+        return $this->paymentService->transferBankAccounts();
+    }
+
+    public function routeMatrix(): array
+    {
+        return $this->regularBookingService->routeMatrix();
+    }
+
+    public function defaultPaymentStatusForMethod(?string $method): string
+    {
+        $normalizedMethod = $this->normalizePaymentMethod($method);
+
+        return match ($normalizedMethod) {
+            'transfer' => 'Menunggu Pembayaran',
+            'qris' => 'Dibayar',
+            'cash' => 'Dibayar Tunai',
+            default => 'Belum Bayar',
+        };
+    }
+
+    public function defaultBookingStatusForMethod(?string $method): string
+    {
+        $normalizedMethod = $this->normalizePaymentMethod($method);
+
+        return match ($normalizedMethod) {
+            'transfer' => 'Menunggu Verifikasi Pembayaran',
+            'qris', 'cash' => 'Diproses',
+            default => 'Draft',
+        };
+    }
+
+    public function filteredQuery(Request $request): Builder
+    {
+        $search = trim((string) $request->query('search', ''));
+
+        return Booking::query()
+            ->when($search !== '', function (Builder $query) use ($search) {
+                $query->where(function (Builder $subQuery) use ($search) {
+                    $subQuery
+                        ->where('booking_code', 'like', "%{$search}%")
+                        ->orWhere('invoice_number', 'like', "%{$search}%")
+                        ->orWhere('ticket_number', 'like', "%{$search}%")
+                        ->orWhere('passenger_name', 'like', "%{$search}%")
+                        ->orWhere('passenger_phone', 'like', "%{$search}%")
+                        ->orWhere('from_city', 'like', "%{$search}%")
+                        ->orWhere('to_city', 'like', "%{$search}%")
+                        ->orWhere('booking_status', 'like', "%{$search}%")
+                        ->orWhere('payment_status', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%");
+                });
+            });
+    }
+
+    public function listPayload(Booking $booking): array
+    {
+        return [
+            'id' => $booking->getKey(),
+            'booking_code' => (string) $booking->booking_code,
+            'nama_pemesanan' => (string) $booking->passenger_name,
+            'phone' => (string) $booking->passenger_phone,
+            'from_city' => (string) $booking->from_city,
+            'to_city' => (string) $booking->to_city,
+            'trip_date' => $booking->trip_date?->toDateString(),
+            'trip_date_label' => $booking->trip_date?->format('d M Y') ?? '-',
+            'trip_time' => $booking->time ?? '-',
+            'selected_seats_label' => $this->regularBookingService->selectedSeatLabels((array) ($booking->selected_seats ?? [])),
+            'passenger_count' => (int) ($booking->passenger_count ?? 0),
+            'service_type' => trim((string) ($booking->category ?? '')) !== '' ? (string) $booking->category : 'Belum ditentukan',
+            'total_amount' => (float) ($booking->total_amount ?? 0),
+            'total_amount_formatted' => $this->regularBookingService->formatCurrency((float) ($booking->total_amount ?? 0)),
+            'address_summary' => $this->addressSummary($booking),
+            'pickup_location' => (string) $booking->pickup_location,
+            'dropoff_location' => (string) $booking->dropoff_location,
+            'booking_status' => (string) $booking->booking_status,
+            'payment_status' => (string) $booking->payment_status,
+            'booking_status_badge_class' => $this->statusBadgeClass((string) $booking->booking_status),
+            'payment_status_badge_class' => $this->statusBadgeClass((string) $booking->payment_status),
+            'can_edit' => true,
+            'can_delete' => true,
+        ];
+    }
+
+    public function detailPayload(Booking $booking): array
+    {
+        $booking->loadMissing('passengers');
+        $selectedSeats = $this->regularBookingService->sortSeatCodes((array) ($booking->selected_seats ?? []));
+        $passengers = $this->normalizePassengerPayload(
+            $booking->passengers
+                ->map(fn ($passenger): array => [
+                    'seat_no' => (string) $passenger->seat_no,
+                    'name' => (string) $passenger->name,
+                    'phone' => (string) $passenger->phone,
+                ])
+                ->all(),
+            $selectedSeats,
+        );
+
+        return array_merge($this->listPayload($booking), [
+            'invoice_number' => $booking->invoice_number ?: '-',
+            'ticket_number' => $booking->ticket_number ?: '-',
+            'route_label' => trim((string) ($booking->route_label ?? '')) !== '' ? (string) $booking->route_label : ((string) $booking->from_city . ' - ' . (string) $booking->to_city),
+            'driver_name' => trim((string) ($booking->driver_name ?? '')) !== '' ? (string) $booking->driver_name : 'Menunggu Penetapan Driver',
+            'booking_for' => trim((string) ($booking->booking_for ?? '')) !== '' ? (string) $booking->booking_for : 'Untuk Diri Sendiri',
+            'category' => trim((string) ($booking->category ?? '')) !== '' ? (string) $booking->category : 'Reguler',
+            'trip_date_value' => $booking->trip_date?->toDateString() ?? '',
+            'trip_time_value' => $booking->time ?? '',
+            'selected_seats' => $selectedSeats,
+            'price_per_seat' => (int) round((float) ($booking->price_per_seat ?? 0)),
+            'payment_method_value' => $this->normalizePaymentMethod((string) ($booking->payment_method ?? '')),
+            'bank_account_code' => $this->resolveBankAccountCode($booking),
+            'passenger_count' => (int) ($booking->passenger_count ?? 0),
+            'payment_method' => $this->paymentService->paymentMethodLabel($booking->payment_method),
+            'created_at_label' => $booking->created_at?->format('d M Y H:i') ?? '-',
+            'payment_reference' => $booking->payment_reference ?: '-',
+            'notes' => (string) ($booking->notes ?? ''),
+            'passengers' => $passengers,
+        ]);
+    }
+
+    public function createBooking(array $validated): Booking
+    {
+        return DB::transaction(function () use ($validated): Booking {
+            $booking = new Booking();
+            $booking->booking_code = $this->generateUniqueCode('booking_code', 'RBK');
+
+            return $this->persistBooking($booking, $validated);
+        });
+    }
+
+    public function updateBooking(Booking $booking, array $validated): Booking
+    {
+        return DB::transaction(fn (): Booking => $this->persistBooking($booking, $validated));
+    }
+
+    public function deleteBooking(Booking $booking): void
+    {
+        DB::transaction(function () use ($booking): void {
+            $booking->passengers()->delete();
+            $booking->delete();
+        });
+    }
+
+    public function paymentStatusAllowedForMethod(?string $method): array
+    {
+        return match ($this->normalizePaymentMethod((string) $method)) {
+            'transfer' => ['Belum Bayar', 'Menunggu Pembayaran', 'Menunggu Verifikasi', 'Dibayar'],
+            'qris' => ['Belum Bayar', 'Menunggu Pembayaran', 'Dibayar'],
+            'cash' => ['Belum Bayar', 'Dibayar Tunai'],
+            default => ['Belum Bayar'],
+        };
+    }
+
+    public function normalizePassengerPayload(array $passengers, array $selectedSeats = []): array
+    {
+        $allowedSeatLookup = $selectedSeats === [] ? [] : array_flip($selectedSeats);
+        $seatOrderLookup = $selectedSeats === [] ? [] : array_flip($selectedSeats);
+
+        $normalizedPassengers = collect($passengers)
+            ->map(fn ($passenger): array => [
+                'seat_no' => trim((string) data_get($passenger, 'seat_no', '')),
+                'name' => trim((string) data_get($passenger, 'name', '')),
+                'phone' => $this->regularBookingService->normalizeIndonesianPhone((string) data_get($passenger, 'phone', '')),
+            ])
+            ->filter(function (array $passenger) use ($allowedSeatLookup): bool {
+                if ($passenger['seat_no'] === '') {
+                    return false;
+                }
+
+                return $allowedSeatLookup === [] || array_key_exists($passenger['seat_no'], $allowedSeatLookup);
+            })
+            ->unique('seat_no')
+            ->values()
+            ->all();
+
+        if ($seatOrderLookup !== []) {
+            usort(
+                $normalizedPassengers,
+                fn (array $left, array $right): int => ($seatOrderLookup[$left['seat_no']] ?? PHP_INT_MAX) <=> ($seatOrderLookup[$right['seat_no']] ?? PHP_INT_MAX),
+            );
+        }
+
+        return $normalizedPassengers;
+    }
+
+    public function formOptions(): array
+    {
+        return [
+            'booking_for_options' => $this->bookingForOptions(),
+            'location_options' => $this->locationOptions(),
+            'departure_time_options' => $this->departureTimeOptions(),
+            'passenger_count_options' => $this->passengerCountOptions(),
+            'seat_options' => $this->seatOptions(),
+            'payment_method_options' => $this->paymentMethodOptions(),
+            'payment_status_options' => $this->paymentStatusOptions(),
+            'booking_status_options' => $this->bookingStatusOptions(),
+            'service_type_options' => $this->serviceTypeOptions(),
+            'transfer_bank_account_options' => $this->transferBankAccountOptions(),
+            'route_matrix' => $this->routeMatrix(),
+        ];
+    }
+
+    protected function persistBooking(Booking $booking, array $validated): Booking
+    {
+        $selectedSeats = $this->regularBookingService->sortSeatCodes((array) $validated['selected_seats']);
+        $passengerCount = (int) $validated['passenger_count'];
+        $pricePerSeat = $this->regularBookingService->resolveFare((string) $validated['from_city'], (string) $validated['to_city']) ?? 0;
+        $totalAmount = $pricePerSeat * $passengerCount;
+        $paymentMethod = $this->normalizePaymentMethod($validated['payment_method'] ?? null);
+        $paymentStatus = (string) $validated['payment_status'];
+        $bookingStatus = (string) $validated['booking_status'];
+        $ticketStatus = $this->ticketStatusFromPaymentStatus($paymentStatus);
+        $passengers = $this->normalizePassengerPayload((array) $validated['passengers'], $selectedSeats);
+        $firstPassenger = $passengers[0] ?? ['name' => 'Penumpang Utama', 'phone' => '-'];
+        $requiresDocuments = $paymentMethod !== '' || $paymentStatus !== 'Belum Bayar';
+        $paidStatuses = ['Dibayar', 'Dibayar Tunai'];
+        $isPaid = in_array($paymentStatus, $paidStatuses, true);
+        $transferAccount = $paymentMethod === 'transfer'
+            ? $this->paymentService->bankAccountByCode($validated['bank_account_code'] ?? null)
+            : null;
+        $qrisAccount = $paymentMethod === 'qris'
+            ? $this->paymentService->qrisAccount()
+            : null;
+
+        $booking->fill([
+            'category' => trim((string) $validated['category']),
+            'from_city' => trim((string) $validated['from_city']),
+            'to_city' => trim((string) $validated['to_city']),
+            'trip_date' => $validated['trip_date'],
+            'trip_time' => $this->normalizeTripTime((string) $validated['trip_time']),
+            'booking_for' => trim((string) $validated['booking_for']),
+            'passenger_name' => $firstPassenger['name'],
+            'passenger_phone' => $firstPassenger['phone'],
+            'passenger_count' => $passengerCount,
+            'pickup_location' => trim((string) $validated['pickup_location']),
+            'dropoff_location' => trim((string) $validated['dropoff_location']),
+            'selected_seats' => $selectedSeats,
+            'price_per_seat' => $pricePerSeat,
+            'total_amount' => $totalAmount,
+            'nominal_payment' => $requiresDocuments ? $totalAmount : null,
+            'route_label' => trim((string) $validated['from_city']) . ' - ' . trim((string) $validated['to_city']),
+            'driver_name' => filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null,
+            'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
+            'payment_account_bank' => $transferAccount['bank_name'] ?? $qrisAccount['provider_name'] ?? null,
+            'payment_account_name' => $transferAccount['account_holder'] ?? $qrisAccount['account_holder'] ?? null,
+            'payment_account_number' => $transferAccount['account_number'] ?? $qrisAccount['account_number'] ?? null,
+            'payment_status' => $paymentStatus,
+            'booking_status' => $bookingStatus,
+            'ticket_status' => $ticketStatus,
+            'paid_at' => $isPaid ? ($booking->paid_at ?? now()) : null,
+            'invoice_number' => $requiresDocuments ? ($booking->invoice_number ?: $this->generateUniqueCode('invoice_number', 'INV')) : null,
+            'ticket_number' => $requiresDocuments ? ($booking->ticket_number ?: $this->generateUniqueCode('ticket_number', 'ETK')) : null,
+            'payment_reference' => $requiresDocuments
+                ? ($booking->payment_reference ?: $this->generateUniqueCode('payment_reference', $this->paymentPrefix($paymentMethod)))
+                : null,
+            'notes' => trim((string) ($validated['notes'] ?? $booking->notes ?? '')),
+        ]);
+
+        if ($requiresDocuments) {
+            $booking->qr_token = $booking->qr_token ?: $this->generateUniqueCode('qr_token', 'QRT', 6);
+            $booking->qr_code_value = json_encode([
+                'type' => 'regular_booking_ticket',
+                'booking_code' => $booking->booking_code,
+                'ticket_number' => $booking->ticket_number,
+                'qr_token' => $booking->qr_token,
+                'loyalty_target' => 5,
+                'discount_percentage' => 50,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: null;
+        } else {
+            $booking->qr_token = null;
+            $booking->qr_code_value = null;
+        }
+
+        $booking->loyalty_trip_count = max((int) ($booking->loyalty_trip_count ?? 0), 0);
+        $booking->scan_count = max((int) ($booking->scan_count ?? 0), 0);
+        $booking->discount_eligible = max((int) $booking->loyalty_trip_count, (int) $booking->scan_count) >= 5;
+        $booking->save();
+
+        $booking->passengers()->delete();
+        $booking->passengers()->createMany(
+            collect($passengers)
+                ->map(function (array $passenger) use ($ticketStatus, $firstPassenger): array {
+                    return [
+                        'seat_no' => $passenger['seat_no'],
+                        'name' => $passenger['name'] !== '' ? $passenger['name'] : $firstPassenger['name'],
+                        'phone' => $passenger['phone'] !== '' ? $passenger['phone'] : $firstPassenger['phone'],
+                        'ticket_status' => $ticketStatus,
+                    ];
+                })
+                ->all(),
+        );
+
+        return $booking->fresh('passengers');
+    }
+
+    private function addressSummary(Booking $booking): string
+    {
+        $summary = 'Jemput: ' . trim((string) ($booking->pickup_location ?? ''))
+            . ' | Antar: ' . trim((string) ($booking->dropoff_location ?? ''));
+
+        return Str::limit($summary, 110);
+    }
+
+    private function statusBadgeClass(string $status): string
+    {
+        return in_array($status, ['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit'], true)
+            ? 'stock-value-badge stock-value-badge-emerald'
+            : 'stock-value-badge stock-value-badge-blue';
+    }
+
+    private function resolveBankAccountCode(Booking $booking): string
+    {
+        $bankName = trim((string) ($booking->payment_account_bank ?? ''));
+        $accountNumber = trim((string) ($booking->payment_account_number ?? ''));
+
+        if ($bankName === '' || $accountNumber === '') {
+            return '';
+        }
+
+        $account = collect($this->paymentService->transferBankAccounts())
+            ->first(fn (array $item): bool => $item['bank_name'] === $bankName && $item['account_number'] === $accountNumber);
+
+        return $account['code'] ?? '';
+    }
+
+    private function normalizePaymentMethod(?string $method): string
+    {
+        return match (strtolower(trim((string) $method))) {
+            'transfer' => 'transfer',
+            'qris' => 'qris',
+            'cash' => 'cash',
+            default => '',
+        };
+    }
+
+    private function normalizeTripTime(string $value): string
+    {
+        $trimmed = trim($value);
+
+        return strlen($trimmed) === 5 ? $trimmed . ':00' : $trimmed;
+    }
+
+    private function ticketStatusFromPaymentStatus(string $paymentStatus): string
+    {
+        return match ($paymentStatus) {
+            'Dibayar', 'Dibayar Tunai' => 'Siap Terbit',
+            'Menunggu Verifikasi' => 'Menunggu Verifikasi Pembayaran',
+            default => 'Draft',
+        };
+    }
+
+    private function paymentPrefix(string $paymentMethod): string
+    {
+        return match ($paymentMethod) {
+            'transfer' => 'TRF',
+            'qris' => 'QRS',
+            'cash' => 'CSH',
+            default => 'PAY',
+        };
+    }
+
+    private function generateUniqueCode(string $column, string $prefix, int $randomLength = 4): string
+    {
+        do {
+            $code = $prefix . '-' . now()->format('ymd') . '-' . Str::upper(Str::random($randomLength));
+        } while (Booking::query()->where($column, $code)->exists());
+
+        return $code;
+    }
+}

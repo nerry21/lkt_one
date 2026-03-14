@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\KeberangkatanController;
@@ -14,6 +15,12 @@ Route::get('/', RootController::class)->name('api.root');
 
 Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::middleware('admin.role:admin')->group(function () {
+        Route::get('/bookings', [BookingController::class, 'index'])->name('api.bookings.index');
+        Route::post('/bookings', [BookingController::class, 'store'])->name('api.bookings.store');
+        Route::get('/bookings/count', [BookingController::class, 'count'])->name('api.bookings.count');
+        Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('api.bookings.show');
+        Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('api.bookings.update');
+        Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('api.bookings.destroy');
         Route::get('/admin-users', [AdminUserController::class, 'index'])->name('api.admin-users.index');
         Route::post('/admin-users', [AdminUserController::class, 'store'])->name('api.admin-users.store');
         Route::get('/admin-users/count', [AdminUserController::class, 'count'])->name('api.admin-users.count');

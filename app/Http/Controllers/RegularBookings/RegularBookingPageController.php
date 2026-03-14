@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\RegularBookings;
 
+use App\Models\Booking;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegularBooking\StoreRegularBookingInformationRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingPassengersRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingPaymentRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingSeatsRequest;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\RegularBookingDraftService;
 use App\Services\RegularBookingPaymentService;
 use App\Services\RegularBookingPersistenceService;
@@ -14,6 +16,7 @@ use App\Services\RegularBookingService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class RegularBookingPageController extends Controller
 {
@@ -287,7 +290,7 @@ class RegularBookingPageController extends Controller
             'reviewState' => $reviewState,
             'persistedBooking' => $persistedBooking,
             'paymentMethods' => $payments->paymentMethods(),
-            'bankAccounts' => $payments->bankAccounts(),
+            'bankAccounts' => $payments->transferBankAccounts(),
             'paymentFormState' => $payments->buildFormState($request, $persistedBooking),
             'flashSuccess' => $request->session()->get('regular_booking_success'),
             'flashNotice' => $request->session()->get('regular_booking_notice'),
@@ -325,8 +328,129 @@ class RegularBookingPageController extends Controller
         );
 
         return redirect()
-            ->route('regular-bookings.payment')
-            ->with('regular_booking_success', "Metode pembayaran {$payments->paymentMethodLabel($booking->payment_method)} berhasil disimpan. Tahap invoice dan e-ticket dapat dilanjutkan pada langkah berikutnya.");
+            ->route('regular-bookings.invoice')
+            ->with('regular_booking_success', "Pembayaran dengan metode {$payments->paymentMethodLabel($booking->payment_method)} berhasil dicatat. Invoice dan e-ticket siap dilihat.");
+    }
+
+    public function invoice(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): View|RedirectResponse {
+        $persistedBooking = $this->resolveInvoiceBookingOrRedirect(
+            $request,
+            $service,
+            $drafts,
+            $persistence,
+            $payments,
+        );
+
+        if ($persistedBooking instanceof RedirectResponse) {
+            return $persistedBooking;
+        }
+
+        return view('regular-bookings.invoice', [
+            'pageTitle' => 'Invoice Pemesanan | Lancang Kuning Travelindo',
+            'pageScript' => '',
+            'guardMode' => 'protected',
+            'pageHeading' => 'Invoice Pemesanan',
+            'pageDescription' => 'Ringkasan pembayaran regular booking setelah transaksi dicatat',
+            'persistedBooking' => $persistedBooking,
+            'invoiceState' => $payments->buildInvoiceState($persistedBooking, $service),
+            'flashSuccess' => $request->session()->get('regular_booking_success'),
+            'flashNotice' => $request->session()->get('regular_booking_notice'),
+        ]);
+    }
+
+    public function downloadInvoice(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): Response|RedirectResponse {
+        $persistedBooking = $this->resolveInvoiceBookingOrRedirect(
+            $request,
+            $service,
+            $drafts,
+            $persistence,
+            $payments,
+        );
+
+        if ($persistedBooking instanceof RedirectResponse) {
+            return $persistedBooking;
+        }
+
+        $invoiceState = $payments->buildInvoiceState($persistedBooking, $service);
+        $fileName = ($invoiceState['invoice_number'] !== '-' ? $invoiceState['invoice_number'] : $persistedBooking->booking_code) . '.pdf';
+
+        return Pdf::loadView('regular-bookings.pdf.invoice', [
+            'invoiceState' => $invoiceState,
+        ])->setPaper('a4')->download($fileName);
+    }
+
+    public function ticket(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): View|RedirectResponse {
+        $persistedBooking = $this->resolveTicketBookingOrRedirect(
+            $request,
+            $service,
+            $drafts,
+            $persistence,
+            $payments,
+        );
+
+        if ($persistedBooking instanceof RedirectResponse) {
+            return $persistedBooking;
+        }
+
+        $persistedBooking = $persistence->ensureTicketMetadata($persistedBooking);
+
+        return view('regular-bookings.ticket', [
+            'pageTitle' => 'E-ticket Pemesanan | Lancang Kuning Travelindo',
+            'pageScript' => '',
+            'guardMode' => 'protected',
+            'pageHeading' => 'E-ticket Pemesanan',
+            'pageDescription' => 'Ringkasan e-ticket regular booking setelah transaksi dicatat',
+            'persistedBooking' => $persistedBooking,
+            'ticketState' => $payments->buildTicketState($persistedBooking, $service),
+            'flashSuccess' => $request->session()->get('regular_booking_success'),
+            'flashNotice' => $request->session()->get('regular_booking_notice'),
+        ]);
+    }
+
+    public function downloadTicket(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): Response|RedirectResponse {
+        $persistedBooking = $this->resolveTicketBookingOrRedirect(
+            $request,
+            $service,
+            $drafts,
+            $persistence,
+            $payments,
+        );
+
+        if ($persistedBooking instanceof RedirectResponse) {
+            return $persistedBooking;
+        }
+
+        $persistedBooking = $persistence->ensureTicketMetadata($persistedBooking);
+        $ticketState = $payments->buildTicketState($persistedBooking, $service);
+        $fileName = ($ticketState['ticket_number'] !== '-' ? $ticketState['ticket_number'] : $persistedBooking->booking_code) . '.pdf';
+
+        return Pdf::loadView('regular-bookings.pdf.ticket', [
+            'ticketState' => $ticketState,
+        ])->setPaper('a4')->download($fileName);
     }
 
     private function steps(int $currentStep): array
@@ -351,6 +475,11 @@ class RegularBookingPageController extends Controller
                 'number' => 4,
                 'title' => 'Review Pemesanan',
                 'description' => 'Periksa kembali seluruh detail sebelum melanjutkan ke proses berikutnya.',
+            ],
+            [
+                'number' => 5,
+                'title' => 'Pembayaran',
+                'description' => 'Simpan data pembayaran dan lanjutkan ke invoice serta e-ticket.',
             ],
         ])->map(function (array $step) use ($currentStep): array {
             $step['status'] = match (true) {
@@ -406,5 +535,69 @@ class RegularBookingPageController extends Controller
         }
 
         return null;
+    }
+
+    private function resolveInvoiceBookingOrRedirect(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): Booking|RedirectResponse {
+        $draft = $drafts->get($request->session());
+
+        if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum membuka invoice.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensureSeatStepIsComplete($draft, $service, $drafts, 'Pilih kursi sesuai jumlah penumpang terlebih dahulu sebelum membuka invoice.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensurePassengerStepIsComplete($draft, $service, $drafts, 'Lengkapi data penumpang terlebih dahulu sebelum membuka invoice.')) {
+            return $redirect;
+        }
+
+        $persistedBooking = $persistence->currentDraftBooking($request->session(), $drafts);
+
+        if (! $payments->hasRecordedPayment($persistedBooking)) {
+            return redirect()
+                ->route('regular-bookings.payment')
+                ->with('regular_booking_notice', 'Selesaikan pembayaran terlebih dahulu sebelum membuka invoice.');
+        }
+
+        return $persistedBooking;
+    }
+
+    private function resolveTicketBookingOrRedirect(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): Booking|RedirectResponse {
+        $draft = $drafts->get($request->session());
+
+        if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum membuka e-ticket.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensureSeatStepIsComplete($draft, $service, $drafts, 'Pilih kursi sesuai jumlah penumpang terlebih dahulu sebelum membuka e-ticket.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensurePassengerStepIsComplete($draft, $service, $drafts, 'Lengkapi data penumpang terlebih dahulu sebelum membuka e-ticket.')) {
+            return $redirect;
+        }
+
+        $persistedBooking = $persistence->currentDraftBooking($request->session(), $drafts);
+
+        if (! $payments->hasRecordedPayment($persistedBooking)) {
+            return redirect()
+                ->route('regular-bookings.payment')
+                ->with('regular_booking_notice', 'Selesaikan pembayaran terlebih dahulu sebelum membuka e-ticket.');
+        }
+
+        return $persistedBooking;
     }
 }

@@ -1,0 +1,189 @@
+<?php
+
+namespace App\Http\Requests\Booking;
+
+use App\Services\BookingManagementService;
+use App\Services\RegularBookingService;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
+
+abstract class BookingUpsertRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $bookingService = app(BookingManagementService::class);
+        $regularBookingService = app(RegularBookingService::class);
+        $bankAccountCodes = array_column($bookingService->transferBankAccountOptions(), 'code');
+
+        return [
+            'booking_for' => ['required', 'string', Rule::in($bookingService->bookingForValues())],
+            'from_city' => ['required', 'string', Rule::in($regularBookingService->locations())],
+            'to_city' => ['required', 'string', Rule::in($regularBookingService->locations())],
+            'trip_date' => ['required', 'date'],
+            'trip_time' => ['required', 'string', Rule::in($regularBookingService->departureScheduleValues())],
+            'passenger_count' => ['required', 'integer', 'between:1,6'],
+            'pickup_location' => ['required', 'string', 'min:10', 'max:255'],
+            'dropoff_location' => ['required', 'string', 'min:10', 'max:255'],
+            'selected_seats' => ['required', 'array'],
+            'selected_seats.*' => ['required', 'string', 'distinct', Rule::in($regularBookingService->selectableSeatCodes())],
+            'passengers' => ['required', 'array'],
+            'passengers.*.seat_no' => ['required', 'string', 'distinct', Rule::in($regularBookingService->selectableSeatCodes())],
+            'passengers.*.name' => ['required', 'string', 'max:100'],
+            'passengers.*.phone' => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
+            'category' => ['required', 'string', Rule::in($bookingService->serviceTypeValues())],
+            'driver_name' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['nullable', 'string', Rule::in($bookingService->paymentMethodValues())],
+            'payment_status' => ['required', 'string', Rule::in($bookingService->paymentStatusValues())],
+            'booking_status' => ['required', 'string', Rule::in($bookingService->bookingStatusValues())],
+            'bank_account_code' => ['nullable', 'string', Rule::in($bankAccountCodes !== [] ? $bankAccountCodes : [''])],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'booking_for' => 'jenis pemesanan',
+            'from_city' => 'kota asal',
+            'to_city' => 'kota tujuan',
+            'trip_date' => 'tanggal keberangkatan',
+            'trip_time' => 'waktu keberangkatan',
+            'passenger_count' => 'jumlah penumpang',
+            'pickup_location' => 'alamat penjemputan',
+            'dropoff_location' => 'alamat pengantaran',
+            'selected_seats' => 'kursi terpilih',
+            'selected_seats.*' => 'kursi terpilih',
+            'passengers' => 'data penumpang',
+            'passengers.*.seat_no' => 'kursi penumpang',
+            'passengers.*.name' => 'nama penumpang',
+            'passengers.*.phone' => 'nomor HP penumpang',
+            'category' => 'jenis layanan',
+            'driver_name' => 'nama driver',
+            'payment_method' => 'metode pembayaran',
+            'payment_status' => 'status pembayaran',
+            'booking_status' => 'status booking',
+            'bank_account_code' => 'rekening transfer',
+            'notes' => 'catatan',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'pickup_location.min' => 'Alamat penjemputan minimal 10 karakter.',
+            'dropoff_location.min' => 'Alamat pengantaran minimal 10 karakter.',
+            'selected_seats.required' => 'Pilih kursi terlebih dahulu.',
+            'selected_seats.array' => 'Format kursi terpilih tidak valid.',
+            'selected_seats.*.distinct' => 'Setiap kursi hanya boleh dipilih satu kali.',
+            'passengers.required' => 'Lengkapi data penumpang terlebih dahulu.',
+            'passengers.*.seat_no.distinct' => 'Data kursi penumpang tidak boleh duplikat.',
+            'passengers.*.name.required' => 'Nama penumpang wajib diisi.',
+            'passengers.*.phone.required' => 'Nomor HP penumpang wajib diisi.',
+            'passengers.*.phone.regex' => 'Nomor HP penumpang harus menggunakan format nomor Indonesia yang valid.',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                $bookingService = app(BookingManagementService::class);
+                $regularBookingService = app(RegularBookingService::class);
+                $origin = (string) $this->input('from_city');
+                $destination = (string) $this->input('to_city');
+                $passengerCount = (int) $this->input('passenger_count');
+                $paymentMethod = (string) ($this->input('payment_method') ?? '');
+                $paymentStatus = (string) $this->input('payment_status');
+                $selectedSeats = $regularBookingService->sortSeatCodes(
+                    (array) $this->input('selected_seats', []),
+                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount),
+                );
+                $passengers = (array) $this->input('passengers', []);
+                $passengerSeatCodes = $regularBookingService->sortSeatCodes(
+                    array_column($passengers, 'seat_no'),
+                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount),
+                );
+
+                if ($origin === $destination) {
+                    $validator->errors()->add('to_city', 'Kota tujuan harus berbeda dengan kota asal.');
+
+                    return;
+                }
+
+                if ($regularBookingService->resolveFare($origin, $destination) === null) {
+                    $validator->errors()->add('to_city', 'Rute yang dipilih belum tersedia pada layanan reguler.');
+                }
+
+                if (count($selectedSeats) !== $passengerCount) {
+                    $validator->errors()->add('selected_seats', 'Jumlah kursi yang dipilih harus sama dengan jumlah penumpang.');
+                }
+
+                if (count($passengers) !== $passengerCount) {
+                    $validator->errors()->add('passengers', 'Jumlah data penumpang harus sama dengan jumlah kursi yang dipilih.');
+                }
+
+                if ($selectedSeats !== $passengerSeatCodes) {
+                    $validator->errors()->add('passengers', 'Data penumpang harus mengikuti seluruh kursi yang dipilih.');
+                }
+
+                if ($paymentMethod === 'transfer' && ! filled($this->input('bank_account_code'))) {
+                    $validator->errors()->add('bank_account_code', 'Pilih rekening transfer yang tersedia.');
+                }
+
+                if (! in_array($paymentStatus, $bookingService->paymentStatusAllowedForMethod($paymentMethod), true)) {
+                    $validator->errors()->add('payment_status', 'Status pembayaran tidak sesuai dengan metode pembayaran yang dipilih.');
+                }
+            },
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $regularBookingService = app(RegularBookingService::class);
+        $selectedSeats = $this->input('selected_seats', []);
+        $passengers = $this->input('passengers', []);
+        $paymentMethod = trim((string) $this->input('payment_method', ''));
+        $bankAccountCode = trim((string) $this->input('bank_account_code', ''));
+
+        $this->merge([
+            'booking_for' => trim((string) $this->input('booking_for')),
+            'from_city' => trim((string) $this->input('from_city')),
+            'to_city' => trim((string) $this->input('to_city')),
+            'trip_time' => trim((string) $this->input('trip_time')),
+            'pickup_location' => trim((string) $this->input('pickup_location')),
+            'dropoff_location' => trim((string) $this->input('dropoff_location')),
+            'selected_seats' => collect(is_array($selectedSeats) ? $selectedSeats : [$selectedSeats])
+                ->map(fn ($seatCode): string => trim((string) $seatCode))
+                ->filter(fn (string $seatCode): bool => $seatCode !== '')
+                ->values()
+                ->all(),
+            'passengers' => collect(is_array($passengers) ? $passengers : [])
+                ->map(fn ($passenger): array => [
+                    'seat_no' => trim((string) data_get($passenger, 'seat_no', '')),
+                    'name' => trim((string) data_get($passenger, 'name', '')),
+                    'phone' => $regularBookingService->normalizeIndonesianPhone((string) data_get($passenger, 'phone', '')),
+                ])
+                ->values()
+                ->all(),
+            'category' => trim((string) $this->input('category')),
+            'driver_name' => trim((string) $this->input('driver_name')),
+            'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
+            'payment_status' => trim((string) $this->input('payment_status')),
+            'booking_status' => trim((string) $this->input('booking_status')),
+            'bank_account_code' => $paymentMethod === 'transfer' && $bankAccountCode !== ''
+                ? $bankAccountCode
+                : null,
+            'notes' => trim((string) $this->input('notes')),
+        ]);
+    }
+}

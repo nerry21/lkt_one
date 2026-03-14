@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BuildAssetController;
 use App\Http\Controllers\AdminUsers\AdminUserPageController;
+use App\Http\Controllers\Bookings\BookingPageController;
 use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
 use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
@@ -29,6 +30,11 @@ Route::prefix('dashboard')->group(function () {
     Route::post('/regular-bookings/review', [RegularBookingPageController::class, 'storeReview'])->name('regular-bookings.review.store');
     Route::get('/regular-bookings/payment', [RegularBookingPageController::class, 'payment'])->name('regular-bookings.payment');
     Route::post('/regular-bookings/payment', [RegularBookingPageController::class, 'storePayment'])->name('regular-bookings.payment.store');
+    Route::get('/regular-bookings/invoice', [RegularBookingPageController::class, 'invoice'])->name('regular-bookings.invoice');
+    Route::get('/regular-bookings/invoice/download', [RegularBookingPageController::class, 'downloadInvoice'])->name('regular-bookings.invoice.download');
+    Route::get('/regular-bookings/e-ticket', [RegularBookingPageController::class, 'ticket'])->name('regular-bookings.ticket');
+    Route::get('/regular-bookings/e-ticket/download', [RegularBookingPageController::class, 'downloadTicket'])->name('regular-bookings.ticket.download');
+    Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');

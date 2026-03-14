@@ -3,7 +3,8 @@
 @php
     $selectedPaymentMethod = $paymentFormState['payment_method'] ?? '';
     $selectedBankAccountCode = $paymentFormState['bank_account_code'] ?? '';
-    $paymentStatusBadgeClass = $persistedBooking->payment_status === 'Lunas'
+    $paidStatuses = ['Dibayar', 'Dibayar Tunai'];
+    $paymentStatusBadgeClass = in_array($persistedBooking->payment_status, $paidStatuses, true)
         ? 'stock-value-badge-emerald'
         : 'stock-value-badge-blue';
 @endphp
@@ -56,8 +57,8 @@
 
                 <section class="regular-booking-review-status-card">
                     <div class="regular-booking-review-status-copy">
-                        <h2>Draft Booking Siap Diproses</h2>
-                        <p>Booking {{ $persistedBooking->booking_code }} sudah tersimpan. Tahap ini hanya memilih metode pembayaran dan menyiapkan metadata transaksi awal.</p>
+                        <h2>Booking Siap Dibayar</h2>
+                        <p>Booking {{ $persistedBooking->booking_code }} sudah tersimpan. Tahap ini mencatat pembayaran, memperbarui status booking, dan meneruskan Anda ke invoice serta e-ticket.</p>
                     </div>
 
                     <div class="regular-booking-review-status-meta">
@@ -99,7 +100,7 @@
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
                         <h2>Daftar Rekening Bank</h2>
-                        <p>Daftar rekening berikut dipakai jika metode pembayaran yang dipilih adalah transfer.</p>
+                        <p>Daftar rekening berikut disiapkan sebagai tujuan pembayaran ketika metode transfer dipilih.</p>
                     </div>
 
                     <div class="regular-booking-options">
@@ -129,6 +130,68 @@
 
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
+                        <h2>Detail Metode Pembayaran</h2>
+                        <p>Detail kanal pembayaran ditampilkan mengikuti metode yang sedang dipilih.</p>
+                    </div>
+
+                    @if ($paymentFormState['shows_transfer_accounts'])
+                        <div class="regular-booking-review-grid">
+                            <div class="regular-booking-summary-item">
+                                <span>Metode Aktif</span>
+                                <strong>Transfer</strong>
+                            </div>
+                            <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
+                                <span>Rekening Tujuan</span>
+                                <strong>{{ $paymentFormState['bank_account_label'] }}</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Keterangan</span>
+                                <strong>Gunakan rekening bank aktif yang tersedia pada sistem untuk menyelesaikan pembayaran transfer.</strong>
+                            </div>
+                        </div>
+                    @elseif ($paymentFormState['shows_qris_account'] && $paymentFormState['qris_account'])
+                        <div class="regular-booking-review-grid">
+                            <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
+                                <span>Nama QRIS</span>
+                                <strong>{{ $paymentFormState['qris_account']['provider_name'] }}</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Kode QRIS</span>
+                                <strong>{{ $paymentFormState['qris_account']['account_number'] }}</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Atas Nama</span>
+                                <strong>{{ $paymentFormState['qris_account']['account_holder'] }}</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Data QRIS</span>
+                                <strong>{{ $paymentFormState['qris_account']['qr_content'] }}</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Keterangan</span>
+                                <strong>{{ $paymentFormState['qris_account']['notes'] }}</strong>
+                            </div>
+                        </div>
+                    @elseif ($paymentFormState['shows_cash_note'])
+                        <div class="regular-booking-review-grid">
+                            <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
+                                <span>Metode Aktif</span>
+                                <strong>Cash</strong>
+                            </div>
+                            <div class="regular-booking-summary-item">
+                                <span>Keterangan Pembayaran Tunai</span>
+                                <strong>{{ $paymentFormState['cash_note'] }}</strong>
+                            </div>
+                        </div>
+                    @else
+                        <div class="dashboard-empty-state dashboard-empty-state--block">
+                            Pilih metode pembayaran terlebih dahulu untuk melihat detail kanal transfer, QRIS, atau pembayaran tunai.
+                        </div>
+                    @endif
+                </section>
+
+                <section class="regular-booking-section">
+                    <div class="regular-booking-section-head">
                         <h2>Ringkasan Pembayaran</h2>
                         <p>Nominal pembayaran mengikuti total tarif dari draft booking yang sudah disimpan.</p>
                     </div>
@@ -137,6 +200,10 @@
                         <div class="regular-booking-summary-item">
                             <span>Nomor Booking</span>
                             <strong>{{ $persistedBooking->booking_code }}</strong>
+                        </div>
+                        <div class="regular-booking-summary-item">
+                            <span>Referensi Pembayaran</span>
+                            <strong>{{ $persistedBooking->payment_reference ?: 'Belum dibuat' }}</strong>
                         </div>
                         <div class="regular-booking-summary-item">
                             <span>Metode Dipilih</span>
@@ -155,7 +222,7 @@
 
                 <div class="regular-booking-form-actions">
                     <a href="{{ route('regular-bookings.review') }}" class="dashboard-ghost-button">Kembali ke Review</a>
-                    <button class="dashboard-primary-button" type="submit">Simpan Metode Pembayaran</button>
+                    <button class="dashboard-primary-button" type="submit">Selesaikan Pembayaran</button>
                 </div>
             </form>
 
@@ -206,7 +273,8 @@
 
                     <ul class="regular-booking-note-list">
                         <li>Transfer membutuhkan pemilihan rekening tujuan yang tersedia pada sistem.</li>
-                        <li>QRIS tetap menunggu proses pembayaran, sedangkan Cash langsung ditandai lunas saat metode pembayaran disimpan.</li>
+                        <li>QRIS menggunakan data master QRIS aktif yang tersimpan di backend agar mudah dikelola tanpa hardcode di Blade.</li>
+                        <li>Transfer akan menjadi `Menunggu Verifikasi`, QRIS menjadi `Dibayar`, dan Cash menjadi `Dibayar Tunai` setelah pembayaran dicatat.</li>
                         <li>Nominal pembayaran mengikuti total tarif booking dan belum memasukkan program diskon loyalti.</li>
                     </ul>
                 </section>

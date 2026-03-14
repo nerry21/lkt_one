@@ -35,6 +35,7 @@ class Booking extends Model
         'route_label',
         'driver_name',
         'payment_method',
+        'payment_reference',
         'payment_proof_path',
         'payment_account_bank',
         'payment_account_name',
