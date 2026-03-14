@@ -3,6 +3,9 @@
 @php
     $selectedPaymentMethod = $paymentFormState['payment_method'] ?? '';
     $selectedBankAccountCode = $paymentFormState['bank_account_code'] ?? '';
+    $paymentStatusBadgeClass = $persistedBooking->payment_status === 'Lunas'
+        ? 'stock-value-badge-emerald'
+        : 'stock-value-badge-blue';
 @endphp
 
 @section('content')
@@ -59,7 +62,7 @@
 
                     <div class="regular-booking-review-status-meta">
                         <span class="stock-value-badge stock-value-badge-emerald">{{ $persistedBooking->booking_code }}</span>
-                        <span class="stock-value-badge stock-value-badge-blue">{{ $persistedBooking->payment_status }}</span>
+                        <span class="stock-value-badge {{ $paymentStatusBadgeClass }}">{{ $persistedBooking->payment_status }}</span>
                     </div>
                 </section>
 
@@ -203,7 +206,7 @@
 
                     <ul class="regular-booking-note-list">
                         <li>Transfer membutuhkan pemilihan rekening tujuan yang tersedia pada sistem.</li>
-                        <li>QRIS dan Cash tetap disimpan sebagai metode pembayaran, tetapi instruksi finalnya akan dilanjutkan pada tahap berikutnya.</li>
+                        <li>QRIS tetap menunggu proses pembayaran, sedangkan Cash langsung ditandai lunas saat metode pembayaran disimpan.</li>
                         <li>Nominal pembayaran mengikuti total tarif booking dan belum memasukkan program diskon loyalti.</li>
                     </ul>
                 </section>

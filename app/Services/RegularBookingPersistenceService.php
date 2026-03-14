@@ -111,16 +111,19 @@ class RegularBookingPersistenceService
         $bankAccount = $paymentData['payment_method'] === 'transfer'
             ? $payments->bankAccountByCode($paymentData['bank_account_code'] ?? null)
             : null;
+        $paymentMethod = (string) $paymentData['payment_method'];
+        $marksAsPaid = $payments->marksPaymentAsPaid($paymentMethod);
 
         $booking->fill([
-            'payment_method' => $paymentData['payment_method'],
+            'payment_method' => $paymentMethod,
             'payment_account_bank' => $bankAccount['bank_name'] ?? null,
             'payment_account_name' => $bankAccount['account_holder'] ?? null,
             'payment_account_number' => $bankAccount['account_number'] ?? null,
             'nominal_payment' => $booking->total_amount,
-            'payment_status' => $payments->pendingPaymentStatus(),
-            'booking_status' => $payments->pendingPaymentStatus(),
-            'notes' => $this->buildPaymentNotes($paymentData['payment_method'], $bankAccount),
+            'payment_status' => $payments->paymentStatusForMethod($paymentMethod),
+            'booking_status' => $payments->bookingStatusForPaymentMethod($paymentMethod),
+            'paid_at' => $marksAsPaid ? now() : null,
+            'notes' => $this->buildPaymentNotes($paymentMethod, $bankAccount),
         ]);
 
         $booking->save();
@@ -152,6 +155,6 @@ class RegularBookingPersistenceService
             return 'Pembayaran menunggu proses QRIS pada tahap lanjutan.';
         }
 
-        return "Pembayaran tunai dipilih. Tahap konfirmasi kasir akan dilanjutkan pada alur berikutnya.";
+        return 'Pembayaran tunai dipilih dan otomatis ditandai lunas. Booking siap dilanjutkan ke proses berikutnya.';
     }
 }

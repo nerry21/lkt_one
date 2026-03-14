@@ -92,6 +92,30 @@ class RegularBookingPaymentService
         return 'Menunggu Pembayaran';
     }
 
+    public function paidPaymentStatus(): string
+    {
+        return 'Lunas';
+    }
+
+    public function bookingStatusForPaymentMethod(string $paymentMethod): string
+    {
+        return $this->normalizePaymentMethod($paymentMethod) === 'cash'
+            ? 'Diproses'
+            : $this->pendingPaymentStatus();
+    }
+
+    public function paymentStatusForMethod(string $paymentMethod): string
+    {
+        return $this->normalizePaymentMethod($paymentMethod) === 'cash'
+            ? $this->paidPaymentStatus()
+            : $this->pendingPaymentStatus();
+    }
+
+    public function marksPaymentAsPaid(string $paymentMethod): bool
+    {
+        return $this->normalizePaymentMethod($paymentMethod) === 'cash';
+    }
+
     public function buildFormState(Request $request, Booking $booking): array
     {
         $selectedMethod = $this->normalizePaymentMethod($request->old('payment_method', $booking->payment_method ?? ''));

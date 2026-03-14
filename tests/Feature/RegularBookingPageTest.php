@@ -529,6 +529,49 @@ class RegularBookingPageTest extends TestCase
         $this->assertSame('300000.00', $booking->nominal_payment);
         $this->assertSame('Menunggu Pembayaran', $booking->payment_status);
         $this->assertSame('Menunggu Pembayaran', $booking->booking_status);
+        $this->assertNull($booking->paid_at);
+    }
+
+    public function test_regular_booking_cash_payment_is_marked_as_paid_immediately(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $booking = $this->createPersistedBooking();
+
+        $response = $this->withSession([
+            'regular_booking.information' => $this->makeDraft([
+                'passenger_count' => 2,
+                'selected_seats' => ['1A', '2A'],
+                'passengers' => [
+                    [
+                        'seat_no' => '1A',
+                        'name' => 'Budi Santoso',
+                        'phone' => '081234567890',
+                    ],
+                    [
+                        'seat_no' => '2A',
+                        'name' => 'Siti Aminah',
+                        'phone' => '081322223333',
+                    ],
+                ],
+            ]),
+            'regular_booking.persisted_booking_id' => $booking->id,
+        ])->post('/dashboard/regular-bookings/payment', [
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertRedirect('/dashboard/regular-bookings/payment');
+
+        $booking->refresh();
+
+        $this->assertSame('cash', $booking->payment_method);
+        $this->assertNull($booking->payment_account_bank);
+        $this->assertNull($booking->payment_account_name);
+        $this->assertNull($booking->payment_account_number);
+        $this->assertSame('300000.00', $booking->nominal_payment);
+        $this->assertSame('Lunas', $booking->payment_status);
+        $this->assertSame('Diproses', $booking->booking_status);
+        $this->assertNotNull($booking->paid_at);
     }
 
     private function makeDraft(array $overrides = []): array
