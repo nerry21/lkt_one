@@ -62,8 +62,13 @@ class RegularBookingPersistenceService
                 'selected_seats' => $reviewState['selected_seats'],
                 'price_per_seat' => $reviewState['fare_amount'],
                 'total_amount' => $reviewState['total_amount'],
+                'nominal_payment' => null,
                 'route_label' => $reviewState['route_label'],
+                'driver_name' => null,
                 'payment_method' => null,
+                'payment_account_bank' => null,
+                'payment_account_name' => null,
+                'payment_account_number' => null,
                 'payment_status' => 'Belum Bayar',
                 'booking_status' => 'Draft',
                 'ticket_status' => 'Draft',
@@ -92,6 +97,37 @@ class RegularBookingPersistenceService
         return $booking;
     }
 
+    public function persistPaymentSelection(
+        Session $session,
+        array $draft,
+        array $paymentData,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPaymentService $payments,
+    ): Booking {
+        $booking = $this->currentDraftBooking($session, $drafts)
+            ?? $this->persistDraft($session, $draft, $service, $drafts);
+
+        $bankAccount = $paymentData['payment_method'] === 'transfer'
+            ? $payments->bankAccountByCode($paymentData['bank_account_code'] ?? null)
+            : null;
+
+        $booking->fill([
+            'payment_method' => $paymentData['payment_method'],
+            'payment_account_bank' => $bankAccount['bank_name'] ?? null,
+            'payment_account_name' => $bankAccount['account_holder'] ?? null,
+            'payment_account_number' => $bankAccount['account_number'] ?? null,
+            'nominal_payment' => $booking->total_amount,
+            'payment_status' => $payments->pendingPaymentStatus(),
+            'booking_status' => $payments->pendingPaymentStatus(),
+            'notes' => $this->buildPaymentNotes($paymentData['payment_method'], $bankAccount),
+        ]);
+
+        $booking->save();
+
+        return $booking->fresh('passengers');
+    }
+
     private function generateBookingCode(): string
     {
         do {
@@ -104,5 +140,18 @@ class RegularBookingPersistenceService
     private function normalizeTripTime(string $value): string
     {
         return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+
+    private function buildPaymentNotes(string $paymentMethod, ?array $bankAccount): string
+    {
+        if ($paymentMethod === 'transfer' && $bankAccount) {
+            return "Pembayaran menunggu transfer ke {$bankAccount['bank_name']} {$bankAccount['account_number']} a.n. {$bankAccount['account_holder']}.";
+        }
+
+        if ($paymentMethod === 'qris') {
+            return 'Pembayaran menunggu proses QRIS pada tahap lanjutan.';
+        }
+
+        return "Pembayaran tunai dipilih. Tahap konfirmasi kasir akan dilanjutkan pada alur berikutnya.";
     }
 }

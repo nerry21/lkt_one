@@ -27,6 +27,8 @@ Route::prefix('dashboard')->group(function () {
     Route::post('/regular-bookings/passengers', [RegularBookingPageController::class, 'storePassengers'])->name('regular-bookings.passengers.store');
     Route::get('/regular-bookings/review', [RegularBookingPageController::class, 'review'])->name('regular-bookings.review');
     Route::post('/regular-bookings/review', [RegularBookingPageController::class, 'storeReview'])->name('regular-bookings.review.store');
+    Route::get('/regular-bookings/payment', [RegularBookingPageController::class, 'payment'])->name('regular-bookings.payment');
+    Route::post('/regular-bookings/payment', [RegularBookingPageController::class, 'storePayment'])->name('regular-bookings.payment.store');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');

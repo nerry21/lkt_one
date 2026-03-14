@@ -13,6 +13,10 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_code',
+        'invoice_number',
+        'ticket_number',
+        'qr_token',
+        'qr_code_value',
         'category',
         'from_city',
         'to_city',
@@ -27,9 +31,14 @@ class Booking extends Model
         'selected_seats',
         'price_per_seat',
         'total_amount',
+        'nominal_payment',
         'route_label',
+        'driver_name',
         'payment_method',
         'payment_proof_path',
+        'payment_account_bank',
+        'payment_account_name',
+        'payment_account_number',
         'paid_at',
         'payment_status',
         'validated_by',
@@ -37,6 +46,9 @@ class Booking extends Model
         'validation_notes',
         'ticket_issued_at',
         'ticket_status',
+        'loyalty_trip_count',
+        'scan_count',
+        'discount_eligible',
         'departure_id',
         'booking_status',
         'notes',
@@ -47,9 +59,11 @@ class Booking extends Model
         'selected_seats' => 'array',
         'price_per_seat' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'nominal_payment' => 'decimal:2',
         'paid_at' => 'datetime',
         'validated_at' => 'datetime',
         'ticket_issued_at' => 'datetime',
+        'discount_eligible' => 'boolean',
     ];
 
     public function passengers(): HasMany

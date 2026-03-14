@@ -150,7 +150,7 @@
 
                 <div class="regular-booking-form-actions">
                     <a href="{{ route('regular-bookings.passengers') }}" class="dashboard-ghost-button">Kembali ke Data Penumpang</a>
-                    <button class="dashboard-primary-button" type="submit">Simpan / Lanjutkan</button>
+                    <button class="dashboard-primary-button" type="submit">Lanjut ke Pembayaran</button>
                 </div>
             </form>
 
@@ -205,7 +205,7 @@
                     <ul class="regular-booking-note-list">
                         <li>Seluruh data pada halaman ini diambil dari booking draft session yang sudah tersimpan pada tahap sebelumnya.</li>
                         <li>Jika ada data yang perlu diperbaiki, gunakan tombol kembali untuk mengubah detail penumpang terlebih dahulu.</li>
-                        <li>Penyimpanan tahap ini membuat entri awal booking dengan status `Draft` tanpa masuk ke pembayaran.</li>
+                        <li>Penyimpanan tahap ini membuat entri awal booking dengan status `Draft`, lalu meneruskan user ke halaman pembayaran.</li>
                     </ul>
                 </section>
             </aside>

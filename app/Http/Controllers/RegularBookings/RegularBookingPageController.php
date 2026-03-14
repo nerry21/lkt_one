@@ -5,8 +5,10 @@ namespace App\Http\Controllers\RegularBookings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegularBooking\StoreRegularBookingInformationRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingPassengersRequest;
+use App\Http\Requests\RegularBooking\StoreRegularBookingPaymentRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingSeatsRequest;
 use App\Services\RegularBookingDraftService;
+use App\Services\RegularBookingPaymentService;
 use App\Services\RegularBookingPersistenceService;
 use App\Services\RegularBookingService;
 use Illuminate\Contracts\View\View;
@@ -238,8 +240,93 @@ class RegularBookingPageController extends Controller
         );
 
         return redirect()
-            ->route('regular-bookings.review')
-            ->with('regular_booking_success', "Review pemesanan berhasil disimpan sebagai draft dengan kode {$booking->booking_code}. Tahap pembayaran dapat dilanjutkan pada langkah berikutnya.");
+            ->route('regular-bookings.payment')
+            ->with('regular_booking_success', "Review pemesanan berhasil disimpan sebagai draft dengan kode {$booking->booking_code}. Silakan lanjutkan ke tahap pembayaran.");
+    }
+
+    public function payment(
+        Request $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): View|RedirectResponse {
+        $draft = $drafts->get($request->session());
+
+        if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum masuk ke pembayaran.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensureSeatStepIsComplete($draft, $service, $drafts, 'Pilih kursi sesuai jumlah penumpang terlebih dahulu sebelum masuk ke pembayaran.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensurePassengerStepIsComplete($draft, $service, $drafts, 'Lengkapi data penumpang terlebih dahulu sebelum masuk ke pembayaran.')) {
+            return $redirect;
+        }
+
+        $persistedBooking = $persistence->currentDraftBooking($request->session(), $drafts);
+
+        if (! $persistedBooking) {
+            return redirect()
+                ->route('regular-bookings.review')
+                ->with('regular_booking_notice', 'Simpan review pemesanan terlebih dahulu sebelum memilih metode pembayaran.');
+        }
+
+        $reviewState = $drafts->buildReviewState($draft, $service);
+
+        return view('regular-bookings.payment', [
+            'pageTitle' => 'Pembayaran | Lancang Kuning Travelindo',
+            'pageScript' => '',
+            'guardMode' => 'protected',
+            'pageHeading' => 'Pembayaran',
+            'pageDescription' => 'Pilih metode pembayaran dan siapkan proses transaksi regular booking',
+            'steps' => $this->steps(5),
+            'draft' => $draft,
+            'draftSummary' => $drafts->buildSummary($draft, $service),
+            'reviewState' => $reviewState,
+            'persistedBooking' => $persistedBooking,
+            'paymentMethods' => $payments->paymentMethods(),
+            'bankAccounts' => $payments->bankAccounts(),
+            'paymentFormState' => $payments->buildFormState($request, $persistedBooking),
+            'flashSuccess' => $request->session()->get('regular_booking_success'),
+            'flashNotice' => $request->session()->get('regular_booking_notice'),
+        ]);
+    }
+
+    public function storePayment(
+        StoreRegularBookingPaymentRequest $request,
+        RegularBookingService $service,
+        RegularBookingDraftService $drafts,
+        RegularBookingPersistenceService $persistence,
+        RegularBookingPaymentService $payments,
+    ): RedirectResponse {
+        $draft = $drafts->get($request->session());
+
+        if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum memilih metode pembayaran.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensureSeatStepIsComplete($draft, $service, $drafts, 'Pilih kursi sesuai jumlah penumpang terlebih dahulu sebelum memilih metode pembayaran.')) {
+            return $redirect;
+        }
+
+        if ($redirect = $this->ensurePassengerStepIsComplete($draft, $service, $drafts, 'Lengkapi data penumpang terlebih dahulu sebelum memilih metode pembayaran.')) {
+            return $redirect;
+        }
+
+        $booking = $persistence->persistPaymentSelection(
+            $request->session(),
+            $draft,
+            $request->validated(),
+            $service,
+            $drafts,
+            $payments,
+        );
+
+        return redirect()
+            ->route('regular-bookings.payment')
+            ->with('regular_booking_success', "Metode pembayaran {$payments->paymentMethodLabel($booking->payment_method)} berhasil disimpan. Tahap invoice dan e-ticket dapat dilanjutkan pada langkah berikutnya.");
     }
 
     private function steps(int $currentStep): array

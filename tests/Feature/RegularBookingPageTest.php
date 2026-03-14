@@ -368,7 +368,7 @@ class RegularBookingPageTest extends TestCase
             ->assertSee('081234567890')
             ->assertSee('Siti Aminah')
             ->assertSee('081322223333')
-            ->assertSee('Simpan / Lanjutkan');
+            ->assertSee('Lanjut ke Pembayaran');
     }
 
     public function test_regular_booking_review_save_persists_booking_as_draft(): void
@@ -395,7 +395,7 @@ class RegularBookingPageTest extends TestCase
             ]),
         ])->post('/dashboard/regular-bookings/review');
 
-        $response->assertRedirect('/dashboard/regular-bookings/review');
+        $response->assertRedirect('/dashboard/regular-bookings/payment');
 
         $booking = Booking::query()
             ->with('passengers')
@@ -426,6 +426,111 @@ class RegularBookingPageTest extends TestCase
         $response->assertSessionHas('regular_booking.persisted_booking_id', $booking->id);
     }
 
+    public function test_regular_booking_payment_step_requires_persisted_review_draft(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->withSession([
+            'regular_booking.information' => $this->makeDraft([
+                'passenger_count' => 2,
+                'selected_seats' => ['1A', '2A'],
+                'passengers' => [
+                    [
+                        'seat_no' => '1A',
+                        'name' => 'Budi Santoso',
+                        'phone' => '081234567890',
+                    ],
+                    [
+                        'seat_no' => '2A',
+                        'name' => 'Siti Aminah',
+                        'phone' => '081322223333',
+                    ],
+                ],
+            ]),
+        ])->get('/dashboard/regular-bookings/payment')
+            ->assertRedirect('/dashboard/regular-bookings/review');
+    }
+
+    public function test_regular_booking_payment_page_shows_methods_and_bank_accounts(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $booking = $this->createPersistedBooking();
+
+        $this->withSession([
+            'regular_booking.information' => $this->makeDraft([
+                'passenger_count' => 2,
+                'selected_seats' => ['1A', '2A'],
+                'passengers' => [
+                    [
+                        'seat_no' => '1A',
+                        'name' => 'Budi Santoso',
+                        'phone' => '081234567890',
+                    ],
+                    [
+                        'seat_no' => '2A',
+                        'name' => 'Siti Aminah',
+                        'phone' => '081322223333',
+                    ],
+                ],
+            ]),
+            'regular_booking.persisted_booking_id' => $booking->id,
+        ])->get('/dashboard/regular-bookings/payment')
+            ->assertOk()
+            ->assertSee('Pembayaran')
+            ->assertSee('Transfer')
+            ->assertSee('QRIS')
+            ->assertSee('Cash')
+            ->assertSee('Daftar Rekening Bank')
+            ->assertSee('Bank BCA')
+            ->assertSee('Bank BNI')
+            ->assertSee('Bank Mandiri')
+            ->assertSee($booking->booking_code)
+            ->assertSee('Simpan Metode Pembayaran');
+    }
+
+    public function test_regular_booking_payment_selection_is_saved_to_booking(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $booking = $this->createPersistedBooking();
+
+        $response = $this->withSession([
+            'regular_booking.information' => $this->makeDraft([
+                'passenger_count' => 2,
+                'selected_seats' => ['1A', '2A'],
+                'passengers' => [
+                    [
+                        'seat_no' => '1A',
+                        'name' => 'Budi Santoso',
+                        'phone' => '081234567890',
+                    ],
+                    [
+                        'seat_no' => '2A',
+                        'name' => 'Siti Aminah',
+                        'phone' => '081322223333',
+                    ],
+                ],
+            ]),
+            'regular_booking.persisted_booking_id' => $booking->id,
+        ])->post('/dashboard/regular-bookings/payment', [
+            'payment_method' => 'transfer',
+            'bank_account_code' => 'bca_operasional',
+        ]);
+
+        $response->assertRedirect('/dashboard/regular-bookings/payment');
+
+        $booking->refresh();
+
+        $this->assertSame('transfer', $booking->payment_method);
+        $this->assertSame('Bank BCA', $booking->payment_account_bank);
+        $this->assertSame('PT Lancang Kuning Travelindo', $booking->payment_account_name);
+        $this->assertSame('1110 0022 2333', $booking->payment_account_number);
+        $this->assertSame('300000.00', $booking->nominal_payment);
+        $this->assertSame('Menunggu Pembayaran', $booking->payment_status);
+        $this->assertSame('Menunggu Pembayaran', $booking->booking_status);
+    }
+
     private function makeDraft(array $overrides = []): array
     {
         return array_merge([
@@ -440,5 +545,31 @@ class RegularBookingPageTest extends TestCase
             'selected_seats' => [],
             'passengers' => [],
         ], $overrides);
+    }
+
+    private function createPersistedBooking(array $overrides = []): Booking
+    {
+        return Booking::query()->create(array_merge([
+            'booking_code' => 'RBK-260314-TEST',
+            'category' => 'Reguler',
+            'from_city' => 'SKPD',
+            'to_city' => 'Pekanbaru',
+            'trip_date' => now()->toDateString(),
+            'trip_time' => '08:00:00',
+            'booking_for' => 'Untuk Diri Sendiri',
+            'passenger_name' => 'Budi Santoso',
+            'passenger_phone' => '081234567890',
+            'passenger_count' => 2,
+            'pickup_location' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
+            'dropoff_location' => 'Jl. Sudirman No. 8 Pekanbaru',
+            'selected_seats' => ['1A', '2A'],
+            'price_per_seat' => 150000,
+            'total_amount' => 300000,
+            'route_label' => 'SKPD - Pekanbaru',
+            'payment_status' => 'Belum Bayar',
+            'booking_status' => 'Draft',
+            'ticket_status' => 'Draft',
+            'notes' => 'Draft regular booking untuk test.',
+        ], $overrides));
     }
 }
