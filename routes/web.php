@@ -34,8 +34,8 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/regular-bookings/invoice/download', [RegularBookingPageController::class, 'downloadInvoice'])->name('regular-bookings.invoice.download');
     Route::get('/regular-bookings/e-ticket', [RegularBookingPageController::class, 'ticket'])->name('regular-bookings.ticket');
     Route::get('/regular-bookings/e-ticket/download', [RegularBookingPageController::class, 'downloadTicket'])->name('regular-bookings.ticket.download');
+    Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
     Route::middleware('admin.role:admin')->group(function () {
-        Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/{booking}', [BookingPageController::class, 'show'])->name('bookings.show');
     });
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');

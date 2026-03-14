@@ -11,13 +11,16 @@ class BookingPageController extends Controller
 {
     public function index(BookingManagementService $service): View
     {
+        $canManageBookings = auth()->user()?->isAdmin() ?? false;
+
         return view('bookings.index', [
             'pageTitle' => 'Data Pemesanan | Lancang Kuning Travelindo',
             'pageScript' => 'bookings/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Pemesanan',
             'pageDescription' => 'Kelola dan pantau seluruh data pemesanan dari dashboard admin',
-            'formOptions' => $service->formOptions(),
+            'formOptions' => $canManageBookings ? $service->formOptions() : [],
+            'canManageBookings' => $canManageBookings,
         ]);
     }
 

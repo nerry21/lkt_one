@@ -415,6 +415,22 @@ class BookingManagementPageTest extends TestCase
 
         $this->actingAs($user)
             ->get('/dashboard/bookings')
+            ->assertOk()
+            ->assertSee('Data Pemesanan')
+            ->assertSee('Halaman ini hanya dapat diakses oleh Admin atau Super Admin.')
+            ->assertSee('Anda tidak memiliki akses untuk mengelola data pemesanan.');
+    }
+
+    public function test_non_admin_cannot_access_booking_detail_page(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'User',
+        ]);
+
+        $booking = $this->createBooking();
+
+        $this->actingAs($user)
+            ->get('/dashboard/bookings/' . $booking->id)
             ->assertForbidden();
     }
 

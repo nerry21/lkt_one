@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @php
+    $canManageBookings = $canManageBookings ?? false;
     $bookingForOptions = $formOptions['booking_for_options'] ?? [];
     $locationOptions = $formOptions['location_options'] ?? [];
     $departureTimeOptions = $formOptions['departure_time_options'] ?? [];
@@ -23,7 +24,7 @@
                 <p>Halaman utama manajemen pemesanan untuk memantau booking, pembayaran, dan detail layanan.</p>
             </div>
 
-            <div class="admin-users-page-actions">
+            <div class="admin-users-page-actions" @if (! $canManageBookings) hidden @endif>
                 <button class="admin-users-primary-button" type="button" id="bookings-add-btn" data-testid="add-booking-btn">
                     <span class="admin-users-button-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -38,7 +39,9 @@
             </div>
         </section>
 
-        <p class="admin-users-access-note" id="bookings-access-note" hidden></p>
+        <p class="admin-users-access-note" id="bookings-access-note" @if ($canManageBookings) hidden @endif>
+            Halaman ini hanya dapat diakses oleh Admin atau Super Admin.
+        </p>
 
         <section class="admin-users-search-card">
             <div class="admin-users-search-field">
@@ -54,6 +57,7 @@
                     placeholder="Cari nama, no HP, kota, nomor booking, invoice, atau tiket..."
                     autocomplete="off"
                     data-testid="search-bookings-input"
+                    @if (! $canManageBookings) disabled @endif
                 >
             </div>
         </section>
@@ -80,10 +84,14 @@
                     <tbody id="bookings-table-body">
                         <tr>
                             <td colspan="12" class="admin-users-table-state">
-                                <div class="admin-users-loading-inline">
-                                    <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
-                                    <span>Memuat data...</span>
-                                </div>
+                                @if ($canManageBookings)
+                                    <div class="admin-users-loading-inline">
+                                        <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
+                                        <span>Memuat data...</span>
+                                    </div>
+                                @else
+                                    <span class="admin-users-empty-copy">Anda tidak memiliki akses untuk mengelola data pemesanan.</span>
+                                @endif
                             </td>
                         </tr>
                     </tbody>
