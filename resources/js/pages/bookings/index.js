@@ -1,84 +1,423 @@
 import { apiRequest } from '../../services/http';
-import { buildPaginationLabel, debounce, escapeHtml, formatCurrency, formatNumber, setButtonBusy, todayString } from '../../services/helpers';
+import { escapeHtml, formatCurrency, setButtonBusy, todayString } from '../../services/helpers';
 import { closeModal, openModal } from '../../ui/modal';
 import { toastError, toastSuccess } from '../../ui/toast';
 
-const limit = 10;
+// ─── Schedules ────────────────────────────────────────────────────────────────
+
+const SCHEDULES = [
+    { value: '05:00', label: 'Subuh', time: '05.00 WIB' },
+    { value: '08:00', label: 'Pagi', time: '08.00 WIB' },
+    { value: '10:00', label: 'Pagi', time: '10.00 WIB' },
+    { value: '14:00', label: 'Siang', time: '14.00 WIB' },
+    { value: '16:00', label: 'Sore', time: '16.00 WIB' },
+    { value: '19:00', label: 'Malam', time: '19.00 WIB' },
+];
+
+// Seat rows for the car diagram (top-down view, front-to-back)
+const SEAT_ROWS = [
+    [{ code: '1A', label: '1A' }, { code: 'SOPIR', label: 'SOPIR', isDriver: true }],
+    [{ code: '2A', label: '2A' }, { code: '3A', label: '3A' }],
+    [{ code: '4A', label: '4A' }, { code: '5A', label: '5A' }],
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
 
 const state = {
     currentUser: null,
-    data: [],
-    loading: true,
-    totalCount: 0,
-    page: 1,
-    search: '',
-    editItem: null,
-    deleteItem: null,
+    date: todayString(),
+    direction: 'to_pkb',
+    bookings: [],
+    loading: false,
+    drivers: [],
+    mobils: [],
     formOptions: null,
     selectedSeats: [],
     passengerDraftMap: {},
+    editItem: null,
+    deleteItem: null,
+    slotDriverMap: {},
+    slotMobilMap: {},
 };
 
-function parseFormOptions() {
-    const element = document.getElementById('bookings-form-options');
+// ─── Parsers ──────────────────────────────────────────────────────────────────
 
-    if (!element) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(element.textContent || '{}');
-    } catch (error) {
-        return null;
-    }
+function parseJsonScript(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
 }
 
 function isAdminRole(role) {
     return ['Super Admin', 'Admin'].includes(role);
 }
 
-function busIcon() {
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+
+function passengerSeatSvg(occupied) {
+    const color = occupied ? 'var(--transit-primary)' : 'rgba(110,231,183,0.25)';
+    const stroke = occupied ? 'var(--transit-primary-dark)' : 'rgba(110,231,183,0.4)';
     return `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M8 4H16C18.7614 4 21 6.23858 21 9V15C21 16.1046 20.1046 17 19 17H5C3.89543 17 3 16.1046 3 15V9C3 6.23858 5.23858 4 8 4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M7 17L6 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M17 17L18 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M7 13H7.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
-            <path d="M17 13H17.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
-            <path d="M6 9H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-        </svg>
-    `;
+        <svg viewBox="0 0 50 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="2" width="30" height="20" rx="8" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>
+            <rect x="5" y="18" width="40" height="28" rx="9" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>
+            <rect x="7" y="44" width="36" height="14" rx="7" fill="${color}" stroke="${stroke}" stroke-width="1.5" opacity="0.8"/>
+            <rect x="2" y="22" width="5" height="18" rx="2.5" fill="${color}" opacity="0.6"/>
+            <rect x="43" y="22" width="5" height="18" rx="2.5" fill="${color}" opacity="0.6"/>
+        </svg>`;
 }
 
-function eyeIcon() {
+function driverSeatSvg() {
     return `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"></circle>
-        </svg>
-    `;
+        <svg viewBox="0 0 50 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="25" cy="30" r="18" stroke="rgba(148,163,184,0.5)" stroke-width="2.5"/>
+            <circle cx="25" cy="30" r="6" fill="rgba(148,163,184,0.4)"/>
+            <line x1="25" y1="12" x2="25" y2="24" stroke="rgba(148,163,184,0.5)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="7" y1="30" x2="19" y2="30" stroke="rgba(148,163,184,0.5)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="31" y1="30" x2="43" y2="30" stroke="rgba(148,163,184,0.5)" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`;
 }
 
 function editIcon() {
-    return `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4 20H8L18.5 9.5C19.3284 8.67157 19.3284 7.32843 18.5 6.5C17.6716 5.67157 16.3284 5.67157 15.5 6.5L5 17V20Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
-            <path d="M13.5 8.5L16.5 11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-        </svg>
-    `;
+    return `<svg viewBox="0 0 24 24" fill="none"><path d="M4 20H8L18.5 9.5C19.3284 8.67157 19.3284 7.32843 18.5 6.5C17.6716 5.67157 16.3284 5.67157 15.5 6.5L5 17V20Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path><path d="M13.5 8.5L16.5 11.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>`;
 }
 
 function trashIcon() {
-    return `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4 7H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M10 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M14 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M6 7L7 19C7.08964 20.0768 7.98946 20.9 9.07 20.9H14.93C16.0105 20.9 16.9104 20.0768 17 19L18 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-            <path d="M9 7V5.5C9 4.67157 9.67157 4 10.5 4H13.5C14.3284 4 15 4.67157 15 5.5V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-        </svg>
-    `;
+    return `<svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M10 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M14 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M6 7L7 19C7.08964 20.0768 7.98946 20.9 9.07 20.9H14.93C16.0105 20.9 16.9104 20.0768 17 19L18 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M9 7V5.5C9 4.67157 9.67157 4 10.5 4H13.5C14.3284 4 15 4.67157 15 5.5V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>`;
 }
+
+// ─── Car Seat Diagram ─────────────────────────────────────────────────────────
+
+function renderCarDiagram(seatBookingMap) {
+    const rows = SEAT_ROWS.map((row) => {
+        const cols = row.map((seat) => {
+            if (seat.isDriver) {
+                return `
+                    <div class="bpg-seat-item bpg-seat-driver" title="Sopir / Pengemudi">
+                        <div class="bpg-seat-icon">${driverSeatSvg()}</div>
+                        <span class="bpg-seat-label">SOPIR</span>
+                    </div>`;
+            }
+
+            const booking = seatBookingMap[seat.code];
+            const isOccupied = !!booking;
+            const stateClass = isOccupied ? 'bpg-seat-occupied' : 'bpg-seat-available';
+            const passengerName = isOccupied
+                ? escapeHtml(booking.nama_pemesanan || '-')
+                : '';
+
+            return `
+                <div class="bpg-seat-item ${stateClass}" title="${isOccupied ? passengerName : 'Tersedia'}">
+                    <div class="bpg-seat-icon">${passengerSeatSvg(isOccupied)}</div>
+                    <span class="bpg-seat-label">${seat.label}</span>
+                    ${isOccupied ? `<span class="bpg-seat-name">${passengerName}</span>` : ''}
+                </div>`;
+        });
+
+        return `<div class="bpg-seat-row">${cols.join('')}</div>`;
+    });
+
+    return `
+        <div class="bpg-car-diagram">
+            <div class="bpg-car-legend">
+                <span class="bpg-legend-item">
+                    <span class="bpg-legend-dot bpg-legend-dot--available"></span> Tersedia
+                </span>
+                <span class="bpg-legend-item">
+                    <span class="bpg-legend-dot bpg-legend-dot--occupied"></span> Terisi
+                </span>
+                <span class="bpg-legend-item">
+                    <span class="bpg-legend-dot bpg-legend-dot--driver"></span> Sopir
+                </span>
+            </div>
+            <div class="bpg-car-body">
+                <div class="bpg-car-direction-label">
+                    <svg viewBox="0 0 16 16" fill="none" style="width:14px;height:14px;"><path d="M8 2L8 14M3 7L8 2L13 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Arah depan kendaraan
+                </div>
+                <div class="bpg-car-inner">
+                    ${rows.join('')}
+                </div>
+            </div>
+        </div>`;
+}
+
+// ─── Passenger List ───────────────────────────────────────────────────────────
+
+function renderPassengerList(bookingsInSlot) {
+    if (bookingsInSlot.length === 0) {
+        return `
+            <div class="bpg-empty-slot">
+                <svg viewBox="0 0 24 24" fill="none" style="width:32px;height:32px;opacity:0.3;">
+                    <path d="M17 21V19C17 16.7909 15.2091 15 13 15H5C2.79086 15 1 16.7909 1 19V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M23 21V19C22.9986 17.1771 21.765 15.5857 20 15.13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <path d="M16 3.13C17.7699 3.58317 19.0078 5.17799 19.0078 7.005C19.0078 8.83201 17.7699 10.4268 16 10.88" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <p>Belum ada penumpang pada jadwal ini</p>
+            </div>`;
+    }
+
+    const rows = bookingsInSlot.map((booking) => {
+        const seats = (booking.selected_seats_label || '-');
+
+        return `
+            <div class="bpg-passenger-item" data-booking-id="${escapeHtml(String(booking.id))}">
+                <div class="bpg-passenger-seats">
+                    ${seats.split(',').map((s) => `<span class="stock-value-badge stock-value-badge-blue">${escapeHtml(s.trim())}</span>`).join('')}
+                </div>
+                <div class="bpg-passenger-info">
+                    <span class="bpg-passenger-name">${escapeHtml(booking.nama_pemesanan || '-')}</span>
+                    <span class="bpg-passenger-phone">${escapeHtml(booking.phone || '-')}</span>
+                </div>
+                <div class="bpg-passenger-actions">
+                    <span class="${escapeHtml(booking.payment_status_badge_class || 'stock-value-badge stock-value-badge-blue')} bpg-status-sm">${escapeHtml(booking.payment_status || '-')}</span>
+                    <button class="bpg-lihat-btn" type="button" data-booking-lihat="${escapeHtml(String(booking.id))}" aria-label="Lihat detail ${escapeHtml(booking.nama_pemesanan)}">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+                        Lihat
+                    </button>
+                    <button class="admin-users-icon-button" type="button" data-booking-edit="${escapeHtml(String(booking.id))}" title="Edit pemesanan">
+                        ${editIcon()}
+                    </button>
+                    <button class="admin-users-icon-button admin-users-icon-button-danger" type="button" data-booking-delete="${escapeHtml(String(booking.id))}" data-booking-name="${escapeHtml(booking.nama_pemesanan)}" title="Hapus pemesanan">
+                        ${trashIcon()}
+                    </button>
+                </div>
+            </div>`;
+    });
+
+    return `
+        <div class="bpg-passenger-list">
+            <div class="bpg-passenger-list-head">
+                <svg viewBox="0 0 24 24" fill="none" style="width:15px;height:15px;"><path d="M17 21V19C17 16.7909 15.2091 15 13 15H5C2.79086 15 1 16.7909 1 19V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+                <span>Daftar Penumpang</span>
+            </div>
+            ${rows.join('')}
+        </div>`;
+}
+
+// ─── Slot Card ────────────────────────────────────────────────────────────────
+
+function buildSeatBookingMap(bookingsInSlot) {
+    const map = {};
+
+    bookingsInSlot.forEach((booking) => {
+        const seats = Array.isArray(booking.selected_seats) ? booking.selected_seats : [];
+
+        seats.forEach((seatCode) => {
+            if (!map[seatCode]) {
+                map[seatCode] = booking;
+            }
+        });
+    });
+
+    return map;
+}
+
+function renderSlotCard(schedule, bookingsInSlot) {
+    const seatBookingMap = buildSeatBookingMap(bookingsInSlot);
+    const totalPassengers = bookingsInSlot.reduce((sum, b) => sum + (Number(b.passenger_count) || 0), 0);
+    const slotKey = `${schedule.value}__${state.direction}`;
+    // Pre-fill driver from first booking that has one
+    if (!state.slotDriverMap[slotKey]) {
+        const withDriver = bookingsInSlot.find((b) => b.driver_id);
+
+        if (withDriver) {
+            state.slotDriverMap[slotKey] = withDriver.driver_id;
+        }
+    }
+
+    const selectedDriverId = state.slotDriverMap[slotKey] || '';
+    const selectedMobilId = state.slotMobilMap[slotKey] || '';
+    const badgeClass = totalPassengers > 0 ? 'stock-value-badge-emerald' : 'stock-value-badge-blue';
+
+    const driverOptions = state.drivers.map((d) => {
+        const label = d.lokasi ? `${d.nama} (${d.lokasi})` : d.nama;
+
+        return `<option value="${escapeHtml(d.id)}" ${selectedDriverId === d.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+
+    const mobilOptions = state.mobils.map((m) => {
+        const label = `${m.kode_mobil} — ${m.jenis_mobil}`;
+
+        return `<option value="${escapeHtml(m.id)}" ${selectedMobilId === m.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+
+    return `
+        <article class="bpg-slot-card" data-slot="${escapeHtml(schedule.value)}" data-direction="${escapeHtml(state.direction)}">
+            <div class="bpg-slot-head">
+                <div class="bpg-slot-time-badge">
+                    <span class="bpg-slot-period">${escapeHtml(schedule.label)}</span>
+                    <strong class="bpg-slot-time">${escapeHtml(schedule.time)}</strong>
+                </div>
+                <div class="bpg-slot-counters">
+                    <span class="stock-value-badge ${badgeClass}">${totalPassengers} / ${totalSeats} Kursi</span>
+                </div>
+            </div>
+
+            ${renderCarDiagram(seatBookingMap)}
+
+            <div class="bpg-slot-assignment">
+                <div class="bpg-slot-select-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20C4 17.2386 7.58172 15 12 15C16.4183 15 20 17.2386 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        Pilih Driver
+                    </label>
+                    <select class="bpg-slot-select" data-slot-driver="${escapeHtml(schedule.value)}">
+                        <option value="">— Belum ditentukan —</option>
+                        ${driverOptions}
+                    </select>
+                </div>
+                <div class="bpg-slot-select-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><rect x="2" y="7" width="20" height="10" rx="3" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/></svg>
+                        Pilih Mobil
+                    </label>
+                    <select class="bpg-slot-select" data-slot-mobil="${escapeHtml(schedule.value)}">
+                        <option value="">— Belum ditentukan —</option>
+                        ${mobilOptions}
+                    </select>
+                </div>
+            </div>
+
+            ${renderPassengerList(bookingsInSlot)}
+        </article>`;
+}
+
+// ─── Slots Rendering ──────────────────────────────────────────────────────────
+
+function renderSlotsLoading() {
+    const shell = document.getElementById('bpg-slots-shell');
+
+    if (shell) {
+        shell.innerHTML = `
+            <div class="admin-users-loading-inline" style="padding:40px 0;">
+                <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
+                <span>Memuat data penumpang...</span>
+            </div>`;
+    }
+}
+
+function renderSlots() {
+    const shell = document.getElementById('bpg-slots-shell');
+
+    if (!shell) {
+        return;
+    }
+
+    // Group bookings by trip_time prefix
+    const bookingsByTime = {};
+
+    SCHEDULES.forEach((s) => { bookingsByTime[s.value] = []; });
+
+    state.bookings.forEach((booking) => {
+        const rawTime = (booking.trip_time || '').trim();
+        const timeKey = rawTime.substring(0, 5);
+
+        if (bookingsByTime[timeKey]) {
+            bookingsByTime[timeKey].push(booking);
+        }
+    });
+
+    const cards = SCHEDULES.map((schedule) => renderSlotCard(schedule, bookingsByTime[schedule.value] || []));
+
+    shell.innerHTML = `<div class="bpg-slots-grid">${cards.join('')}</div>`;
+}
+
+// ─── Fetch ────────────────────────────────────────────────────────────────────
+
+async function fetchAndRender() {
+    state.loading = true;
+    renderSlotsLoading();
+
+    try {
+        const params = new URLSearchParams({
+            date: state.date,
+            direction: state.direction,
+            limit: 200,
+            page: 1,
+        });
+
+        const bookings = await apiRequest(`/bookings?${params}`);
+
+        state.bookings = Array.isArray(bookings) ? bookings : [];
+    } catch (error) {
+        state.bookings = [];
+
+        if (error.status !== 403) {
+            toastError(error.message || 'Gagal memuat data penumpang');
+        }
+    } finally {
+        state.loading = false;
+        renderSlots();
+    }
+}
+
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+
+function openDetailModal(booking) {
+    document.getElementById('bpg-detail-title').textContent = booking.nama_pemesanan || '-';
+    document.getElementById('bpg-detail-subtitle').textContent = `${booking.booking_code || '-'} · ${booking.booking_status || '-'}`;
+    document.getElementById('bpg-detail-full-link').href = `/dashboard/bookings/${booking.id}`;
+
+    const body = document.getElementById('bpg-detail-body');
+
+    body.innerHTML = `
+        <div class="bpg-detail-grid">
+            <div class="bpg-detail-item">
+                <span>Nama Pemesanan</span>
+                <strong>${escapeHtml(booking.nama_pemesanan || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>No HP</span>
+                <strong>${escapeHtml(booking.phone || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Kota Asal</span>
+                <strong>${escapeHtml(booking.from_city || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Kota Tujuan</span>
+                <strong>${escapeHtml(booking.to_city || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Tanggal Keberangkatan</span>
+                <strong>${escapeHtml(booking.trip_date_label || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Waktu Keberangkatan</span>
+                <strong>${escapeHtml(booking.trip_time || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Pilih Kursi</span>
+                <strong>${escapeHtml(booking.selected_seats_label || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Jumlah Penumpang</span>
+                <strong>${escapeHtml(String(booking.passenger_count || 0))} Orang</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Jenis Layanan</span>
+                <strong>${escapeHtml(booking.service_type || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Biaya</span>
+                <strong class="bpg-detail-price">${escapeHtml(booking.total_amount_formatted || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item bpg-detail-item--full">
+                <span>Alamat Penjemputan</span>
+                <p>${escapeHtml(booking.pickup_location || '-')}</p>
+            </div>
+            <div class="bpg-detail-item bpg-detail-item--full">
+                <span>Alamat Pengantaran</span>
+                <p>${escapeHtml(booking.dropoff_location || '-')}</p>
+            </div>
+        </div>`;
+
+    openModal('bpg-detail-modal');
+}
+
+// ─── Form (Add / Edit Booking) ────────────────────────────────────────────────
 
 function seatOrder() {
     return (state.formOptions?.seat_options || []).map((item) => item.code);
@@ -89,65 +428,6 @@ function sortSeatCodes(seatCodes) {
 
     return Array.from(new Set((seatCodes || []).map((code) => String(code).trim()).filter((code) => orderMap.has(code))))
         .sort((left, right) => (orderMap.get(left) ?? 999) - (orderMap.get(right) ?? 999));
-}
-
-function paymentStatusOptions() {
-    return state.formOptions?.payment_status_options || [];
-}
-
-function allowedPaymentStatusValues(method) {
-    if (method === 'transfer') {
-        return ['Belum Bayar', 'Menunggu Pembayaran', 'Menunggu Verifikasi', 'Dibayar'];
-    }
-
-    if (method === 'qris') {
-        return ['Belum Bayar', 'Menunggu Pembayaran', 'Dibayar'];
-    }
-
-    if (method === 'cash') {
-        return ['Belum Bayar', 'Dibayar Tunai'];
-    }
-
-    return ['Belum Bayar'];
-}
-
-function defaultPaymentStatus(method) {
-    if (method === 'transfer') {
-        return 'Menunggu Pembayaran';
-    }
-
-    if (method === 'qris') {
-        return 'Dibayar';
-    }
-
-    if (method === 'cash') {
-        return 'Dibayar Tunai';
-    }
-
-    return 'Belum Bayar';
-}
-
-function defaultBookingStatus(method) {
-    if (method === 'transfer') {
-        return 'Menunggu Verifikasi Pembayaran';
-    }
-
-    if (method === 'qris' || method === 'cash') {
-        return 'Diproses';
-    }
-
-    return 'Draft';
-}
-
-function resolveFare(origin, destination) {
-    if (!origin || !destination || origin === destination) {
-        return null;
-    }
-
-    const routeMatrix = state.formOptions?.route_matrix || {};
-    const fare = routeMatrix?.[origin]?.[destination];
-
-    return fare === undefined || fare === null ? null : Number(fare);
 }
 
 function passengerCount() {
@@ -162,201 +442,122 @@ function allowedSeatCodes() {
         .map((item) => item.code);
 }
 
-function renderLoadingState() {
-    const tbody = document.getElementById('bookings-table-body');
-
-    if (!tbody) {
-        return;
-    }
-
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="12" class="admin-users-table-state">
-                <div class="admin-users-loading-inline">
-                    <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
-                    <span>Memuat data...</span>
-                </div>
-            </td>
-        </tr>
-    `;
+function paymentStatusOptions() {
+    return state.formOptions?.payment_status_options || [];
 }
 
-function renderEmptyState(copy = 'Belum ada data pemesanan.') {
-    const tbody = document.getElementById('bookings-table-body');
+function allowedPaymentStatusValues(method) {
+    if (method === 'transfer') return ['Belum Bayar', 'Menunggu Pembayaran', 'Menunggu Verifikasi', 'Dibayar'];
+    if (method === 'qris') return ['Belum Bayar', 'Menunggu Pembayaran', 'Dibayar'];
+    if (method === 'cash') return ['Belum Bayar', 'Dibayar Tunai'];
 
-    if (!tbody) {
-        return;
-    }
-
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="12" class="admin-users-table-state admin-users-empty-copy">${escapeHtml(copy)}</td>
-        </tr>
-    `;
+    return ['Belum Bayar'];
 }
 
-function updateTotalBadge() {
-    const badge = document.getElementById('bookings-total-badge');
+function defaultPaymentStatus(method) {
+    if (method === 'transfer') return 'Menunggu Pembayaran';
+    if (method === 'qris') return 'Dibayar';
+    if (method === 'cash') return 'Dibayar Tunai';
 
-    if (!badge) {
-        return;
-    }
-
-    badge.textContent = `${formatNumber(state.totalCount)} Data`;
+    return 'Belum Bayar';
 }
 
-function renderRows() {
-    const tbody = document.getElementById('bookings-table-body');
+function defaultBookingStatus(method) {
+    if (method === 'transfer') return 'Menunggu Verifikasi Pembayaran';
+    if (method === 'qris' || method === 'cash') return 'Diproses';
 
-    if (!tbody) {
-        return;
-    }
-
-    if (state.loading) {
-        renderLoadingState();
-        return;
-    }
-
-    if (state.data.length === 0) {
-        renderEmptyState();
-        return;
-    }
-
-    tbody.innerHTML = state.data.map((item) => `
-        <tr class="admin-users-row" data-testid="booking-row-${item.id}">
-            <td>
-                <div class="admin-users-name-cell">
-                    <span class="admin-users-avatar" aria-hidden="true">${busIcon()}</span>
-                    <div>
-                        <span class="admin-users-name">${escapeHtml(item.nama_pemesanan)}</span>
-                        <span class="admin-users-name-meta">${escapeHtml(item.booking_code)}</span>
-                        <div class="bookings-status-row">
-                            <span class="${escapeHtml(item.booking_status_badge_class)}">${escapeHtml(item.booking_status)}</span>
-                            <span class="${escapeHtml(item.payment_status_badge_class)}">${escapeHtml(item.payment_status)}</span>
-                        </div>
-                    </div>
-                </div>
-            </td>
-            <td><span class="admin-users-email">${escapeHtml(item.phone)}</span></td>
-            <td><span class="admin-users-email">${escapeHtml(item.from_city)}</span></td>
-            <td><span class="admin-users-email">${escapeHtml(item.to_city)}</span></td>
-            <td><span class="admin-users-email">${escapeHtml(item.trip_date_label)}</span></td>
-            <td><span class="admin-users-email">${escapeHtml(item.trip_time)}</span></td>
-            <td><span class="admin-users-email">${escapeHtml(item.selected_seats_label)}</span></td>
-            <td class="text-right"><span class="admin-users-email">${escapeHtml(String(item.passenger_count))}</span></td>
-            <td><span class="stock-value-badge stock-value-badge-blue">${escapeHtml(item.service_type)}</span></td>
-            <td class="text-right">
-                <div class="bookings-amount-cell">
-                    <strong>${escapeHtml(item.total_amount_formatted)}</strong>
-                </div>
-            </td>
-            <td><span class="bookings-address-copy">${escapeHtml(item.address_summary)}</span></td>
-            <td>
-                <div class="admin-users-action-row">
-                    <a class="admin-users-icon-button" href="/dashboard/bookings/${item.id}" data-testid="show-booking-${item.id}" aria-label="Lihat detail pemesanan ${escapeHtml(item.nama_pemesanan)}">
-                        ${eyeIcon()}
-                    </a>
-                    <button class="admin-users-icon-button" type="button" data-booking-edit="${item.id}" data-testid="edit-booking-${item.id}" aria-label="Edit pemesanan ${escapeHtml(item.nama_pemesanan)}" ${item.can_edit ? '' : 'disabled'}>
-                        ${editIcon()}
-                    </button>
-                    <button class="admin-users-icon-button admin-users-icon-button-danger" type="button" data-booking-delete="${item.id}" data-booking-name="${escapeHtml(item.nama_pemesanan)}" data-testid="delete-booking-${item.id}" aria-label="Hapus pemesanan ${escapeHtml(item.nama_pemesanan)}" ${item.can_delete ? '' : 'disabled'}>
-                        ${trashIcon()}
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+    return 'Draft';
 }
 
-function renderPagination() {
-    const shell = document.getElementById('bookings-pagination-shell');
-    const info = document.getElementById('bookings-pagination-info');
-    const pageLabel = document.getElementById('bookings-pagination-page');
-    const prevButton = document.getElementById('bookings-prev-page-btn');
-    const nextButton = document.getElementById('bookings-next-page-btn');
-    const totalPages = Math.max(1, Math.ceil(state.totalCount / limit));
+function resolveFare(origin, destination) {
+    if (!origin || !destination || origin === destination) return null;
 
-    if (shell) {
-        shell.hidden = totalPages <= 1;
-    }
+    const routeMatrix = state.formOptions?.route_matrix || {};
+    const fare = routeMatrix?.[origin]?.[destination];
 
-    if (info) {
-        info.textContent = buildPaginationLabel(state.page, limit, state.totalCount, state.data.length);
-    }
-
-    if (pageLabel) {
-        pageLabel.textContent = `${state.page} / ${totalPages}`;
-    }
-
-    if (prevButton) {
-        prevButton.disabled = state.page === 1;
-    }
-
-    if (nextButton) {
-        nextButton.disabled = state.page >= totalPages;
-    }
+    return fare === undefined || fare === null ? null : Number(fare);
 }
 
-function syncPassengerDraftMapFromDom() {
-    const rows = document.querySelectorAll('[data-passenger-seat]');
+function updatePricing() {
+    const origin = document.getElementById('booking-from-city')?.value || '';
+    const destination = document.getElementById('booking-to-city')?.value || '';
+    const count = passengerCount();
+    const fare = resolveFare(origin, destination);
+    const total = fare !== null ? fare * count : null;
 
-    rows.forEach((row) => {
-        const seat = row.dataset.passengerSeat;
+    const fareInput = document.getElementById('booking-price-per-seat');
+    const totalInput = document.getElementById('booking-total-amount');
 
-        if (!seat) {
-            return;
-        }
+    if (fareInput) fareInput.value = fare !== null ? formatCurrency(fare) : '';
+    if (totalInput) totalInput.value = total !== null ? formatCurrency(total) : '';
+}
 
-        state.passengerDraftMap[seat] = {
-            seat_no: seat,
-            name: row.querySelector('[data-passenger-name]')?.value.trim() || '',
-            phone: row.querySelector('[data-passenger-phone]')?.value.trim() || '',
-        };
-    });
+function updatePaymentFieldVisibility() {
+    const paymentMethod = document.getElementById('booking-payment-method')?.value || '';
+    const paymentStatusSelect = document.getElementById('booking-payment-status');
+    const bookingStatusSelect = document.getElementById('booking-booking-status');
+    const bankGroup = document.getElementById('booking-bank-account-group');
+    const bankSelect = document.getElementById('booking-bank-account-code');
+    const allowedStatuses = allowedPaymentStatusValues(paymentMethod);
+    const currentPaymentStatus = paymentStatusSelect?.value || '';
+
+    if (bankGroup) bankGroup.hidden = paymentMethod !== 'transfer';
+    if (bankSelect && paymentMethod !== 'transfer') bankSelect.value = '';
+
+    if (paymentStatusSelect) {
+        paymentStatusSelect.innerHTML = paymentStatusOptions()
+            .filter((option) => allowedStatuses.includes(option.value))
+            .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
+            .join('');
+        paymentStatusSelect.value = allowedStatuses.includes(currentPaymentStatus)
+            ? currentPaymentStatus
+            : defaultPaymentStatus(paymentMethod);
+    }
+
+    if (bookingStatusSelect) bookingStatusSelect.value = defaultBookingStatus(paymentMethod);
 }
 
 function updateSelectedSeatsInputs() {
     const container = document.getElementById('booking-selected-seats-inputs');
 
-    if (!container) {
-        return;
+    if (container) {
+        container.innerHTML = state.selectedSeats.map((seatCode) => `<input type="hidden" name="selected_seats[]" value="${escapeHtml(seatCode)}">`).join('');
     }
-
-    container.innerHTML = state.selectedSeats.map((seatCode) => `
-        <input type="hidden" name="selected_seats[]" value="${escapeHtml(seatCode)}">
-    `).join('');
 }
 
 function updateSeatSummary() {
-    const countElement = document.getElementById('booking-selected-seat-count');
-    const labelElement = document.getElementById('booking-selected-seat-label');
+    const countEl = document.getElementById('booking-selected-seat-count');
+    const labelEl = document.getElementById('booking-selected-seat-label');
 
-    if (countElement) {
-        countElement.textContent = String(state.selectedSeats.length);
-    }
+    if (countEl) countEl.textContent = String(state.selectedSeats.length);
+    if (labelEl) labelEl.textContent = state.selectedSeats.length > 0 ? state.selectedSeats.join(', ') : 'Belum dipilih';
+}
 
-    if (labelElement) {
-        labelElement.textContent = state.selectedSeats.length > 0 ? state.selectedSeats.join(', ') : 'Belum dipilih';
-    }
+function syncPassengerDraftMapFromDom() {
+    document.querySelectorAll('[data-passenger-seat]').forEach((row) => {
+        const seat = row.dataset.passengerSeat;
+
+        if (seat) {
+            state.passengerDraftMap[seat] = {
+                seat_no: seat,
+                name: row.querySelector('[data-passenger-name]')?.value.trim() || '',
+                phone: row.querySelector('[data-passenger-phone]')?.value.trim() || '',
+            };
+        }
+    });
 }
 
 function renderPassengerForms(seedPassengers = null) {
     const container = document.getElementById('booking-passenger-editor');
 
-    if (!container) {
-        return;
-    }
+    if (!container) return;
 
     if (seedPassengers) {
-        state.passengerDraftMap = Object.fromEntries(seedPassengers.map((passenger) => [passenger.seat_no, passenger]));
+        state.passengerDraftMap = Object.fromEntries(seedPassengers.map((p) => [p.seat_no, p]));
     }
 
     if (state.selectedSeats.length === 0) {
-        container.innerHTML = `
-            <div class="dashboard-empty-state dashboard-empty-state--block bookings-passenger-empty">
-                Pilih kursi terlebih dahulu untuk menampilkan form data penumpang.
-            </div>
-        `;
+        container.innerHTML = `<div class="dashboard-empty-state dashboard-empty-state--block bookings-passenger-empty">Pilih kursi terlebih dahulu untuk menampilkan form data penumpang.</div>`;
         return;
     }
 
@@ -370,9 +571,8 @@ function renderPassengerForms(seedPassengers = null) {
                         <div class="bookings-passenger-form-head">
                             <span class="stock-value-badge stock-value-badge-blue">${escapeHtml(seatCode)}</span>
                             <strong>Penumpang ${index + 1}</strong>
-                            <p>${index === 0 ? 'Menjadi nama pemesanan utama pada tabel.' : 'Data penumpang tambahan.'}</p>
+                            <p>${index === 0 ? 'Menjadi nama pemesanan utama.' : 'Data penumpang tambahan.'}</p>
                         </div>
-
                         <div class="bookings-passenger-form-grid">
                             <div class="admin-users-form-group">
                                 <label>Nama</label>
@@ -380,7 +580,6 @@ function renderPassengerForms(seedPassengers = null) {
                                     <input type="text" value="${escapeHtml(passenger.name || '')}" placeholder="Masukkan nama penumpang" data-passenger-name>
                                 </div>
                             </div>
-
                             <div class="admin-users-form-group">
                                 <label>No HP</label>
                                 <div class="admin-users-input-shell">
@@ -388,11 +587,9 @@ function renderPassengerForms(seedPassengers = null) {
                                 </div>
                             </div>
                         </div>
-                    </article>
-                `;
+                    </article>`;
             }).join('')}
-        </div>
-    `;
+        </div>`;
 }
 
 function renderSeatButtons() {
@@ -418,57 +615,6 @@ function renderSeatButtons() {
     updateSeatSummary();
 }
 
-function updatePricing() {
-    const origin = document.getElementById('booking-from-city')?.value || '';
-    const destination = document.getElementById('booking-to-city')?.value || '';
-    const count = passengerCount();
-    const fare = resolveFare(origin, destination);
-    const total = fare !== null ? fare * count : null;
-    const fareInput = document.getElementById('booking-price-per-seat');
-    const totalInput = document.getElementById('booking-total-amount');
-
-    if (fareInput) {
-        fareInput.value = fare !== null ? formatCurrency(fare) : '';
-    }
-
-    if (totalInput) {
-        totalInput.value = total !== null ? formatCurrency(total) : '';
-    }
-}
-
-function updatePaymentFieldVisibility() {
-    const paymentMethod = document.getElementById('booking-payment-method')?.value || '';
-    const paymentStatusSelect = document.getElementById('booking-payment-status');
-    const bookingStatusSelect = document.getElementById('booking-booking-status');
-    const bankGroup = document.getElementById('booking-bank-account-group');
-    const bankSelect = document.getElementById('booking-bank-account-code');
-    const allowedStatuses = allowedPaymentStatusValues(paymentMethod);
-    const currentPaymentStatus = paymentStatusSelect?.value || '';
-
-    if (bankGroup) {
-        bankGroup.hidden = paymentMethod !== 'transfer';
-    }
-
-    if (bankSelect && paymentMethod !== 'transfer') {
-        bankSelect.value = '';
-    }
-
-    if (paymentStatusSelect) {
-        paymentStatusSelect.innerHTML = paymentStatusOptions()
-            .filter((option) => allowedStatuses.includes(option.value))
-            .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
-            .join('');
-
-        paymentStatusSelect.value = allowedStatuses.includes(currentPaymentStatus)
-            ? currentPaymentStatus
-            : defaultPaymentStatus(paymentMethod);
-    }
-
-    if (bookingStatusSelect) {
-        bookingStatusSelect.value = defaultBookingStatus(paymentMethod);
-    }
-}
-
 function resetForm() {
     const form = document.getElementById('booking-form');
 
@@ -478,10 +624,12 @@ function resetForm() {
     state.selectedSeats = [];
     state.passengerDraftMap = {};
 
+    const todayVal = state.date || todayString();
+
     document.getElementById('booking-id').value = '';
     document.getElementById('booking-form-title').textContent = 'Tambah Pemesanan';
     document.getElementById('booking-form-description').textContent = 'Lengkapi data pemesanan reguler dari dashboard admin.';
-    document.getElementById('booking-trip-date').value = todayString();
+    document.getElementById('booking-trip-date').value = todayVal;
     document.getElementById('booking-passenger-count').value = '1';
     document.getElementById('booking-payment-method').value = '';
     document.getElementById('booking-booking-status').value = 'Draft';
@@ -495,7 +643,7 @@ function resetForm() {
 function fillForm(item) {
     state.editItem = item;
     state.selectedSeats = sortSeatCodes(item.selected_seats || []);
-    state.passengerDraftMap = Object.fromEntries((item.passengers || []).map((passenger) => [passenger.seat_no, passenger]));
+    state.passengerDraftMap = Object.fromEntries((item.passengers || []).map((p) => [p.seat_no, p]));
 
     document.getElementById('booking-id').value = item.id;
     document.getElementById('booking-booking-for').value = item.booking_for;
@@ -505,7 +653,7 @@ function fillForm(item) {
     document.getElementById('booking-trip-date').value = item.trip_date_value;
     document.getElementById('booking-trip-time').value = item.trip_time_value;
     document.getElementById('booking-passenger-count').value = String(item.passenger_count);
-    document.getElementById('booking-driver-name').value = item.driver_name === 'Menunggu Penetapan Driver' ? '' : item.driver_name;
+    document.getElementById('booking-driver-name').value = item.driver_name === 'Menunggu Penetapan Driver' ? '' : (item.driver_name || '');
     document.getElementById('booking-pickup-location').value = item.pickup_location;
     document.getElementById('booking-dropoff-location').value = item.dropoff_location;
     document.getElementById('booking-payment-method').value = item.payment_method_value || '';
@@ -551,29 +699,6 @@ function buildPayload() {
     };
 }
 
-async function fetchData() {
-    state.loading = true;
-    renderRows();
-    renderPagination();
-
-    try {
-        const searchQuery = state.search ? `?search=${encodeURIComponent(state.search)}` : '';
-        const pageQuery = `?page=${state.page}&limit=${limit}${state.search ? `&search=${encodeURIComponent(state.search)}` : ''}`;
-        const [items, count] = await Promise.all([
-            apiRequest(`/bookings${pageQuery}`),
-            apiRequest(`/bookings/count${searchQuery}`),
-        ]);
-
-        state.data = Array.isArray(items) ? items : [];
-        state.totalCount = Number(count.count || 0);
-    } finally {
-        state.loading = false;
-        updateTotalBadge();
-        renderRows();
-        renderPagination();
-    }
-}
-
 async function openEditDialog(id) {
     fillForm(await apiRequest(`/bookings/${id}`));
     openModal('booking-form-modal');
@@ -585,93 +710,159 @@ function openDeleteDialog(item) {
     openModal('booking-delete-modal');
 }
 
+// ─── Access Denied ────────────────────────────────────────────────────────────
+
 function renderAccessDenied() {
     const note = document.getElementById('bookings-access-note');
-    const searchInput = document.getElementById('bookings-search-input');
-    const actions = document.querySelector('.admin-users-page-actions');
+    const tabs = document.getElementById('bpg-route-tabs');
+    const shell = document.getElementById('bpg-slots-shell');
 
-    if (note) {
-        note.hidden = false;
-        note.textContent = 'Halaman ini hanya dapat diakses oleh Admin atau Super Admin.';
-    }
-
-    if (searchInput) {
-        searchInput.disabled = true;
-    }
-
-    if (actions) {
-        actions.hidden = true;
-    }
-
-    state.loading = false;
-    state.data = [];
-    state.totalCount = 0;
-    updateTotalBadge();
-    renderEmptyState('Anda tidak memiliki akses untuk mengelola data pemesanan.');
-    renderPagination();
+    if (note) { note.hidden = false; }
+    if (tabs) { tabs.hidden = true; }
+    if (shell) { shell.hidden = true; }
 }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 
 export default function initBookingsPage({ user } = {}) {
     const addButton = document.getElementById('bookings-add-btn');
-    const searchInput = document.getElementById('bookings-search-input');
+    const datePicker = document.getElementById('bookings-date-picker');
+    const routeTabs = document.getElementById('bpg-route-tabs');
+    const slotsShell = document.getElementById('bpg-slots-shell');
     const form = document.getElementById('booking-form');
-    const tbody = document.getElementById('bookings-table-body');
     const deleteButton = document.getElementById('booking-delete-confirm-btn');
-    const prevButton = document.getElementById('bookings-prev-page-btn');
-    const nextButton = document.getElementById('bookings-next-page-btn');
     const seatGrid = document.getElementById('booking-seat-grid');
     const passengerEditor = document.getElementById('booking-passenger-editor');
     const paymentMethodSelect = document.getElementById('booking-payment-method');
 
-    if (!addButton || !searchInput || !form || !tbody) {
-        return;
-    }
-
-    state.formOptions = parseFormOptions();
+    state.formOptions = parseJsonScript('bookings-form-options');
+    state.drivers = parseJsonScript('bookings-drivers-data') || [];
+    state.mobils = parseJsonScript('bookings-mobils-data') || [];
     state.currentUser = user || window.transitAuthUser || null;
+    state.date = todayString();
 
     if (!isAdminRole(state.currentUser?.role)) {
         renderAccessDenied();
         return;
     }
 
-    resetForm();
+    // Set date picker to today
+    if (datePicker) {
+        datePicker.value = state.date;
+        datePicker.addEventListener('change', async () => {
+            state.date = datePicker.value;
+            state.slotDriverMap = {};
+            state.slotMobilMap = {};
+            await fetchAndRender();
+        });
+    }
 
-    addButton.addEventListener('click', () => {
+    // Route direction tabs
+    routeTabs?.addEventListener('click', async (event) => {
+        const tab = event.target.closest('[data-direction]');
+
+        if (!tab) return;
+
+        const newDirection = tab.dataset.direction;
+
+        if (newDirection === state.direction) return;
+
+        state.direction = newDirection;
+        state.slotDriverMap = {};
+        state.slotMobilMap = {};
+
+        document.querySelectorAll('.bpg-route-tab').forEach((t) => {
+            t.classList.toggle('is-active', t.dataset.direction === newDirection);
+        });
+
+        await fetchAndRender();
+    });
+
+    // Slots shell: delegate clicks and changes
+    slotsShell?.addEventListener('click', async (event) => {
+        const lihatBtn = event.target.closest('[data-booking-lihat]');
+        const editBtn = event.target.closest('[data-booking-edit]');
+        const deleteBtn = event.target.closest('[data-booking-delete]');
+
+        try {
+            if (lihatBtn) {
+                const bookingId = lihatBtn.dataset.bookingLihat;
+                const booking = state.bookings.find((b) => String(b.id) === String(bookingId));
+
+                if (booking) {
+                    openDetailModal(booking);
+                }
+
+                return;
+            }
+
+            if (editBtn) {
+                await openEditDialog(editBtn.dataset.bookingEdit);
+                return;
+            }
+
+            if (deleteBtn) {
+                openDeleteDialog({
+                    id: deleteBtn.dataset.bookingDelete,
+                    nama: deleteBtn.dataset.bookingName,
+                });
+            }
+        } catch (error) {
+            toastError(error.message || 'Gagal memuat data pemesanan');
+        }
+    });
+
+    // Driver / Mobil select changes per slot
+    slotsShell?.addEventListener('change', async (event) => {
+        const driverSelect = event.target.closest('[data-slot-driver]');
+        const mobilSelect = event.target.closest('[data-slot-mobil]');
+
+        if (driverSelect) {
+            const tripTime = driverSelect.dataset.slotDriver;
+            const driverId = driverSelect.value;
+            const selectedOption = driverSelect.options[driverSelect.selectedIndex];
+            const driverName = driverId ? (selectedOption?.text.split(' (')[0] || '') : '';
+            const slotKey = `${tripTime}__${state.direction}`;
+
+            state.slotDriverMap[slotKey] = driverId;
+
+            try {
+                await apiRequest('/bookings/slot-assign', {
+                    method: 'PATCH',
+                    body: {
+                        trip_date: state.date,
+                        trip_time: tripTime,
+                        direction: state.direction,
+                        driver_id: driverId || null,
+                        driver_name: driverName,
+                    },
+                });
+                toastSuccess('Driver berhasil diperbarui');
+            } catch (err) {
+                toastError(err.message || 'Gagal memperbarui driver');
+            }
+        }
+
+        if (mobilSelect) {
+            const tripTime = mobilSelect.dataset.slotMobil;
+            const mobilId = mobilSelect.value;
+            const slotKey = `${tripTime}__${state.direction}`;
+
+            state.slotMobilMap[slotKey] = mobilId;
+        }
+    });
+
+    // Add booking button
+    addButton?.addEventListener('click', () => {
         resetForm();
         openModal('booking-form-modal');
     });
 
-    searchInput.addEventListener('input', debounce(async (event) => {
-        state.search = event.target.value.trim();
-        state.page = 1;
-
-        try {
-            await fetchData();
-        } catch (error) {
-            toastError(error.message || 'Gagal memuat data pemesanan');
-        }
-    }));
-
-    document.getElementById('booking-from-city')?.addEventListener('change', updatePricing);
-    document.getElementById('booking-to-city')?.addEventListener('change', updatePricing);
-    document.getElementById('booking-passenger-count')?.addEventListener('change', () => {
-        syncPassengerDraftMapFromDom();
-        renderSeatButtons();
-        renderPassengerForms();
-        updatePricing();
-    });
-
-    paymentMethodSelect?.addEventListener('change', () => {
-        updatePaymentFieldVisibility();
-    });
-
+    // Booking form: seat grid clicks
     seatGrid?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-seat-code]');
 
-        if (!button || button.disabled) {
-            return;
-        }
+        if (!button || button.disabled) return;
 
         syncPassengerDraftMapFromDom();
 
@@ -687,12 +878,26 @@ export default function initBookingsPage({ user } = {}) {
         renderPassengerForms();
     });
 
+    // Passenger count change
+    document.getElementById('booking-passenger-count')?.addEventListener('change', () => {
+        syncPassengerDraftMapFromDom();
+        renderSeatButtons();
+        renderPassengerForms();
+        updatePricing();
+    });
+
+    // Pricing
+    document.getElementById('booking-from-city')?.addEventListener('change', updatePricing);
+    document.getElementById('booking-to-city')?.addEventListener('change', updatePricing);
+
+    // Payment method
+    paymentMethodSelect?.addEventListener('change', updatePaymentFieldVisibility);
+
+    // Passenger editor input
     passengerEditor?.addEventListener('input', (event) => {
         const row = event.target.closest('[data-passenger-seat]');
 
-        if (!row) {
-            return;
-        }
+        if (!row) return;
 
         const seatCode = row.dataset.passengerSeat;
 
@@ -703,7 +908,8 @@ export default function initBookingsPage({ user } = {}) {
         };
     });
 
-    form.addEventListener('submit', async (event) => {
+    // Booking form submit
+    form?.addEventListener('submit', async (event) => {
         event.preventDefault();
 
         const submitButton = document.getElementById('booking-submit-btn');
@@ -714,54 +920,26 @@ export default function initBookingsPage({ user } = {}) {
             const payload = buildPayload();
 
             if (state.editItem) {
-                await apiRequest(`/bookings/${state.editItem.id}`, {
-                    method: 'PUT',
-                    body: payload,
-                });
+                await apiRequest(`/bookings/${state.editItem.id}`, { method: 'PUT', body: payload });
                 toastSuccess('Data pemesanan berhasil diperbarui');
             } else {
-                await apiRequest('/bookings', {
-                    method: 'POST',
-                    body: payload,
-                });
+                await apiRequest('/bookings', { method: 'POST', body: payload });
                 toastSuccess('Data pemesanan berhasil ditambahkan');
             }
 
             closeModal('booking-form-modal');
             resetForm();
-            await fetchData();
+            await fetchAndRender();
         } catch (error) {
-            toastError(error.message || 'Silakan periksa kembali data pemesanan yang diinput', 'Gagal menyimpan data pemesanan');
+            toastError(error.message || 'Silakan periksa kembali data yang diinput', 'Gagal menyimpan data pemesanan');
         } finally {
             setButtonBusy(submitButton, false, 'Menyimpan...');
         }
     });
 
-    tbody.addEventListener('click', async (event) => {
-        const editButton = event.target.closest('[data-booking-edit]');
-        const deleteButtonTrigger = event.target.closest('[data-booking-delete]');
-
-        try {
-            if (editButton) {
-                await openEditDialog(editButton.dataset.bookingEdit);
-                return;
-            }
-
-            if (deleteButtonTrigger) {
-                openDeleteDialog({
-                    id: deleteButtonTrigger.dataset.bookingDelete,
-                    nama: deleteButtonTrigger.dataset.bookingName,
-                });
-            }
-        } catch (error) {
-            toastError(error.message || 'Gagal memuat data pemesanan');
-        }
-    });
-
+    // Delete confirm
     deleteButton?.addEventListener('click', async () => {
-        if (!state.deleteItem) {
-            return;
-        }
+        if (!state.deleteItem) return;
 
         setButtonBusy(deleteButton, true, 'Menghapus...');
 
@@ -769,13 +947,8 @@ export default function initBookingsPage({ user } = {}) {
             await apiRequest(`/bookings/${state.deleteItem.id}`, { method: 'DELETE' });
             toastSuccess('Data pemesanan berhasil dihapus');
             closeModal('booking-delete-modal');
-
-            if ((state.page - 1) * limit >= state.totalCount - 1 && state.page > 1) {
-                state.page -= 1;
-            }
-
             state.deleteItem = null;
-            await fetchData();
+            await fetchAndRender();
         } catch (error) {
             toastError(error.message || 'Gagal menghapus data pemesanan');
         } finally {
@@ -783,42 +956,14 @@ export default function initBookingsPage({ user } = {}) {
         }
     });
 
-    prevButton?.addEventListener('click', async () => {
-        if (state.page <= 1) {
-            return;
-        }
+    resetForm();
 
-        state.page -= 1;
-
-        try {
-            await fetchData();
-        } catch (error) {
-            toastError(error.message || 'Gagal memuat data pemesanan');
-        }
-    });
-
-    nextButton?.addEventListener('click', async () => {
-        const totalPages = Math.max(1, Math.ceil(state.totalCount / limit));
-
-        if (state.page >= totalPages) {
-            return;
-        }
-
-        state.page += 1;
-
-        try {
-            await fetchData();
-        } catch (error) {
-            toastError(error.message || 'Gagal memuat data pemesanan');
-        }
-    });
-
-    return fetchData().catch((error) => {
+    return fetchAndRender().catch((error) => {
         if (error.status === 403) {
             renderAccessDenied();
             return;
         }
 
-        toastError(error.message || 'Gagal memuat data pemesanan');
+        toastError(error.message || 'Gagal memuat data penumpang');
     });
 }

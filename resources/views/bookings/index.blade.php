@@ -17,14 +17,17 @@
 @section('content')
     <section class="admin-users-page animate-fade-in" data-bookings-page>
         <script id="bookings-form-options" type="application/json">@json($formOptions)</script>
+        <script id="bookings-drivers-data" type="application/json">@json($drivers ?? [])</script>
+        <script id="bookings-mobils-data" type="application/json">@json($mobils ?? [])</script>
 
         <section class="admin-users-page-header">
             <div class="admin-users-page-copy">
-                <h1>Data Pemesanan</h1>
-                <p>Halaman utama manajemen pemesanan untuk memantau booking, pembayaran, dan detail layanan.</p>
+                <h1>Data Penumpang</h1>
+                <p>Pantau dan kelola penumpang per jadwal keberangkatan.</p>
             </div>
 
-            <div class="admin-users-page-actions" @if (! $canManageBookings) hidden @endif>
+            <div class="bpg-header-actions" @if (! $canManageBookings) hidden @endif>
+                <input type="date" id="bookings-date-picker" class="bpg-date-input" data-testid="bookings-date-picker">
                 <button class="admin-users-primary-button" type="button" id="bookings-add-btn" data-testid="add-booking-btn">
                     <span class="admin-users-button-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -34,8 +37,6 @@
                     </span>
                     <span>Tambah Pemesanan</span>
                 </button>
-
-                <span class="stock-value-badge stock-value-badge-blue" id="bookings-total-badge">0 Data</span>
             </div>
         </section>
 
@@ -43,94 +44,63 @@
             Halaman ini hanya dapat diakses oleh Admin atau Super Admin.
         </p>
 
-        <section class="admin-users-search-card">
-            <div class="admin-users-search-field">
-                <span class="admin-users-search-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>
-                        <path d="M20 20L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                    </svg>
-                </span>
-                <input
-                    id="bookings-search-input"
-                    type="search"
-                    placeholder="Cari nama, no HP, kota, nomor booking, invoice, atau tiket..."
-                    autocomplete="off"
-                    data-testid="search-bookings-input"
-                    @if (! $canManageBookings) disabled @endif
-                >
+        {{-- Route Direction Tabs --}}
+        <div class="bpg-route-tabs" id="bpg-route-tabs" @if (! $canManageBookings) hidden @endif>
+            <button class="bpg-route-tab is-active" type="button" data-direction="to_pkb" data-testid="tab-to-pkb">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Rokan Hulu → Pekanbaru
+            </button>
+            <button class="bpg-route-tab" type="button" data-direction="from_pkb" data-testid="tab-from-pkb">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Pekanbaru → Pasir
+            </button>
+        </div>
+
+        {{-- Slots Container --}}
+        <div class="bpg-slots-shell" id="bpg-slots-shell" @if (! $canManageBookings) hidden @endif>
+            <div class="admin-users-loading-inline">
+                <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
+                <span>Memuat data penumpang...</span>
             </div>
-        </section>
+        </div>
 
-        <section class="admin-users-table-card">
-            <div class="admin-users-table-wrap">
-                <table class="admin-users-table">
-                    <thead>
-                        <tr>
-                            <th>Nama Pemesanan</th>
-                            <th>No HP</th>
-                            <th>Kota Asal</th>
-                            <th>Kota Tujuan</th>
-                            <th>Tanggal Keberangkatan</th>
-                            <th>Waktu Keberangkatan</th>
-                            <th>Pilih Kursi</th>
-                            <th class="text-right">Jumlah Penumpang</th>
-                            <th>Jenis Layanan</th>
-                            <th class="text-right">Biaya</th>
-                            <th>Alamat</th>
-                            <th class="text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="bookings-table-body">
-                        <tr>
-                            <td colspan="12" class="admin-users-table-state">
-                                @if ($canManageBookings)
-                                    <div class="admin-users-loading-inline">
-                                        <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
-                                        <span>Memuat data...</span>
-                                    </div>
-                                @else
-                                    <span class="admin-users-empty-copy">Anda tidak memiliki akses untuk mengelola data pemesanan.</span>
-                                @endif
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="admin-users-pagination" id="bookings-pagination-shell" hidden>
-                <p class="admin-users-pagination-copy" id="bookings-pagination-info">Menampilkan 0 - 0 dari 0 data</p>
-
-                <div class="admin-users-pagination-controls">
-                    <button
-                        class="admin-users-pagination-button"
-                        id="bookings-prev-page-btn"
-                        type="button"
-                        data-testid="prev-bookings-page-btn"
-                        aria-label="Halaman sebelumnya"
-                    >
+        {{-- Lihat Detail Modal --}}
+        <div class="modal-shell" id="bpg-detail-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="bpg-detail-modal"></div>
+            <div class="modal-card admin-users-dialog-card bpg-detail-dialog-card">
+                <div class="admin-users-dialog-head">
+                    <div>
+                        <h3 id="bpg-detail-title">Detail Penumpang</h3>
+                        <p id="bpg-detail-subtitle" class="bpg-detail-subtitle">-</p>
+                    </div>
+                    <button type="button" class="admin-users-dialog-close" data-modal-close="bpg-detail-modal" aria-label="Tutup">
                         <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-
-                    <span class="admin-users-pagination-page" id="bookings-pagination-page">1 / 1</span>
-
-                    <button
-                        class="admin-users-pagination-button"
-                        id="bookings-next-page-btn"
-                        type="button"
-                        data-testid="next-bookings-page-btn"
-                        aria-label="Halaman berikutnya"
-                    >
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                         </svg>
                     </button>
                 </div>
+                <div id="bpg-detail-body" class="bpg-detail-body">
+                    {{-- Rendered by JS --}}
+                </div>
+                <div class="admin-users-dialog-actions">
+                    <button class="admin-users-secondary-button" type="button" data-modal-close="bpg-detail-modal">Tutup</button>
+                    <a class="admin-users-primary-button" id="bpg-detail-full-link" href="#" target="_blank">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;margin-right:6px;">
+                            <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/>
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+                        </svg>
+                        Lihat Halaman Lengkap
+                    </a>
+                </div>
             </div>
-        </section>
+        </div>
 
+        {{-- Add/Edit Booking Modal --}}
         <div class="modal-shell" id="booking-form-modal" hidden>
             <div class="modal-backdrop" data-modal-close="booking-form-modal"></div>
 
@@ -384,6 +354,7 @@
             </div>
         </div>
 
+        {{-- Delete Booking Modal --}}
         <div class="modal-shell" id="booking-delete-modal" hidden>
             <div class="modal-backdrop" data-modal-close="booking-delete-modal"></div>
 

@@ -65,6 +65,40 @@ class BookingController extends Controller
         return response()->json($service->detailPayload($updatedBooking));
     }
 
+    public function slotAssign(Request $request, BookingManagementService $service): JsonResponse
+    {
+        $this->actor($request);
+
+        $tripDate = trim((string) $request->input('trip_date', ''));
+        $tripTime = trim((string) $request->input('trip_time', ''));
+        $direction = trim((string) $request->input('direction', ''));
+        $driverName = trim((string) $request->input('driver_name', ''));
+        $driverId = $request->input('driver_id') ?: null;
+
+        if ($tripDate === '' || $tripTime === '') {
+            return response()->json(['message' => 'trip_date dan trip_time wajib diisi'], 422);
+        }
+
+        $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
+
+        $query = Booking::query()
+            ->where('trip_date', $tripDate)
+            ->where('trip_time', 'like', $timePrefix . '%');
+
+        if ($direction === 'to_pkb') {
+            $query->where('to_city', 'Pekanbaru');
+        } elseif ($direction === 'from_pkb') {
+            $query->where('from_city', 'Pekanbaru');
+        }
+
+        $query->update([
+            'driver_name' => $driverName !== '' ? $driverName : null,
+            'driver_id' => $driverId,
+        ]);
+
+        return response()->json(['message' => 'Driver berhasil diperbarui pada slot keberangkatan']);
+    }
+
     public function destroy(Request $request, string $booking, BookingManagementService $service): JsonResponse
     {
         $this->actor($request);

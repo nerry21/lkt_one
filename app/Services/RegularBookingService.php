@@ -32,7 +32,7 @@ class RegularBookingService
             ['value' => '05:00', 'label' => 'Subuh - 05.00 WIB'],
             ['value' => '08:00', 'label' => 'Pagi - 08.00 WIB'],
             ['value' => '10:00', 'label' => 'Pagi - 10.00 WIB'],
-            ['value' => '12:00', 'label' => 'Siang - 12.00 WIB'],
+            ['value' => '14:00', 'label' => 'Siang - 14.00 WIB'],
             ['value' => '16:00', 'label' => 'Sore - 16.00 WIB'],
             ['value' => '19:00', 'label' => 'Malam - 19.00 WIB'],
         ];

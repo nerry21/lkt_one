@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Bookings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Driver;
+use App\Models\Mobil;
 use App\Services\BookingManagementService;
 use Illuminate\Contracts\View\View;
 
@@ -14,13 +16,15 @@ class BookingPageController extends Controller
         $canManageBookings = auth()->user()?->isAdmin() ?? false;
 
         return view('bookings.index', [
-            'pageTitle' => 'Data Pemesanan | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Penumpang | Lancang Kuning Travelindo',
             'pageScript' => 'bookings/index',
             'guardMode' => 'protected',
-            'pageHeading' => 'Data Pemesanan',
-            'pageDescription' => 'Kelola dan pantau seluruh data pemesanan dari dashboard admin',
+            'pageHeading' => 'Data Penumpang',
+            'pageDescription' => 'Pantau dan kelola penumpang per jadwal keberangkatan dari dashboard admin',
             'formOptions' => $canManageBookings ? $service->formOptions() : [],
             'canManageBookings' => $canManageBookings,
+            'drivers' => $canManageBookings ? Driver::query()->orderBy('nama')->get(['id', 'nama', 'lokasi'])->toArray() : [],
+            'mobils' => $canManageBookings ? Mobil::query()->orderBy('created_at')->get(['id', 'kode_mobil', 'jenis_mobil'])->toArray() : [],
         ]);
     }
 

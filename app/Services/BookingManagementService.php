@@ -143,8 +143,13 @@ class BookingManagementService
     public function filteredQuery(Request $request): Builder
     {
         $search = trim((string) $request->query('search', ''));
+        $date = trim((string) $request->query('date', ''));
+        $direction = trim((string) $request->query('direction', ''));
 
         return Booking::query()
+            ->when($date !== '', fn (Builder $q) => $q->where('trip_date', $date))
+            ->when($direction === 'to_pkb', fn (Builder $q) => $q->where('to_city', 'Pekanbaru'))
+            ->when($direction === 'from_pkb', fn (Builder $q) => $q->where('from_city', 'Pekanbaru'))
             ->when($search !== '', function (Builder $query) use ($search) {
                 $query->where(function (Builder $subQuery) use ($search) {
                     $subQuery
@@ -186,6 +191,11 @@ class BookingManagementService
             'payment_status' => (string) $booking->payment_status,
             'booking_status_badge_class' => $this->statusBadgeClass((string) $booking->booking_status),
             'payment_status_badge_class' => $this->statusBadgeClass((string) $booking->payment_status),
+            'driver_id' => $booking->driver_id,
+            'driver_name' => trim((string) ($booking->driver_name ?? '')) !== '' ? (string) $booking->driver_name : null,
+            'selected_seats' => (array) ($booking->selected_seats ?? []),
+            'pickup_location' => (string) ($booking->pickup_location ?? ''),
+            'dropoff_location' => (string) ($booking->dropoff_location ?? ''),
             'can_edit' => true,
             'can_delete' => true,
         ];
