@@ -196,6 +196,7 @@ class BookingManagementService
             'selected_seats' => (array) ($booking->selected_seats ?? []),
             'pickup_location' => (string) ($booking->pickup_location ?? ''),
             'dropoff_location' => (string) ($booking->dropoff_location ?? ''),
+            'departure_status' => (string) ($booking->departure_status ?? ''),
             'can_edit' => true,
             'can_delete' => true,
         ];

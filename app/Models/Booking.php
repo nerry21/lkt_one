@@ -56,6 +56,7 @@ class Booking extends Model
         'eligible_discount',
         'departure_id',
         'booking_status',
+        'departure_status',
         'notes',
     ];
 

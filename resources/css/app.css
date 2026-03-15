@@ -6362,8 +6362,8 @@ button {
     align-items: center;
     gap: 5px;
     font-size: 0.76rem;
-    color: var(--transit-text-muted);
-    font-weight: 500;
+    color: #111827;
+    font-weight: 600;
 }
 
 .bpg-slot-select {
@@ -6371,13 +6371,19 @@ button {
     padding: 8px 10px;
     border-radius: 10px;
     border: 1px solid var(--transit-border);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--transit-text);
+    background: #ffffff;
+    color: #111827;
     font: inherit;
     font-size: 0.82rem;
+    font-weight: 500;
     outline: none;
     transition: border-color 0.14s ease;
     cursor: pointer;
+}
+
+.bpg-slot-select option {
+    background: #ffffff;
+    color: #111827;
 }
 
 .bpg-slot-select:focus {
@@ -6470,19 +6476,79 @@ button {
     gap: 5px;
     padding: 5px 10px;
     border-radius: 8px;
-    border: 1px solid var(--transit-border-strong);
-    background: rgba(16, 185, 129, 0.08);
-    color: var(--transit-primary);
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #111827;
     font: inherit;
     font-size: 0.78rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.14s ease;
 }
 
 .bpg-lihat-btn:hover {
-    background: rgba(16, 185, 129, 0.18);
-    border-color: var(--transit-primary);
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #000000;
+}
+
+/* Departure Status Buttons */
+.bpg-departure-status-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 4px 0;
+}
+
+.bpg-depart-btn {
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1.5px solid transparent;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    opacity: 0.45;
+    background: transparent;
+}
+
+.bpg-depart-btn--go {
+    color: #16a34a;
+    border-color: #16a34a;
+}
+
+.bpg-depart-btn--no {
+    color: #dc2626;
+    border-color: #dc2626;
+}
+
+.bpg-depart-btn--oper {
+    color: #d97706;
+    border-color: #d97706;
+}
+
+.bpg-depart-btn:hover {
+    opacity: 0.85;
+}
+
+.bpg-depart-btn--go.is-active {
+    background: #16a34a;
+    color: #ffffff;
+    opacity: 1;
+}
+
+.bpg-depart-btn--no.is-active {
+    background: #dc2626;
+    color: #ffffff;
+    opacity: 1;
+}
+
+.bpg-depart-btn--oper.is-active {
+    background: #d97706;
+    color: #ffffff;
+    opacity: 1;
 }
 
 /* Empty Slot */

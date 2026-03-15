@@ -65,6 +65,24 @@ class BookingController extends Controller
         return response()->json($service->detailPayload($updatedBooking));
     }
 
+    public function updateDepartureStatus(Request $request, string $booking): JsonResponse
+    {
+        $this->actor($request);
+
+        $record = $this->findBooking($booking);
+        $status = trim((string) $request->input('departure_status', ''));
+
+        $allowed = ['Berangkat', 'Tidak Berangkat', 'Di Oper', ''];
+
+        if (! in_array($status, $allowed, true)) {
+            return response()->json(['message' => 'Status keberangkatan tidak valid'], 422);
+        }
+
+        $record->update(['departure_status' => $status !== '' ? $status : null]);
+
+        return response()->json(['message' => 'Status keberangkatan berhasil diperbarui', 'departure_status' => $status]);
+    }
+
     public function slotAssign(Request $request, BookingManagementService $service): JsonResponse
     {
         $this->actor($request);

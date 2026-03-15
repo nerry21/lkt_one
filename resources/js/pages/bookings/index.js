@@ -160,8 +160,24 @@ function renderPassengerList(bookingsInSlot) {
             </div>`;
     }
 
+    const DEPARTURE_STATUSES = [
+        { value: 'Berangkat', label: 'Berangkat', cls: 'bpg-depart-btn--go' },
+        { value: 'Tidak Berangkat', label: 'Tidak Berangkat', cls: 'bpg-depart-btn--no' },
+        { value: 'Di Oper', label: 'Di Oper', cls: 'bpg-depart-btn--oper' },
+    ];
+
     const rows = bookingsInSlot.map((booking) => {
         const seats = (booking.selected_seats_label || '-');
+        const currentDeparture = booking.departure_status || '';
+
+        const departureButtons = DEPARTURE_STATUSES.map((s) => {
+            const isActive = currentDeparture === s.value;
+
+            return `<button class="bpg-depart-btn ${s.cls}${isActive ? ' is-active' : ''}" type="button"
+                data-departure-status="${escapeHtml(s.value)}"
+                data-booking-departure="${escapeHtml(String(booking.id))}"
+                title="${escapeHtml(s.value)}">${escapeHtml(s.label)}</button>`;
+        }).join('');
 
         return `
             <div class="bpg-passenger-item" data-booking-id="${escapeHtml(String(booking.id))}">
@@ -171,6 +187,9 @@ function renderPassengerList(bookingsInSlot) {
                 <div class="bpg-passenger-info">
                     <span class="bpg-passenger-name">${escapeHtml(booking.nama_pemesanan || '-')}</span>
                     <span class="bpg-passenger-phone">${escapeHtml(booking.phone || '-')}</span>
+                </div>
+                <div class="bpg-departure-status-group">
+                    ${departureButtons}
                 </div>
                 <div class="bpg-passenger-actions">
                     <span class="${escapeHtml(booking.payment_status_badge_class || 'stock-value-badge stock-value-badge-blue')} bpg-status-sm">${escapeHtml(booking.payment_status || '-')}</span>
@@ -785,8 +804,37 @@ export default function initBookingsPage({ user } = {}) {
         const lihatBtn = event.target.closest('[data-booking-lihat]');
         const editBtn = event.target.closest('[data-booking-edit]');
         const deleteBtn = event.target.closest('[data-booking-delete]');
+        const departureBtn = event.target.closest('[data-booking-departure]');
 
         try {
+            if (departureBtn) {
+                const bookingId = departureBtn.dataset.bookingDeparture;
+                const newStatus = departureBtn.dataset.departureStatus;
+                const booking = state.bookings.find((b) => String(b.id) === String(bookingId));
+
+                if (!booking) return;
+
+                // Toggle off if already active
+                const statusToSet = booking.departure_status === newStatus ? '' : newStatus;
+
+                // Optimistic UI update
+                booking.departure_status = statusToSet;
+                const row = slotsShell.querySelector(`[data-booking-id="${CSS.escape(String(bookingId))}"]`);
+
+                if (row) {
+                    row.querySelectorAll('[data-booking-departure]').forEach((btn) => {
+                        btn.classList.toggle('is-active', btn.dataset.departureStatus === statusToSet);
+                    });
+                }
+
+                await apiRequest(`/bookings/${bookingId}/departure-status`, {
+                    method: 'PATCH',
+                    body: { departure_status: statusToSet },
+                });
+
+                return;
+            }
+
             if (lihatBtn) {
                 const bookingId = lihatBtn.dataset.bookingLihat;
                 const booking = state.bookings.find((b) => String(b.id) === String(bookingId));
