@@ -831,6 +831,12 @@ export default function initBookingsPage({ user } = {}) {
         return;
     }
 
+    // Ensure shell and tabs are visible (in case PHP hid them due to missing session)
+    if (routeTabs) { routeTabs.hidden = false; }
+    if (slotsShell) { slotsShell.hidden = false; }
+    const accessNote = document.getElementById('bookings-access-note');
+    if (accessNote) { accessNote.hidden = true; }
+
     // Set date picker to today
     if (datePicker) {
         datePicker.value = state.date;

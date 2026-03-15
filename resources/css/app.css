@@ -6185,6 +6185,11 @@ button {
     flex-wrap: wrap;
 }
 
+.bpg-route-tabs[hidden],
+.bpg-slots-shell[hidden] {
+    display: none !important;
+}
+
 .bpg-route-tab {
     display: flex;
     align-items: center;
