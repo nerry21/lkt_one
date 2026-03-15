@@ -260,6 +260,11 @@ class RegularBookingPaymentService
             'eligible_discount' => $discountEligible,
             'discount_status_label' => $discountEligible ? 'Eligible Diskon 50%' : 'Belum Eligible Diskon',
             'remaining_loyalty_steps' => max(5 - $loyaltyCount, 0),
+            'price_per_seat' => (float) ($booking->price_per_seat ?? 0),
+            'total_amount' => (float) ($booking->total_amount ?? 0),
+            'nominal_payment' => (float) ($booking->nominal_payment ?? 0),
+            'passenger_count' => max(1, (int) ($booking->passenger_count ?? 1)),
+            'purchase_date' => $booking->created_at?->format('d F Y') ?? '-',
             'passengers' => $booking->passengers->map(fn ($passenger): array => [
                 'seat_no' => (string) $passenger->seat_no,
                 'name' => (string) $passenger->name,
