@@ -9,12 +9,12 @@
         body {
             font-family: DejaVu Sans, Arial, sans-serif;
             background: #ffffff;
-            padding: 16px;
+            padding: 12px;
             color: #1a237e;
         }
 
         .ticket-wrapper {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             page-break-after: always;
         }
 
@@ -26,29 +26,24 @@
             width: 100%;
             background: #FDD835;
             border: 3px solid #1a237e;
-            border-radius: 8px;
         }
 
         /* ── HEADER ── */
-        .ticket-header {
+        .header-table {
             width: 100%;
+            border-collapse: collapse;
             border-bottom: 3px solid #1a237e;
         }
 
-        .ticket-header-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .header-col-logo {
-            width: 110px;
-            padding: 10px 12px;
+        .header-logo-col {
+            width: 105px;
+            padding: 10px 10px;
             text-align: center;
             vertical-align: middle;
         }
 
-        .header-col-center {
-            padding: 10px 8px;
+        .header-center-col {
+            padding: 8px 6px;
             text-align: center;
             vertical-align: middle;
         }
@@ -56,13 +51,12 @@
         .logo-img {
             width: 80px;
             height: 80px;
-            object-fit: contain;
             display: block;
-            margin: 0 auto 4px auto;
+            margin: 0 auto 3px auto;
         }
 
         .logo-text {
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: 700;
             text-transform: uppercase;
             color: #1a237e;
@@ -70,69 +64,66 @@
         }
 
         .company-name {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 900;
             text-transform: uppercase;
             color: #1a237e;
-            line-height: 1;
+            line-height: 1.1;
         }
 
         .company-sub {
             display: inline-block;
-            margin: 5px 0;
-            padding: 2px 12px;
+            margin: 4px 0;
+            padding: 2px 10px;
             border: 2px solid #1a237e;
-            border-radius: 3px;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 800;
             text-transform: uppercase;
             color: #1a237e;
         }
 
         .company-address {
-            font-size: 8px;
+            font-size: 7.5px;
             line-height: 1.5;
             color: #1a237e;
         }
 
-        .company-phones {
-            margin-top: 5px;
-        }
-
-        .phone-item {
-            display: inline-block;
-            margin: 0 8px;
-            text-align: center;
+        .phones-table {
+            margin: 4px auto 0 auto;
         }
 
         .phone-city {
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: 700;
             color: #1a237e;
+            padding: 0 10px;
+            text-align: center;
         }
 
         .phone-number {
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 900;
             color: #1a237e;
+            padding: 0 10px;
+            text-align: center;
         }
 
         /* ── BODY ── */
-        .ticket-body-table {
+        .body-table {
             width: 100%;
             border-collapse: collapse;
         }
 
         .col-left {
-            width: 38%;
-            padding: 10px 12px;
+            width: 37%;
+            padding: 8px 10px;
             vertical-align: top;
             border-right: 2px solid #1a237e;
         }
 
         .col-middle {
-            width: 22%;
-            padding: 10px 10px;
+            width: 23%;
+            padding: 8px 8px;
             vertical-align: top;
             border-right: 2px solid #1a237e;
             text-align: center;
@@ -140,29 +131,29 @@
 
         .col-right {
             width: 40%;
-            padding: 10px 12px;
+            padding: 8px 10px;
             vertical-align: top;
         }
 
         .section-title {
             background: #1a237e;
             color: #FDD835;
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: 900;
             text-transform: uppercase;
             padding: 4px 8px;
-            margin-bottom: 8px;
-            letter-spacing: 0.05em;
+            margin-bottom: 7px;
+            letter-spacing: 0.04em;
         }
 
         .sub-title {
             background: rgba(26,35,126,0.1);
             border-left: 3px solid #1a237e;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 900;
             text-transform: uppercase;
             padding: 3px 6px;
-            margin: 8px 0 6px 0;
+            margin: 7px 0 5px 0;
             color: #1a237e;
         }
 
@@ -173,8 +164,8 @@
         }
 
         .field-label {
-            width: 95px;
-            font-size: 9px;
+            width: 88px;
+            font-size: 8.5px;
             font-weight: 600;
             color: #1a237e;
             vertical-align: top;
@@ -183,7 +174,7 @@
 
         .field-colon {
             width: 8px;
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: 700;
             color: #1a237e;
             vertical-align: top;
@@ -191,7 +182,7 @@
         }
 
         .field-value {
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: 700;
             color: #1a237e;
             vertical-align: top;
@@ -204,7 +195,7 @@
             width: 100%;
             border-collapse: separate;
             border-spacing: 4px;
-            margin-top: 2px;
+            margin: 0 auto;
         }
 
         .seat-cell {
@@ -212,32 +203,34 @@
             border-radius: 4px;
             background: rgba(255,255,255,0.5);
             color: #1a237e;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 900;
             text-align: center;
-            padding: 7px 4px;
+            padding: 7px 3px;
+            width: 50%;
         }
 
-        .seat-cell-active {
+        .seat-active {
             background: #1a237e;
             color: #FDD835;
-            border: 2px solid #1a237e;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 900;
             text-align: center;
-            padding: 7px 4px;
+            padding: 7px 3px;
+            width: 50%;
         }
 
-        .seat-cell-driver {
-            border: 2px solid #1a237e;
-            border-radius: 4px;
+        .seat-driver {
             background: rgba(26,35,126,0.06);
             color: #888;
+            border: 2px solid #1a237e;
+            border-radius: 4px;
             font-size: 7px;
             font-weight: 700;
             text-align: center;
-            padding: 7px 4px;
+            padding: 7px 3px;
+            width: 50%;
         }
 
         .purchase-date {
@@ -246,7 +239,7 @@
             color: #1a237e;
             text-align: center;
             line-height: 1.5;
-            margin-top: 6px;
+            margin-top: 7px;
         }
 
         .pengurus-label {
@@ -254,25 +247,26 @@
             font-weight: 900;
             text-transform: uppercase;
             color: #1a237e;
-            margin-top: 6px;
+            text-align: center;
+            margin-top: 7px;
+            margin-bottom: 4px;
         }
 
         .sign-line {
             width: 100%;
             border-top: 1.5px solid #1a237e;
-            margin: 5px 0;
+            margin-bottom: 7px;
         }
 
         .asuransi-box {
-            display: inline-block;
             border: 2px solid #1a237e;
-            border-radius: 3px;
-            padding: 4px 8px;
+            padding: 4px 6px;
             font-size: 8px;
             font-weight: 900;
             text-transform: uppercase;
             color: #1a237e;
-            line-height: 1.4;
+            line-height: 1.5;
+            display: inline-block;
         }
 
         /* Rules */
@@ -282,8 +276,8 @@
         }
 
         .rule-no {
-            width: 14px;
-            font-size: 8px;
+            width: 13px;
+            font-size: 7.5px;
             font-weight: 900;
             color: #1a237e;
             vertical-align: top;
@@ -291,16 +285,16 @@
         }
 
         .rule-text {
-            font-size: 8px;
+            font-size: 7.5px;
             color: #1a237e;
-            line-height: 1.4;
+            line-height: 1.45;
             vertical-align: top;
             padding-bottom: 5px;
         }
 
         .promo-divider {
             border-top: 1px dashed #1a237e;
-            margin: 6px 0;
+            margin: 5px 0;
         }
 
         .promo-title {
@@ -311,14 +305,14 @@
         }
 
         .promo-text {
-            font-size: 7.5px;
+            font-size: 7px;
             color: #1a237e;
-            line-height: 1.4;
+            line-height: 1.45;
             margin-top: 2px;
         }
 
         .tagline {
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 900;
             font-style: italic;
             color: #1a237e;
@@ -333,13 +327,24 @@
     $lkLogoFile = public_path('images/lk_travel.png');
     $jrLogoFile = public_path('images/logo_jasaraharja.jpg');
 
+    // PNG: base64 langsung
     $lkLogo = file_exists($lkLogoFile)
         ? 'data:image/png;base64,' . base64_encode(file_get_contents($lkLogoFile))
         : null;
 
-    $jrLogo = file_exists($jrLogoFile)
-        ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($jrLogoFile))
-        : null;
+    // JPEG: konversi ke PNG dulu agar DomPDF bisa render dengan benar
+    if (file_exists($jrLogoFile) && function_exists('imagecreatefromjpeg')) {
+        $img = imagecreatefromjpeg($jrLogoFile);
+        ob_start();
+        imagepng($img);
+        $jrPng = ob_get_clean();
+        imagedestroy($img);
+        $jrLogo = 'data:image/png;base64,' . base64_encode($jrPng);
+    } elseif (file_exists($jrLogoFile)) {
+        $jrLogo = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($jrLogoFile));
+    } else {
+        $jrLogo = null;
+    }
 
     $seatMap = [
         ['1A', 'SOPIR'],
@@ -353,51 +358,46 @@
 <div class="ticket">
 
     {{-- HEADER --}}
-    <div class="ticket-header">
-        <table class="ticket-header-table">
-            <tr>
-                <td class="header-col-logo">
-                    @if ($lkLogo)
-                        <img src="{{ $lkLogo }}" alt="LK" class="logo-img">
-                    @else
-                        <div style="width:80px;height:80px;border-radius:50%;border:2px solid #1a237e;margin:0 auto 4px auto;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#1a237e;">LK</div>
-                    @endif
-                    <div class="logo-text">PT. Lancang Kuning<br>Travelindo</div>
-                </td>
-                <td class="header-col-center">
-                    <div class="company-name">Lancang Kuning Travelindo</div>
-                    <div><span class="company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</span></div>
-                    <div class="company-address">
-                        Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
-                        Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
-                    </div>
-                    <div class="company-phones">
-                        <div class="phone-item">
-                            <div class="phone-city">Pekanbaru</div>
-                            <div class="phone-number">0823-6421-0642</div>
-                        </div>
-                        <div class="phone-item">
-                            <div class="phone-city">Rokan Hulu</div>
-                            <div class="phone-number">0823-1320-5885</div>
-                        </div>
-                    </div>
-                </td>
-                <td class="header-col-logo">
-                    @if ($jrLogo)
-                        <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="logo-img">
-                    @else
-                        <div style="width:80px;height:80px;border-radius:50%;border:2px solid #1a237e;margin:0 auto 4px auto;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#1a237e;">JR</div>
-                    @endif
-                    <div class="logo-text">Jasa Raharja<br>Protected</div>
-                </td>
-            </tr>
-        </table>
-    </div>
+    <table class="header-table">
+        <tr>
+            <td class="header-logo-col">
+                @if ($lkLogo)
+                    <img src="{{ $lkLogo }}" alt="LK" class="logo-img">
+                @endif
+                <div class="logo-text">PT. Lancang Kuning<br>Travelindo</div>
+            </td>
+            <td class="header-center-col">
+                <div class="company-name">Lancang Kuning Travelindo</div>
+                <div><span class="company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</span></div>
+                <div class="company-address">
+                    Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
+                    Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
+                </div>
+                <table class="phones-table">
+                    <tr>
+                        <td class="phone-city">Pekanbaru</td>
+                        <td class="phone-city">Rokan Hulu</td>
+                    </tr>
+                    <tr>
+                        <td class="phone-number">0823-6421-0642</td>
+                        <td class="phone-number">0823-1320-5885</td>
+                    </tr>
+                </table>
+            </td>
+            <td class="header-logo-col">
+                @if ($jrLogo)
+                    <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="logo-img">
+                @endif
+                <div class="logo-text">Jasa Raharja<br>Protected</div>
+            </td>
+        </tr>
+    </table>
 
     {{-- BODY --}}
-    <table class="ticket-body-table">
+    <table class="body-table">
         <tr>
-            {{-- LEFT --}}
+
+            {{-- LEFT: Tiket Penumpang --}}
             <td class="col-left">
                 <div class="section-title">Tiket Penumpang</div>
                 <table class="fields-table">
@@ -449,7 +449,7 @@
                 </table>
             </td>
 
-            {{-- MIDDLE --}}
+            {{-- MIDDLE: Nomor Bangku --}}
             <td class="col-middle">
                 <div class="section-title">Nomor Bangku</div>
                 <table class="seat-table">
@@ -458,9 +458,9 @@
                         @foreach ($row as $seat)
                         <td>
                             @if ($seat === 'SOPIR')
-                                <div class="seat-cell-driver">SOPIR</div>
+                                <div class="seat-driver">SOPIR</div>
                             @elseif (($ticket['seat_no'] ?? '') === $seat)
-                                <div class="seat-cell-active">{{ str_replace('A', '', $seat) }}</div>
+                                <div class="seat-active">{{ str_replace('A', '', $seat) }}</div>
                             @else
                                 <div class="seat-cell">{{ str_replace('A', '', $seat) }}</div>
                             @endif
@@ -478,7 +478,7 @@
                 <div class="asuransi-box">Dilindungi Oleh<br>Asuransi Jasa Raharja</div>
             </td>
 
-            {{-- RIGHT --}}
+            {{-- RIGHT: Perhatian --}}
             <td class="col-right">
                 <div class="section-title">Perhatian</div>
                 <table class="rules-table">
@@ -508,11 +508,12 @@
                 <div class="promo-text">Kumpulkan 5 Tiket (discnt 50%) / Kumpulkan 10 Tiket Dengan Nama Dan No Hp Yang Sama Gratis 1x Keberangkatan</div>
                 <div class="tagline">Cepat, Aman &amp; Nyaman</div>
             </td>
+
         </tr>
     </table>
 
-</div>{{-- /ticket --}}
-</div>{{-- /ticket-wrapper --}}
+</div>
+</div>
 @endforeach
 
 </body>
