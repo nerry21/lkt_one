@@ -112,10 +112,9 @@ class BookingPageController extends Controller
 
         $fileName = $booking->booking_code . '.pdf';
 
-        return Pdf::loadView('bookings.ticket', [
+        return Pdf::loadView('bookings.pdf.ticket', [
             'tickets' => $tickets,
             'booking' => $booking,
-            'isPdf'   => true,
         ])->setPaper('a4')->download($fileName);
     }
 }
