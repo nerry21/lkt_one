@@ -6587,7 +6587,7 @@ button {
     border-radius: 8px;
     border: 1px solid #d1d5db;
     background: #ffffff;
-    color: #111827;
+    color: #000000 !important;
     font: inherit;
     font-size: 0.78rem;
     font-weight: 600;
@@ -6595,10 +6595,14 @@ button {
     transition: all 0.14s ease;
 }
 
+.bpg-lihat-btn svg {
+    color: #000000 !important;
+}
+
 .bpg-lihat-btn:hover {
     background: #f3f4f6;
     border-color: #9ca3af;
-    color: #000000;
+    color: #000000 !important;
 }
 
 /* Departure Status Row */
