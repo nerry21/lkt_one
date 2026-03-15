@@ -410,6 +410,7 @@ function openDetailModal(booking) {
     document.getElementById('bpg-detail-title').textContent = booking.nama_pemesanan || '-';
     document.getElementById('bpg-detail-subtitle').textContent = `${booking.booking_code || '-'} · ${booking.booking_status || '-'}`;
     document.getElementById('bpg-detail-full-link').href = `/dashboard/bookings/${booking.id}`;
+    document.getElementById('bpg-detail-ticket-link').href = `/dashboard/bookings/${booking.id}/ticket`;
 
     const body = document.getElementById('bpg-detail-body');
 

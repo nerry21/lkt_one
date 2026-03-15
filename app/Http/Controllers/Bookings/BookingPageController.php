@@ -39,4 +39,42 @@ class BookingPageController extends Controller
             'detail' => $service->detailPagePayload($booking),
         ]);
     }
+
+    public function ticket(Booking $booking): \Illuminate\Contracts\View\View
+    {
+        $booking->loadMissing('passengers');
+
+        $selectedSeats = (array) ($booking->selected_seats ?? []);
+        $passengers    = $booking->passengers->sortBy('seat_no')->values();
+
+        // Build one ticket entry per passenger
+        $tickets = $passengers->map(function ($passenger) use ($booking) {
+            $pricePerSeat  = (float) ($booking->price_per_seat ?? 0);
+            $totalAmount   = (float) ($booking->total_amount ?? 0);
+            $nominalPaid   = (float) ($booking->nominal_payment ?? 0);
+            $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
+
+            // Split payment proportionally per seat
+            $uangMuka = $passengerCount > 0 ? round($nominalPaid / $passengerCount) : 0;
+            $sisa     = max(0, $pricePerSeat - $uangMuka);
+
+            return [
+                'booking_code'   => (string) $booking->booking_code,
+                'passenger_name' => (string) $passenger->name,
+                'passenger_phone'=> (string) $passenger->phone,
+                'seat_no'        => (string) $passenger->seat_no,
+                'from_city'      => (string) $booking->from_city,
+                'to_city'        => (string) $booking->to_city,
+                'trip_date'      => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
+                'trip_time'      => (string) ($booking->trip_time ?? '-'),
+                'tarif'          => 'Rp ' . number_format($pricePerSeat, 0, ',', '.'),
+                'uang_muka'      => 'Rp ' . number_format($uangMuka, 0, ',', '.'),
+                'sisa'           => 'Rp ' . number_format($sisa, 0, ',', '.'),
+                'purchase_date'  => $booking->created_at?->translatedFormat('d F Y') ?? '-',
+                'all_seats'      => (array) ($booking->selected_seats ?? []),
+            ];
+        });
+
+        return view('bookings.ticket', compact('tickets', 'booking'));
+    }
 }

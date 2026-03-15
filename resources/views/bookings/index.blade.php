@@ -99,6 +99,13 @@
                 </div>
                 <div class="admin-users-dialog-actions">
                     <button class="admin-users-secondary-button" type="button" data-modal-close="bpg-detail-modal">Tutup</button>
+                    <a class="admin-users-secondary-button" id="bpg-detail-ticket-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:6px;">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;">
+                            <path d="M6 2H18C19.1046 2 20 2.89543 20 4V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V4C4 2.89543 4.89543 2 6 2Z" stroke="currentColor" stroke-width="1.8"/>
+                            <path d="M9 7H15M9 11H15M9 15H12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                        Cetak Tiket
+                    </a>
                     <a class="admin-users-primary-button" id="bpg-detail-full-link" href="#" target="_blank">
                         <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;margin-right:6px;">
                             <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/>
