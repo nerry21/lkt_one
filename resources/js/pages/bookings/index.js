@@ -21,6 +21,8 @@ const SEAT_ROWS = [
     [{ code: '4A', label: '4A' }, { code: '5A', label: '5A' }],
 ];
 
+const TOTAL_PASSENGER_SEATS = SEAT_ROWS.flat().filter((s) => !s.isDriver).length;
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const state = {
@@ -251,7 +253,7 @@ function renderSlotCard(schedule, bookingsInSlot) {
                     <strong class="bpg-slot-time">${escapeHtml(schedule.time)}</strong>
                 </div>
                 <div class="bpg-slot-counters">
-                    <span class="stock-value-badge ${badgeClass}">${totalPassengers} / ${totalSeats} Kursi</span>
+                    <span class="stock-value-badge ${badgeClass}">${totalPassengers} / ${TOTAL_PASSENGER_SEATS} Kursi</span>
                 </div>
             </div>
 
