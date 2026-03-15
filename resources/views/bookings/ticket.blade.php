@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>E-Ticket {{ $booking->booking_code }} | Lancang Kuning Travelindo</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+            font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
             background: #e8f5e9;
             padding: 24px;
+            color: #1a237e;
         }
 
         .page-actions {
@@ -22,10 +25,12 @@
             margin-bottom: 24px;
         }
 
-        .btn-print, .btn-back {
+        .btn-print,
+        .btn-back {
             padding: 10px 24px;
             border-radius: 8px;
-            font: 600 0.9rem 'Plus Jakarta Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
             cursor: pointer;
             border: none;
         }
@@ -41,283 +46,285 @@
             border: 2px solid #1565c0;
         }
 
-        /* ── TICKET ────────────────────────────── */
         .ticket-wrapper {
             max-width: 900px;
             margin: 0 auto 40px;
         }
 
         .ticket {
-            background: #FDD835;
+            background: #fdd835;
             border: 3px solid #1a237e;
             border-radius: 8px;
             overflow: hidden;
-            page-break-after: always;
             width: 100%;
+            page-break-after: always;
         }
 
-        /* Header */
+        .ticket:last-child {
+            page-break-after: avoid;
+        }
+
         .ticket-header {
-            background: #FDD835;
+            background: #fdd835;
             border-bottom: 3px solid #1a237e;
-            display: grid;
-            grid-template-columns: 110px 1fr 110px;
-            align-items: center;
-            padding: 10px 14px;
-            gap: 10px;
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+            padding: 0;
+        }
+
+        .ticket-header-col {
+            display: table-cell;
+            vertical-align: middle;
+            padding: 10px 12px;
+        }
+
+        .ticket-header-col.left,
+        .ticket-header-col.right {
+            width: 120px;
+            text-align: center;
+        }
+
+        .ticket-header-col.center {
+            text-align: center;
         }
 
         .ticket-logo-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        .ticket-logo-circle {
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
-            border: 3px solid #1a237e;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #fff;
-            flex-shrink: 0;
-        }
-
-        .ticket-logo-circle svg {
-            width: 50px;
-            height: 50px;
-        }
-
-        .ticket-logo-text {
-            font-size: 0.52rem;
-            font-weight: 800;
-            color: #1a237e;
-            text-align: center;
-            line-height: 1.3;
-            text-transform: uppercase;
-        }
-
-        .ticket-header-center {
             text-align: center;
         }
 
-        .ticket-company-name {
-            font-size: 1.65rem;
-            font-weight: 900;
-            color: #1a237e;
-            text-transform: uppercase;
-            line-height: 1;
-            letter-spacing: -0.5px;
-            text-shadow: 1px 1px 0 rgba(0,0,0,0.1);
-        }
-
-        .ticket-company-sub {
-            font-size: 0.88rem;
-            font-weight: 800;
-            color: #1a237e;
-            text-transform: uppercase;
-            border: 2.5px solid #1a237e;
-            display: inline-block;
-            padding: 2px 14px;
-            margin: 4px 0;
-            border-radius: 3px;
-        }
-
-        .ticket-address {
-            font-size: 0.62rem;
-            color: #1a237e;
-            line-height: 1.5;
-        }
-
-        .ticket-phones {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            margin-top: 4px;
-        }
-
-        .ticket-phone-item {
-            text-align: center;
-        }
-
-        .ticket-phone-city {
-            font-size: 0.62rem;
-            font-weight: 700;
-            color: #1a237e;
-        }
-
-        .ticket-phone-number {
-            font-size: 0.75rem;
-            font-weight: 900;
-            color: #1a237e;
-        }
-
+        .ticket-logo-circle,
         .ticket-logo-jp {
             width: 72px;
             height: 72px;
             border-radius: 50%;
             border: 3px solid #1a237e;
-            background: #1a237e;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
+            background: #fff;
+            margin: 0 auto 6px;
+            overflow: hidden;
+            text-align: center;
+            line-height: 66px;
         }
 
-        .ticket-logo-jp span {
-            font-size: 1.4rem;
+        .ticket-logo-jp {
+            background: #fff;
+        }
+
+        .ticket-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .ticket-logo-text {
+            font-size: 9px;
+            font-weight: 800;
+            color: #1a237e;
+            text-align: center;
+            line-height: 1.35;
+            text-transform: uppercase;
+        }
+
+        .ticket-company-name {
+            font-size: 28px;
             font-weight: 900;
-            color: #FDD835;
-            font-style: italic;
+            color: #1a237e;
+            text-transform: uppercase;
+            line-height: 1.05;
         }
 
-        /* Body */
+        .ticket-company-sub {
+            font-size: 13px;
+            font-weight: 800;
+            color: #1a237e;
+            text-transform: uppercase;
+            border: 2px solid #1a237e;
+            display: inline-block;
+            padding: 3px 12px;
+            margin: 6px 0;
+            border-radius: 3px;
+        }
+
+        .ticket-address {
+            font-size: 10px;
+            line-height: 1.45;
+            color: #1a237e;
+        }
+
+        .ticket-phones {
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        .ticket-phone-item {
+            display: inline-block;
+            margin: 0 8px;
+            vertical-align: top;
+        }
+
+        .ticket-phone-city {
+            font-size: 10px;
+            font-weight: 700;
+            color: #1a237e;
+        }
+
+        .ticket-phone-number {
+            font-size: 12px;
+            font-weight: 900;
+            color: #1a237e;
+        }
+
         .ticket-body {
-            display: grid;
-            grid-template-columns: 1fr 180px 1fr;
-            border-top: none;
+            display: table;
+            width: 100%;
+            table-layout: fixed;
         }
 
-        /* Left: Tiket Penumpang */
-        .ticket-left {
-            border-right: 2.5px solid #1a237e;
+        .ticket-left,
+        .ticket-middle,
+        .ticket-right {
+            display: table-cell;
+            vertical-align: top;
             padding: 10px 12px;
+        }
+
+        .ticket-left {
+            width: 40%;
+            border-right: 2.5px solid #1a237e;
+        }
+
+        .ticket-middle {
+            width: 20%;
+            border-right: 2.5px solid #1a237e;
+            text-align: center;
+        }
+
+        .ticket-right {
+            width: 40%;
         }
 
         .ticket-section-title {
             background: #1a237e;
-            color: #FDD835;
-            font-size: 0.78rem;
+            color: #fdd835;
+            font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
-            padding: 4px 10px;
+            padding: 5px 10px;
             margin-bottom: 10px;
-            letter-spacing: 0.05em;
-        }
-
-        .ticket-field {
-            display: grid;
-            grid-template-columns: 120px 8px 1fr;
-            align-items: baseline;
-            margin-bottom: 5px;
-            gap: 0;
-        }
-
-        .ticket-field-label {
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: #1a237e;
-        }
-
-        .ticket-field-colon {
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: #1a237e;
-        }
-
-        .ticket-field-value {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: #1a237e;
-            border-bottom: 1px dotted #1a237e;
-            padding-bottom: 1px;
-            min-height: 16px;
+            letter-spacing: 0.03em;
         }
 
         .ticket-sub-title {
-            font-size: 0.72rem;
+            font-size: 11px;
             font-weight: 800;
             color: #1a237e;
             text-transform: uppercase;
-            background: rgba(26,35,126,0.08);
-            padding: 3px 6px;
-            margin: 8px 0 6px;
+            background: rgba(26, 35, 126, 0.08);
+            padding: 4px 6px;
+            margin: 10px 0 6px;
             border-left: 3px solid #1a237e;
         }
 
-        /* Middle: Nomor Bangku */
-        .ticket-middle {
-            border-right: 2.5px solid #1a237e;
-            padding: 10px 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
+        .ticket-field {
+            display: table;
+            width: 100%;
+            margin-bottom: 5px;
         }
 
-        .ticket-middle .ticket-section-title {
-            width: 100%;
-            text-align: center;
+        .ticket-field-label,
+        .ticket-field-colon,
+        .ticket-field-value {
+            display: table-cell;
+            vertical-align: top;
+            font-size: 11px;
+            color: #1a237e;
+        }
+
+        .ticket-field-label {
+            width: 120px;
+            font-weight: 600;
+        }
+
+        .ticket-field-colon {
+            width: 10px;
+            font-weight: 600;
+        }
+
+        .ticket-field-value {
+            font-weight: 700;
+            border-bottom: 1px dotted #1a237e;
+            padding-bottom: 1px;
         }
 
         .ticket-seat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
             width: 100%;
+            margin-top: 6px;
+            border-collapse: separate;
+            border-spacing: 5px;
+        }
+
+        .ticket-seat-grid td {
+            width: 50%;
         }
 
         .ticket-seat-cell {
             border: 2px solid #1a237e;
             border-radius: 5px;
-            padding: 6px 4px;
+            padding: 8px 4px;
             text-align: center;
-            font-size: 0.82rem;
+            font-size: 13px;
             font-weight: 800;
             color: #1a237e;
-            background: #fff8;
+            background: rgba(255, 255, 255, 0.55);
             min-height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .ticket-seat-cell.is-active {
             background: #1a237e;
-            color: #FDD835;
-            box-shadow: 0 2px 6px rgba(26,35,126,0.35);
+            color: #fdd835;
         }
 
         .ticket-seat-cell.is-driver {
-            background: rgba(26,35,126,0.08);
-            color: #888;
-            font-size: 0.68rem;
+            background: rgba(26, 35, 126, 0.08);
+            color: #666;
+            font-size: 10px;
         }
 
         .ticket-purchase-date {
-            font-size: 0.62rem;
+            font-size: 10px;
             font-weight: 700;
             color: #1a237e;
             text-align: center;
-            line-height: 1.4;
+            line-height: 1.45;
+            margin-top: 8px;
         }
 
         .ticket-pengurus {
-            font-size: 0.7rem;
+            font-size: 11px;
             font-weight: 800;
             color: #1a237e;
             text-align: center;
             text-transform: uppercase;
+            margin-top: 8px;
+        }
+
+        .ticket-sign-line {
+            border-top: 1.5px solid #1a237e;
+            width: 100%;
+            margin: 4px 0 6px;
         }
 
         .ticket-asuransi {
-            font-size: 0.6rem;
+            font-size: 10px;
             font-weight: 700;
             color: #1a237e;
             text-align: center;
             text-transform: uppercase;
             border: 2px solid #1a237e;
-            padding: 3px 6px;
+            padding: 4px 6px;
             border-radius: 3px;
-        }
-
-        /* Right: Perhatian */
-        .ticket-right {
-            padding: 10px 12px;
+            line-height: 1.35;
         }
 
         .ticket-rules {
@@ -327,18 +334,18 @@
         }
 
         .ticket-rules li {
-            font-size: 0.6rem;
+            font-size: 10px;
             color: #1a237e;
             line-height: 1.45;
             margin-bottom: 5px;
-            padding-left: 14px;
+            padding-left: 16px;
             position: relative;
         }
 
-        .ticket-rules li::before {
-            content: attr(data-no) '.';
+        .ticket-rules li .num {
             position: absolute;
             left: 0;
+            top: 0;
             font-weight: 700;
         }
 
@@ -349,208 +356,230 @@
         }
 
         .ticket-promo-title {
-            font-size: 0.65rem;
+            font-size: 10px;
             font-weight: 800;
             color: #1a237e;
             text-transform: uppercase;
         }
 
         .ticket-promo-text {
-            font-size: 0.58rem;
+            font-size: 10px;
             color: #1a237e;
             line-height: 1.4;
             margin-top: 2px;
         }
 
         .ticket-tagline {
-            margin-top: 8px;
-            font-size: 0.75rem;
+            margin-top: 10px;
+            font-size: 12px;
             font-weight: 800;
             color: #1a237e;
             font-style: italic;
             text-align: right;
         }
 
-        /* Print */
         @media print {
-            body { background: none; padding: 0; }
-            .page-actions { display: none; }
-            .ticket-wrapper { max-width: 100%; margin: 0; }
-            .ticket { page-break-after: always; border: 2px solid #1a237e; }
-            .ticket:last-child { page-break-after: avoid; }
+            body {
+                background: none;
+                padding: 0;
+            }
+
+            .page-actions {
+                display: none !important;
+            }
+
+            .ticket-wrapper {
+                max-width: 100%;
+                margin: 0 0 14px 0;
+            }
+
+            .ticket {
+                border-radius: 0;
+                box-shadow: none;
+            }
         }
     </style>
 </head>
 <body>
+@php
+    $isPdf = isset($isPdf) ? (bool) $isPdf : false;
 
-<div class="page-actions">
-    <button class="btn-back" onclick="history.back()">← Kembali</button>
-    <button class="btn-print" onclick="window.print()">🖨 Cetak Semua Tiket</button>
-</div>
+    $lkLogo = $isPdf
+        ? public_path('images/lk_travel.png')
+        : asset('images/lk_travel.png');
+
+    $jrLogo = $isPdf
+        ? public_path('images/logo_jasaraharja.jpg')
+        : asset('images/logo_jasaraharja.jpg');
+
+    $seatMap = [
+        ['1A', 'SOPIR'],
+        ['2A', '3A'],
+        ['4A', '5A'],
+    ];
+@endphp
+
+@if (! $isPdf)
+    <div class="page-actions">
+        <button class="btn-back" onclick="history.back()">← Kembali</button>
+        <button class="btn-print" onclick="window.print()">🖨 Cetak Semua Tiket</button>
+    </div>
+@endif
 
 @foreach ($tickets as $ticket)
-<div class="ticket-wrapper">
-<div class="ticket">
+    <div class="ticket-wrapper">
+        <div class="ticket">
 
-    {{-- HEADER --}}
-    <div class="ticket-header">
-        {{-- Logo Kiri --}}
-        <div class="ticket-logo-box">
-            <div class="ticket-logo-circle">
-                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="10" y="44" width="60" height="22" rx="6" fill="#1a237e"/>
-                    <rect x="18" y="36" width="44" height="14" rx="4" fill="#1565c0"/>
-                    <circle cx="24" cy="66" r="7" fill="#FDD835" stroke="#1a237e" stroke-width="2"/>
-                    <circle cx="56" cy="66" r="7" fill="#FDD835" stroke="#1a237e" stroke-width="2"/>
-                    <ellipse cx="40" cy="28" rx="18" ry="14" fill="#1565c0"/>
-                    <rect x="22" y="20" width="36" height="12" rx="3" fill="#1a237e"/>
-                    <rect x="14" y="50" width="10" height="10" rx="2" fill="#FDD835"/>
-                    <rect x="56" y="50" width="10" height="10" rx="2" fill="#FDD835"/>
-                </svg>
-            </div>
-            <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
-        </div>
-
-        {{-- Center --}}
-        <div class="ticket-header-center">
-            <div class="ticket-company-name">Lancang Kuning Travelindo</div>
-            <div class="ticket-company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</div>
-            <div class="ticket-address">
-                Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
-                Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
-            </div>
-            <div class="ticket-phones">
-                <div class="ticket-phone-item">
-                    <div class="ticket-phone-city">Pekanbaru</div>
-                    <div class="ticket-phone-number">0823-6421-0642</div>
+            <div class="ticket-header">
+                <div class="ticket-header-col left">
+                    <div class="ticket-logo-box">
+                        <div class="ticket-logo-circle">
+                            <img src="{{ $lkLogo }}" alt="LK Travel" class="ticket-logo-img">
+                        </div>
+                        <div class="ticket-logo-text">
+                            PT. Lancang Kuning<br>Travelindo
+                        </div>
+                    </div>
                 </div>
-                <div class="ticket-phone-item">
-                    <div class="ticket-phone-city">Rokan Hulu</div>
-                    <div class="ticket-phone-number">0823-1320-5885</div>
+
+                <div class="ticket-header-col center">
+                    <div class="ticket-company-name">Lancang Kuning Travelindo</div>
+                    <div class="ticket-company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</div>
+                    <div class="ticket-address">
+                        Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
+                        Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
+                    </div>
+                    <div class="ticket-phones">
+                        <div class="ticket-phone-item">
+                            <div class="ticket-phone-city">Pekanbaru</div>
+                            <div class="ticket-phone-number">0823-6421-0642</div>
+                        </div>
+                        <div class="ticket-phone-item">
+                            <div class="ticket-phone-city">Rokan Hulu</div>
+                            <div class="ticket-phone-number">0823-1320-5885</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ticket-header-col right">
+                    <div class="ticket-logo-box">
+                        <div class="ticket-logo-jp">
+                            <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="ticket-logo-img">
+                        </div>
+                        <div class="ticket-logo-text">
+                            Jasa Raharja<br>Protected
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {{-- Logo Kanan (JP) --}}
-        <div class="ticket-logo-box">
-            <div class="ticket-logo-jp">
-                <span>JP</span>
+            <div class="ticket-body">
+                <div class="ticket-left">
+                    <div class="ticket-section-title">Tiket Penumpang</div>
+
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Nama Penumpang</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['passenger_name'] ?? '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Dari</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['from_city'] ?? '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Tujuan</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['to_city'] ?? '-' }}</div>
+                    </div>
+
+                    <div class="ticket-sub-title">Keberangkatan</div>
+
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Tgl. Berangkat</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['trip_date'] ?? '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Jam</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ isset($ticket['trip_time']) ? $ticket['trip_time'].' WIB' : '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Tarif</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['tarif'] ?? '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Uang Muka</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['uang_muka'] ?? '-' }}</div>
+                    </div>
+                    <div class="ticket-field">
+                        <div class="ticket-field-label">Sisa</div>
+                        <div class="ticket-field-colon">:</div>
+                        <div class="ticket-field-value">{{ $ticket['sisa'] ?? '-' }}</div>
+                    </div>
+                </div>
+
+                <div class="ticket-middle">
+                    <div class="ticket-section-title">Nomor Bangku</div>
+
+                    <table class="ticket-seat-grid">
+                        @foreach ($seatMap as $row)
+                            <tr>
+                                @foreach ($row as $seat)
+                                    <td>
+                                        @if ($seat === 'SOPIR')
+                                            <div class="ticket-seat-cell is-driver">SOPIR</div>
+                                        @else
+                                            <div class="ticket-seat-cell {{ ($ticket['seat_no'] ?? '') === $seat ? 'is-active' : '' }}">
+                                                {{ str_replace('A', '', $seat) }}
+                                            </div>
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </table>
+
+                    <div class="ticket-purchase-date">
+                        <strong>Tanggal Pembelian Tiket</strong><br>
+                        Pasir Pengaraian, {{ $ticket['purchase_date'] ?? '-' }}
+                    </div>
+
+                    <div class="ticket-pengurus">Pengurus</div>
+                    <div class="ticket-sign-line"></div>
+
+                    <div class="ticket-asuransi">
+                        Dilindungi Oleh<br>Asuransi Jasa Raharja
+                    </div>
+                </div>
+
+                <div class="ticket-right">
+                    <div class="ticket-section-title">Perhatian</div>
+
+                    <ul class="ticket-rules">
+                        <li><span class="num">1.</span> Jemput Antar Ke Alamat Dalam Batas Tertentu</li>
+                        <li><span class="num">2.</span> Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya</li>
+                        <li><span class="num">3.</span> Barang bawaan penumpang jika terjadi kehilangan yang sifatnya kelalaian penumpang, bukan menjadi tanggung jawab perusahaan</li>
+                        <li><span class="num">4.</span> Dilarang membawa benda terlarang, hewan, atau barang bawaan yang baunya menyengat dan dapat mengganggu kenyamanan penumpang</li>
+                        <li><span class="num">5.</span> Dilarang melakukan tindakan amoral atau asusila serta tindak pidana lainnya selama perjalanan</li>
+                    </ul>
+
+                    <div class="ticket-promo">
+                        <div class="ticket-promo-title">Promo</div>
+                        <div class="ticket-promo-text">
+                            Kumpulkan 5 tiket diskon 50% / kumpulkan 10 tiket dengan nama dan no HP yang sama gratis 1x keberangkatan
+                        </div>
+                    </div>
+
+                    <div class="ticket-tagline">Cepat, Aman &amp; Nyaman</div>
+                </div>
             </div>
-            <div class="ticket-logo-text" style="color:#1a237e;">Jasa Raharja<br>Protected</div>
+
         </div>
     </div>
-
-    {{-- BODY --}}
-    <div class="ticket-body">
-
-        {{-- LEFT: Tiket Penumpang --}}
-        <div class="ticket-left">
-            <div class="ticket-section-title">Tiket Penumpang</div>
-
-            <div class="ticket-field">
-                <span class="ticket-field-label">Nama Penumpang</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['passenger_name'] }}</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Dari</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['from_city'] }}</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Tujuan</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['to_city'] }}</span>
-            </div>
-
-            <div class="ticket-sub-title">Keberangkatan</div>
-
-            <div class="ticket-field">
-                <span class="ticket-field-label">Tgl. Berangkat</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['trip_date'] }}</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Jam</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['trip_time'] }} WIB</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Tarif</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['tarif'] }}</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Uang Muka</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['uang_muka'] }}</span>
-            </div>
-            <div class="ticket-field">
-                <span class="ticket-field-label">Sisa</span>
-                <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $ticket['sisa'] }}</span>
-            </div>
-        </div>
-
-        {{-- MIDDLE: Nomor Bangku --}}
-        <div class="ticket-middle">
-            <div class="ticket-section-title">Nomor Bangku</div>
-
-            @php
-                $seatMap = [
-                    ['1A', 'SOPIR'],
-                    ['2A', '3A'],
-                    ['4A', '5A'],
-                ];
-            @endphp
-
-            <div class="ticket-seat-grid">
-                @foreach ($seatMap as $row)
-                    @foreach ($row as $seat)
-                        @if ($seat === 'SOPIR')
-                            <div class="ticket-seat-cell is-driver">SOPIR</div>
-                        @else
-                            <div class="ticket-seat-cell {{ $ticket['seat_no'] === $seat ? 'is-active' : '' }}">
-                                {{ Str::remove('A', $seat) }}
-                            </div>
-                        @endif
-                    @endforeach
-                @endforeach
-            </div>
-
-            <div class="ticket-purchase-date">
-                <strong>Tanggal Pembelian Tiket</strong><br>
-                Pasir Pengaraian, {{ $ticket['purchase_date'] }}
-            </div>
-
-            <div class="ticket-pengurus">Pengurus</div>
-            <div style="border-top:1.5px solid #1a237e; width:100%; margin:2px 0;"></div>
-            <div class="ticket-asuransi">Dilindungi Oleh<br>Asuransi Jasa Raharja</div>
-        </div>
-
-        {{-- RIGHT: Perhatian --}}
-        <div class="ticket-right">
-            <div class="ticket-section-title">Perhatian</div>
-
-            <ul class="ticket-rules">
-                <li data-no="1">Jemput Antar Ke Alamat Dalam Batas Tertentu</li>
-                <li data-no="2">Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya</li>
-                <li data-no="3">Barang Bawaan Penumpang Jika Terjadi Kehilangan Yang Sifat Nya Kelalaian Penumpang, Bukan Menjadi Tanggung Jawab Perusahaan</li>
-                <li data-no="4">Dilarang Membawa Benda Terlarang (narkoba Dll), Hewan, Atau Barang Bawaan Yang Bau Nya Menyengat Dan Dapat Menganggu Kenyamanan Penumpang.</li>
-                <li data-no="5">Dilarang Melakukan Tindakan Amoral Atau Asusila Serta Tindak Pidana Lainnya Selama Perjalanan.</li>
-            </ul>
-
-            <div class="ticket-promo">
-                <div class="ticket-promo-title">Promo</div>
-                <div class="ticket-promo-text">Kumpulkan 5 Tiket (discnt 50%) / Kumpulkan 10 Tiket Dengan Nama Dan No Hp Yang Sama Gratis 1x Keberangkatan</div>
-            </div>
-
-            <div class="ticket-tagline">Cepat, Aman &amp; Nyaman</div>
-        </div>
-
-    </div>
-</div>
-</div>
 @endforeach
 
 </body>
