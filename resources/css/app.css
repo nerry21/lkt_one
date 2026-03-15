@@ -3895,6 +3895,12 @@ button {
     color: #047857;
 }
 
+.stock-value-badge-yellow {
+    background: rgba(251, 191, 36, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
 .stock-value-badge-blue {
     background: rgba(59, 130, 246, 0.12);
     color: #2563eb;
@@ -6080,8 +6086,8 @@ button {
     align-items: center;
     gap: 5px;
     font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--transit-text-soft);
+    font-weight: 700;
+    color: #fbbf24;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     cursor: pointer;
@@ -6090,27 +6096,32 @@ button {
 .bpg-date-input {
     padding: 10px 16px;
     border-radius: 12px;
-    border: 2px solid var(--transit-border-strong);
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--transit-text);
+    border: 2px solid #f59e0b;
+    background: rgba(251, 191, 36, 0.08);
+    color: #fde68a;
     font: inherit;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
     outline: none;
     cursor: pointer;
-    transition: border-color 0.16s ease, background 0.16s ease;
+    transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
     min-width: 175px;
 }
 
+.bpg-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(80%) sepia(60%) saturate(400%) hue-rotate(0deg);
+    cursor: pointer;
+}
+
 .bpg-date-input:hover {
-    border-color: var(--transit-primary);
-    background: rgba(255, 255, 255, 0.09);
+    border-color: #fbbf24;
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .bpg-date-input:focus {
-    border-color: var(--transit-primary);
-    background: rgba(255, 255, 255, 0.09);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    border-color: #fbbf24;
+    background: rgba(251, 191, 36, 0.14);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
 }
 
 /* Route Tabs */

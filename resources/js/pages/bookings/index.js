@@ -231,7 +231,7 @@ function renderSlotCard(schedule, bookingsInSlot) {
 
     const selectedDriverId = state.slotDriverMap[slotKey] || '';
     const selectedMobilId = state.slotMobilMap[slotKey] || '';
-    const badgeClass = totalPassengers > 0 ? 'stock-value-badge-emerald' : 'stock-value-badge-blue';
+    const badgeClass = 'stock-value-badge-yellow';
 
     const driverOptions = state.drivers.map((d) => {
         const label = d.lokasi ? `${d.nama} (${d.lokasi})` : d.nama;
