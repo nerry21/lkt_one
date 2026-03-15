@@ -363,7 +363,7 @@
     <div class="ticket-header">
         {{-- Logo PT. Lancang Kuning --}}
         <div class="ticket-logo-box">
-            <img src="/images/LK-Travel.png" alt="Lancang Kuning Travelindo"
+            <img src="/images/lk_travel.png" alt="Lancang Kuning Travelindo"
                  style="width:90px;height:90px;object-fit:contain;display:block;">
             <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
         </div>
@@ -390,7 +390,7 @@
 
         {{-- Logo Jasa Raharja --}}
         <div class="ticket-logo-box">
-            <img src="/images/logo jasaraharja.jpg" alt="Jasa Raharja"
+            <img src="/images/logo_jasaraharja.jpg" alt="Jasa Raharja"
                  style="width:90px;height:90px;object-fit:contain;display:block;">
             <div class="ticket-logo-text" style="color:#1a237e;">Jasa Raharja<br>Protected</div>
         </div>
