@@ -161,6 +161,7 @@ class KeberangkatanController extends Controller
             'jumlah_paket' => (int) $item->jumlah_paket,
             'uang_paket' => (int) $item->uang_paket,
             'jumlah_snack' => (int) $item->jumlah_snack,
+            'pengembalian_snack' => (int) $item->pengembalian_snack,
             'jumlah_air_mineral' => (int) $item->jumlah_air_mineral,
             'uang_pc' => (float) $item->uang_pc,
             'uang_bersih' => (float) $item->uang_bersih,

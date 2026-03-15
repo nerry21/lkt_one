@@ -59,6 +59,7 @@
                             <th>Bulan</th>
                             <th class="text-right">Total Snack</th>
                             <th class="text-right">Total Air Mineral</th>
+                            <th class="text-right">Pengembalian Snack</th>
                             <th class="text-right">Terpakai Snack</th>
                             <th class="text-right">Terpakai Air Mineral</th>
                             <th class="text-right">Sisa Snack</th>
@@ -71,7 +72,7 @@
                     </thead>
                     <tbody id="stock-table-body">
                         <tr>
-                            <td colspan="13" class="stock-table-state">
+                            <td colspan="14" class="stock-table-state">
                                 <div class="stock-loading-inline">
                                     <span class="stock-loading-inline-spinner" aria-hidden="true"></span>
                                     <span>Memuat data...</span>
@@ -146,7 +147,7 @@
                         </div>
 
                         <div class="stock-form-group">
-                            <label for="stock-total-snack">Total Stock Snack</label>
+                            <label for="stock-total-snack">Total Stock Snack Awal</label>
                             <div class="stock-input-shell">
                                 <input id="stock-total-snack" type="number" min="0" name="total_stock_snack" value="0" required data-testid="stock-total-snack">
                             </div>
@@ -186,7 +187,7 @@
                     </div>
 
                     <p class="stock-note">
-                        Sisa stock dan sisa nilai total akan dihitung otomatis dari pemakaian snack dan air mineral pada data keberangkatan.
+                        Total snack pada tabel sudah termasuk pengembalian snack otomatis dari data keberangkatan pada tanggal yang sama.
                     </p>
 
                     <div class="stock-dialog-actions">

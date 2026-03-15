@@ -73,6 +73,7 @@ function calculatePreviewValues() {
     const tarifPenumpang = Number(document.getElementById('keberangkatan-tarif-penumpang')?.value || 0);
     const uangPaket = Number(document.getElementById('keberangkatan-uang-paket')?.value || 0);
     const jumlahSnack = Number(document.getElementById('keberangkatan-jumlah-snack')?.value || 0);
+    const pengembalianSnack = Number(document.getElementById('keberangkatan-pengembalian-snack')?.value || 0);
     const jumlahAirMineral = Number(document.getElementById('keberangkatan-jumlah-air-mineral')?.value || 0);
     const jumlahUangPenumpang = tarifPenumpang;
     const total = jumlahUangPenumpang + uangPaket;
@@ -86,6 +87,7 @@ function calculatePreviewValues() {
         uang_pc: uangPc,
         uang_bersih: uangBersih,
         jumlah_snack: jumlahSnack,
+        pengembalian_snack: pengembalianSnack,
         jumlah_air_mineral: jumlahAirMineral,
     };
 }
@@ -98,6 +100,11 @@ function syncCalculationPreview() {
 
         if (element) {
             if (key === 'jumlah_snack') {
+                element.textContent = `${formatNumber(value)} item`;
+                return;
+            }
+
+            if (key === 'pengembalian_snack') {
                 element.textContent = `${formatNumber(value)} item`;
                 return;
             }
@@ -154,7 +161,7 @@ function renderLoadingState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="17" class="keberangkatan-table-state">
+            <td colspan="18" class="keberangkatan-table-state">
                 <div class="keberangkatan-loading-inline">
                     <span class="keberangkatan-loading-inline-spinner" aria-hidden="true"></span>
                     <span>Memuat data...</span>
@@ -186,7 +193,7 @@ function renderEmptyState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="17" class="keberangkatan-table-state keberangkatan-empty-copy">
+            <td colspan="18" class="keberangkatan-table-state keberangkatan-empty-copy">
                 Belum ada data keberangkatan
             </td>
         </tr>
@@ -235,6 +242,7 @@ function renderRows() {
             <td class="text-right">${formatNumber(item.jumlah_paket)}</td>
             <td class="text-right keberangkatan-money-cell">${formatCurrency(item.uang_paket)}</td>
             <td class="text-right"><span class="keberangkatan-stock-badge">${formatNumber(item.jumlah_snack)}</span></td>
+            <td class="text-right"><span class="keberangkatan-stock-badge keberangkatan-stock-badge-blue">${formatNumber(item.pengembalian_snack)}</span></td>
             <td class="text-right"><span class="keberangkatan-stock-badge keberangkatan-stock-badge-blue">${formatNumber(item.jumlah_air_mineral)}</span></td>
             <td class="text-right keberangkatan-money-cell keberangkatan-money-cell-amber">${formatCurrency(item.uang_pc)}</td>
             <td class="text-right keberangkatan-money-cell keberangkatan-money-cell-emerald">${formatCurrency(item.uang_bersih)}</td>
@@ -308,6 +316,10 @@ function renderRows() {
                     <div class="keberangkatan-mobile-item">
                         <span>Snack</span>
                         <strong>${formatNumber(item.jumlah_snack)} item</strong>
+                    </div>
+                    <div class="keberangkatan-mobile-item">
+                        <span>Pengembalian Snack</span>
+                        <strong>${formatNumber(item.pengembalian_snack)} item</strong>
                     </div>
                     <div class="keberangkatan-mobile-item">
                         <span>Air Mineral</span>
@@ -427,6 +439,7 @@ function resetForm() {
     const jumlahPaket = document.getElementById('keberangkatan-jumlah-paket');
     const uangPaket = document.getElementById('keberangkatan-uang-paket');
     const jumlahSnack = document.getElementById('keberangkatan-jumlah-snack');
+    const pengembalianSnack = document.getElementById('keberangkatan-pengembalian-snack');
     const jumlahAirMineral = document.getElementById('keberangkatan-jumlah-air-mineral');
     const statusPembayaran = document.getElementById('keberangkatan-status-pembayaran');
 
@@ -495,6 +508,10 @@ function resetForm() {
         jumlahSnack.value = '0';
     }
 
+    if (pengembalianSnack) {
+        pengembalianSnack.value = '0';
+    }
+
     if (jumlahAirMineral) {
         jumlahAirMineral.value = '0';
     }
@@ -524,6 +541,7 @@ async function openEditDialog(id) {
     document.getElementById('keberangkatan-jumlah-paket').value = item.jumlah_paket;
     document.getElementById('keberangkatan-uang-paket').value = item.uang_paket;
     document.getElementById('keberangkatan-jumlah-snack').value = item.jumlah_snack;
+    document.getElementById('keberangkatan-pengembalian-snack').value = item.pengembalian_snack;
     document.getElementById('keberangkatan-jumlah-air-mineral').value = item.jumlah_air_mineral;
     document.getElementById('keberangkatan-status-pembayaran').value = paymentStatusLabel(item.status_pembayaran);
 
@@ -605,6 +623,7 @@ export default function initKeberangkatanPage() {
             'keberangkatan-tarif-penumpang',
             'keberangkatan-uang-paket',
             'keberangkatan-jumlah-snack',
+            'keberangkatan-pengembalian-snack',
             'keberangkatan-jumlah-air-mineral',
         ].includes(event.target.id)) {
             syncCalculationPreview();
@@ -625,6 +644,7 @@ export default function initKeberangkatanPage() {
             jumlah_paket: Number(document.getElementById('keberangkatan-jumlah-paket')?.value || 0),
             uang_paket: Number(document.getElementById('keberangkatan-uang-paket')?.value || 0),
             jumlah_snack: Number(document.getElementById('keberangkatan-jumlah-snack')?.value || 0),
+            pengembalian_snack: Number(document.getElementById('keberangkatan-pengembalian-snack')?.value || 0),
             jumlah_air_mineral: Number(document.getElementById('keberangkatan-jumlah-air-mineral')?.value || 0),
             trip_ke: Number(document.getElementById('keberangkatan-trip-ke')?.value || 1),
             status_pembayaran: paymentStatusLabel(document.getElementById('keberangkatan-status-pembayaran')?.value || ''),

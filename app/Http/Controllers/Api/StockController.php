@@ -120,6 +120,8 @@ class StockController extends Controller
 
     protected function payload(Stock $stock): array
     {
+        $displayTotalSnack = (int) $stock->total_stock_snack + (int) $stock->pengembalian_snack;
+
         return [
             'id' => $stock->id,
             'tanggal' => $stock->tanggal,
@@ -127,8 +129,10 @@ class StockController extends Controller
             'bulan' => $stock->bulan,
             'tahun' => $stock->tahun,
             'total_stock_snack' => (int) $stock->total_stock_snack,
+            'total_stock_snack_display' => $displayTotalSnack,
             'total_stock_air_mineral' => (int) $stock->total_stock_air_mineral,
             'terpakai_snack' => (int) $stock->terpakai_snack,
+            'pengembalian_snack' => (int) $stock->pengembalian_snack,
             'terpakai_air_mineral' => (int) $stock->terpakai_air_mineral,
             'sisa_stock_snack' => (int) $stock->sisa_stock_snack,
             'sisa_stock_air_mineral' => (int) $stock->sisa_stock_air_mineral,

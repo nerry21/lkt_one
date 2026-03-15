@@ -65,6 +65,7 @@ class Keberangkatan extends Model
         'jumlah_paket',
         'uang_paket',
         'jumlah_snack',
+        'pengembalian_snack',
         'jumlah_air_mineral',
         'uang_pc',
         'uang_bersih',
@@ -82,6 +83,7 @@ class Keberangkatan extends Model
             'jumlah_paket' => 'integer',
             'uang_paket' => 'integer',
             'jumlah_snack' => 'integer',
+            'pengembalian_snack' => 'integer',
             'jumlah_air_mineral' => 'integer',
             'uang_pc' => 'float',
             'uang_bersih' => 'float',
@@ -113,6 +115,11 @@ class Keberangkatan extends Model
             $tarifPenumpang = (int) ($keberangkatan->tarif_penumpang ?? 0);
             $uangPaket = (int) ($keberangkatan->uang_paket ?? 0);
             $keberangkatan->jumlah_snack = max(0, (int) ($keberangkatan->jumlah_snack ?? 0));
+            $keberangkatan->pengembalian_snack = max(0, (int) ($keberangkatan->pengembalian_snack ?? 0));
+            $keberangkatan->pengembalian_snack = min(
+                $keberangkatan->pengembalian_snack,
+                $keberangkatan->jumlah_snack,
+            );
             $keberangkatan->jumlah_air_mineral = max(0, (int) ($keberangkatan->jumlah_air_mineral ?? 0));
             $jumlahUangPenumpang = $tarifPenumpang;
             $total = $jumlahUangPenumpang + $uangPaket;

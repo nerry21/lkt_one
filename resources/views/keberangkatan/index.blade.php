@@ -76,6 +76,7 @@
                             <th class="text-right">Paket</th>
                             <th class="text-right">Uang Paket</th>
                             <th class="text-right">Snack</th>
+                            <th class="text-right">Pengembalian Snack</th>
                             <th class="text-right">Air Mineral</th>
                             <th class="text-right">Uang PC (15%)</th>
                             <th class="text-right">Uang Bersih</th>
@@ -86,7 +87,7 @@
                     </thead>
                     <tbody id="keberangkatan-table-body">
                         <tr>
-                            <td colspan="17" class="keberangkatan-table-state">
+                            <td colspan="18" class="keberangkatan-table-state">
                                 <div class="keberangkatan-loading-inline">
                                     <span class="keberangkatan-loading-inline-spinner" aria-hidden="true"></span>
                                     <span>Memuat data...</span>
@@ -380,6 +381,21 @@
                             </div>
 
                             <div class="keberangkatan-form-group">
+                                <label for="keberangkatan-pengembalian-snack">Pengembalian Snack</label>
+                                <div class="keberangkatan-input-shell">
+                                    <input
+                                        id="keberangkatan-pengembalian-snack"
+                                        type="number"
+                                        min="0"
+                                        name="pengembalian_snack"
+                                        value="0"
+                                        required
+                                        data-testid="input-pengembalian-snack"
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="keberangkatan-form-group">
                                 <label for="keberangkatan-jumlah-air-mineral">Jumlah Air Mineral</label>
                                 <div class="keberangkatan-input-shell">
                                     <input
@@ -424,6 +440,10 @@
                                 <strong data-calc="jumlah_snack">0 item</strong>
                             </div>
                             <div class="keberangkatan-preview-row">
+                                <span>Pengembalian Snack:</span>
+                                <strong data-calc="pengembalian_snack">0 item</strong>
+                            </div>
+                            <div class="keberangkatan-preview-row">
                                 <span>Air Mineral Digunakan:</span>
                                 <strong data-calc="jumlah_air_mineral">0 botol</strong>
                             </div>
@@ -431,7 +451,7 @@
                     </div>
 
                     <p class="keberangkatan-stock-note">
-                        Jumlah snack dan air mineral akan otomatis mengurangi stok pada tanggal keberangkatan yang sama.
+                        Jumlah snack akan mengurangi stok, sedangkan pengembalian snack akan menambah total stok snack pada tanggal yang sama.
                     </p>
 
                     <div class="keberangkatan-dialog-actions">

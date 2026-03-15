@@ -30,15 +30,23 @@ class StockAllocationService
         return $this->transportCalculationService->dateParts($tanggal);
     }
 
-    public function calculateStockValues(int $totalSnack, int $totalAirMineral, int $usedSnack = 0, int $usedAirMineral = 0): array
+    public function calculateStockValues(
+        int $totalSnack,
+        int $totalAirMineral,
+        int $usedSnack = 0,
+        int $usedAirMineral = 0,
+        int $returnedSnack = 0,
+    ): array
     {
-        $sisaSnack = max(0, $totalSnack - $usedSnack);
+        $effectiveTotalSnack = $totalSnack + $returnedSnack;
+        $sisaSnack = max(0, $effectiveTotalSnack - $usedSnack);
         $sisaAirMineral = max(0, $totalAirMineral - $usedAirMineral);
-        $nilaiTotal = ($totalSnack * self::SNACK_UNIT_PRICE) + ($totalAirMineral * self::AIR_UNIT_PRICE);
+        $nilaiTotal = ($effectiveTotalSnack * self::SNACK_UNIT_PRICE) + ($totalAirMineral * self::AIR_UNIT_PRICE);
         $sisaNilaiTotal = ($sisaSnack * self::SNACK_UNIT_PRICE) + ($sisaAirMineral * self::AIR_UNIT_PRICE);
 
         return [
             'terpakai_snack' => $usedSnack,
+            'pengembalian_snack' => $returnedSnack,
             'terpakai_air_mineral' => $usedAirMineral,
             'sisa_stock_snack' => $sisaSnack,
             'sisa_stock_air_mineral' => $sisaAirMineral,
@@ -63,18 +71,15 @@ class StockAllocationService
             throw new HttpException(422, 'Data stok snack dan air mineral untuk tanggal ini belum tersedia');
         }
 
-        $usageQuery = Keberangkatan::query()->where('tanggal', $tanggal);
+        $usage = $this->stockUsageSummary($tanggal, $current);
 
-        if ($current) {
-            $usageQuery->whereKeyNot($current->getKey());
-        }
-
-        $usage = $usageQuery
-            ->selectRaw('COALESCE(SUM(jumlah_snack), 0) as snack, COALESCE(SUM(jumlah_air_mineral), 0) as air')
-            ->first();
-
-        $availableSnack = max(0, (int) $stock->total_stock_snack - (int) ($usage->snack ?? 0));
-        $availableAirMineral = max(0, (int) $stock->total_stock_air_mineral - (int) ($usage->air ?? 0));
+        $availableSnack = max(
+            0,
+            (int) $stock->total_stock_snack
+            + $usage['returned_snack']
+            - $usage['distributed_snack'],
+        );
+        $availableAirMineral = max(0, (int) $stock->total_stock_air_mineral - $usage['air']);
 
         if ($jumlahSnack > $availableSnack) {
             throw new HttpException(422, "Sisa stock snack untuk tanggal {$tanggal} hanya {$availableSnack}");
@@ -95,16 +100,12 @@ class StockAllocationService
             return;
         }
 
-        $usage = Keberangkatan::query()
-            ->where('tanggal', $tanggal)
-            ->selectRaw('COALESCE(SUM(jumlah_snack), 0) as snack, COALESCE(SUM(jumlah_air_mineral), 0) as air')
-            ->first();
-
-        $usedSnack = (int) ($usage->snack ?? 0);
-        $usedAirMineral = (int) ($usage->air ?? 0);
+        $usage = $this->stockUsageSummary($tanggal);
+        $usedSnack = max(0, $usage['distributed_snack'] - $usage['returned_snack']);
+        $usedAirMineral = $usage['air'];
 
         if ($totalSnack < $usedSnack) {
-            throw new HttpException(422, "Total stock snack tidak boleh lebih kecil dari pemakaian saat ini ({$usedSnack})");
+            throw new HttpException(422, "Total stock snack tidak boleh lebih kecil dari pemakaian bersih saat ini ({$usedSnack})");
         }
 
         if ($totalAirMineral < $usedAirMineral) {
@@ -121,18 +122,16 @@ class StockAllocationService
         }
 
         $query->get()->each(function (Stock $stock): void {
-            $usage = Keberangkatan::query()
-                ->where('tanggal', $stock->tanggal)
-                ->selectRaw('COALESCE(SUM(jumlah_snack), 0) as snack, COALESCE(SUM(jumlah_air_mineral), 0) as air')
-                ->first();
+            $usage = $this->stockUsageSummary((string) $stock->tanggal);
 
             $stock->fill(array_merge(
                 $this->dateParts($stock->tanggal),
                 $this->calculateStockValues(
                     (int) $stock->total_stock_snack,
                     (int) $stock->total_stock_air_mineral,
-                    (int) ($usage->snack ?? 0),
-                    (int) ($usage->air ?? 0),
+                    $usage['distributed_snack'],
+                    $usage['air'],
+                    $usage['returned_snack'],
                 ),
             ));
             $stock->save();
@@ -145,5 +144,26 @@ class StockAllocationService
             ->filter(fn ($date) => filled($date))
             ->unique()
             ->each(fn ($date) => $this->syncByDate((string) $date));
+    }
+
+    protected function stockUsageSummary(string $tanggal, ?Keberangkatan $exclude = null): array
+    {
+        $query = Keberangkatan::query()->where('tanggal', $tanggal);
+
+        if ($exclude) {
+            $query->whereKeyNot($exclude->getKey());
+        }
+
+        $usage = $query
+            ->selectRaw('COALESCE(SUM(jumlah_snack), 0) as distributed_snack')
+            ->selectRaw('COALESCE(SUM(pengembalian_snack), 0) as returned_snack')
+            ->selectRaw('COALESCE(SUM(jumlah_air_mineral), 0) as air')
+            ->first();
+
+        return [
+            'distributed_snack' => (int) ($usage->distributed_snack ?? 0),
+            'returned_snack' => (int) ($usage->returned_snack ?? 0),
+            'air' => (int) ($usage->air ?? 0),
+        ];
     }
 }

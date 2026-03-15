@@ -26,6 +26,7 @@ class StoreKeberangkatanRequest extends FormRequest
             'jumlah_paket' => ['required', 'integer'],
             'uang_paket' => ['required', 'integer'],
             'jumlah_snack' => ['required', 'integer', 'min:0'],
+            'pengembalian_snack' => ['required', 'integer', 'min:0', 'lte:jumlah_snack'],
             'jumlah_air_mineral' => ['required', 'integer', 'min:0'],
             'trip_ke' => ['required', 'integer'],
             'status_pembayaran' => ['nullable', 'string', Rule::in(Keberangkatan::STATUSES)],

@@ -2378,7 +2378,7 @@ button {
 
 .keberangkatan-table {
     width: 100%;
-    min-width: 1560px;
+    min-width: 1680px;
     border-collapse: collapse;
 }
 
@@ -3821,7 +3821,7 @@ button {
 .stock-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1480px;
+    min-width: 1600px;
 }
 
 .stock-table thead tr {

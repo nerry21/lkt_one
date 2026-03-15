@@ -63,6 +63,7 @@ class StockKeberangkatanFlowTest extends TestCase
             'jumlah_paket' => 1,
             'uang_paket' => 50000,
             'jumlah_snack' => 3,
+            'pengembalian_snack' => 1,
             'jumlah_air_mineral' => 2,
             'trip_ke' => 1,
         ]);
@@ -73,17 +74,29 @@ class StockKeberangkatanFlowTest extends TestCase
                 'tipe_layanan' => Keberangkatan::DEFAULT_TIPE_LAYANAN,
                 'jumlah_uang_penumpang' => 150000,
                 'jumlah_snack' => 3,
+                'pengembalian_snack' => 1,
                 'jumlah_air_mineral' => 2,
             ]);
 
         $this->assertDatabaseHas('stock', [
             'tanggal' => '2026-04-01',
             'terpakai_snack' => 3,
+            'pengembalian_snack' => 1,
             'terpakai_air_mineral' => 2,
-            'sisa_stock_snack' => 7,
+            'sisa_stock_snack' => 8,
             'sisa_stock_air_mineral' => 6,
-            'sisa_nilai_total' => 33000,
+            'nilai_total' => 49000,
+            'sisa_nilai_total' => 36000,
         ]);
+
+        $this->getJson('/api/stock')
+            ->assertOk()
+            ->assertJsonFragment([
+                'tanggal' => '2026-04-01',
+                'total_stock_snack' => 10,
+                'total_stock_snack_display' => 11,
+                'pengembalian_snack' => 1,
+            ]);
     }
 
     public function test_updating_and_deleting_keberangkatan_resyncs_stock(): void
@@ -127,6 +140,7 @@ class StockKeberangkatanFlowTest extends TestCase
             'jumlah_paket' => 0,
             'uang_paket' => 0,
             'jumlah_snack' => 4,
+            'pengembalian_snack' => 1,
             'jumlah_air_mineral' => 3,
             'trip_ke' => 1,
         ]);
@@ -136,14 +150,16 @@ class StockKeberangkatanFlowTest extends TestCase
         $this->assertDatabaseHas('stock', [
             'tanggal' => '2026-04-02',
             'terpakai_snack' => 4,
+            'pengembalian_snack' => 1,
             'terpakai_air_mineral' => 3,
-            'sisa_stock_snack' => 8,
+            'sisa_stock_snack' => 9,
             'sisa_stock_air_mineral' => 7,
-            'sisa_nilai_total' => 38000,
+            'sisa_nilai_total' => 41000,
         ]);
 
         $this->putJson("/api/keberangkatan/{$keberangkatanId}", [
             'jumlah_snack' => 2,
+            'pengembalian_snack' => 2,
             'jumlah_air_mineral' => 1,
             'tanggal' => '2026-04-02',
             'jam_keberangkatan' => '16:00',
@@ -160,10 +176,11 @@ class StockKeberangkatanFlowTest extends TestCase
         $this->assertDatabaseHas('stock', [
             'tanggal' => '2026-04-02',
             'terpakai_snack' => 2,
+            'pengembalian_snack' => 2,
             'terpakai_air_mineral' => 1,
-            'sisa_stock_snack' => 10,
+            'sisa_stock_snack' => 12,
             'sisa_stock_air_mineral' => 9,
-            'sisa_nilai_total' => 48000,
+            'sisa_nilai_total' => 54000,
         ]);
 
         $this->deleteJson("/api/keberangkatan/{$keberangkatanId}")
@@ -172,6 +189,7 @@ class StockKeberangkatanFlowTest extends TestCase
         $this->assertDatabaseHas('stock', [
             'tanggal' => '2026-04-02',
             'terpakai_snack' => 0,
+            'pengembalian_snack' => 0,
             'terpakai_air_mineral' => 0,
             'sisa_stock_snack' => 12,
             'sisa_stock_air_mineral' => 10,
@@ -220,6 +238,7 @@ class StockKeberangkatanFlowTest extends TestCase
             'jumlah_paket' => 0,
             'uang_paket' => 0,
             'jumlah_snack' => 3,
+            'pengembalian_snack' => 1,
             'jumlah_air_mineral' => 1,
             'trip_ke' => 1,
         ]);

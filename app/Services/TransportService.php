@@ -47,14 +47,20 @@ class TransportService
 
         $query->get()->each(function (Stock $stock) {
             $pemakaian = Keberangkatan::whereDate('tanggal', $stock->tanggal)
-                ->selectRaw('COALESCE(SUM(jumlah_snack),0) as snack, COALESCE(SUM(jumlah_air_mineral),0) as air')
+                ->selectRaw('COALESCE(SUM(jumlah_snack),0) as snack')
+                ->selectRaw('COALESCE(SUM(pengembalian_snack),0) as pengembalian_snack')
+                ->selectRaw('COALESCE(SUM(jumlah_air_mineral),0) as air')
                 ->first();
 
             $stock->terpakai_snack = (int) ($pemakaian->snack ?? 0);
+            $stock->pengembalian_snack = (int) ($pemakaian->pengembalian_snack ?? 0);
             $stock->terpakai_air_mineral = (int) ($pemakaian->air ?? 0);
-            $stock->sisa_stock_snack = max(0, (int) $stock->total_stock_snack - (int) $stock->terpakai_snack);
+            $stock->sisa_stock_snack = max(
+                0,
+                (int) $stock->total_stock_snack + (int) $stock->pengembalian_snack - (int) $stock->terpakai_snack,
+            );
             $stock->sisa_stock_air_mineral = max(0, (int) $stock->total_stock_air_mineral - (int) $stock->terpakai_air_mineral);
-            $stock->nilai_total_snack = (int) $stock->total_stock_snack * (int) $stock->harga_snack;
+            $stock->nilai_total_snack = ((int) $stock->total_stock_snack + (int) $stock->pengembalian_snack) * (int) $stock->harga_snack;
             $stock->nilai_total_air_mineral = (int) $stock->total_stock_air_mineral * (int) $stock->harga_air_mineral;
             $stock->nilai_total = $stock->nilai_total_snack + $stock->nilai_total_air_mineral;
             $stock->sisa_nilai_snack = (int) $stock->sisa_stock_snack * (int) $stock->harga_snack;

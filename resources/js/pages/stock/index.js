@@ -89,7 +89,7 @@ function renderLoadingState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="13" class="stock-table-state">
+            <td colspan="14" class="stock-table-state">
                 <div class="stock-loading-inline">
                     <span class="stock-loading-inline-spinner" aria-hidden="true"></span>
                     <span>Memuat data...</span>
@@ -121,7 +121,7 @@ function renderEmptyState() {
 
     tbody.innerHTML = `
         <tr>
-            <td colspan="13" class="stock-table-state stock-empty-copy">
+            <td colspan="14" class="stock-table-state stock-empty-copy">
                 Belum ada data stok snack dan air mineral
             </td>
         </tr>
@@ -160,8 +160,9 @@ function renderRows() {
             <td class="stock-day-cell">${escapeHtml(item.hari)}</td>
             <td>${escapeHtml(item.tanggal)}</td>
             <td>${escapeHtml(item.bulan)}</td>
-            <td class="text-right">${formatNumber(item.total_stock_snack)}</td>
+            <td class="text-right">${formatNumber(item.total_stock_snack_display ?? item.total_stock_snack)}</td>
             <td class="text-right">${formatNumber(item.total_stock_air_mineral)}</td>
+            <td class="text-right">${formatNumber(item.pengembalian_snack)}</td>
             <td class="text-right">${formatNumber(item.terpakai_snack)}</td>
             <td class="text-right">${formatNumber(item.terpakai_air_mineral)}</td>
             <td class="text-right"><span class="stock-value-badge stock-value-badge-emerald">${formatNumber(item.sisa_stock_snack)}</span></td>
@@ -210,11 +211,15 @@ function renderRows() {
                 <div class="stock-mobile-grid">
                     <div class="stock-mobile-item">
                         <span>Total Snack</span>
-                        <strong>${formatNumber(item.total_stock_snack)}</strong>
+                        <strong>${formatNumber(item.total_stock_snack_display ?? item.total_stock_snack)}</strong>
                     </div>
                     <div class="stock-mobile-item">
                         <span>Total Air Mineral</span>
                         <strong>${formatNumber(item.total_stock_air_mineral)}</strong>
+                    </div>
+                    <div class="stock-mobile-item">
+                        <span>Pengembalian Snack</span>
+                        <strong>${formatNumber(item.pengembalian_snack)}</strong>
                     </div>
                     <div class="stock-mobile-item">
                         <span>Terpakai Snack</span>

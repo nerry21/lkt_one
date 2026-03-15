@@ -26,6 +26,7 @@ class UpdateKeberangkatanRequest extends FormRequest
             'jumlah_paket' => ['sometimes', 'integer'],
             'uang_paket' => ['sometimes', 'integer'],
             'jumlah_snack' => ['sometimes', 'integer', 'min:0'],
+            'pengembalian_snack' => ['sometimes', 'integer', 'min:0', 'lte:jumlah_snack'],
             'jumlah_air_mineral' => ['sometimes', 'integer', 'min:0'],
             'trip_ke' => ['sometimes', 'integer'],
             'status_pembayaran' => ['sometimes', 'nullable', 'string', Rule::in(Keberangkatan::STATUSES)],
