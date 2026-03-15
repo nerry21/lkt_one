@@ -363,6 +363,16 @@
     <div class="ticket-header">
         {{-- Logo PT. Lancang Kuning --}}
         <div class="ticket-logo-box">
+            @php
+                $lkLogo = collect(['lk-logo.png','lk-logo.jpg','lk-logo.jpeg','login-brand-whatsapp.jpeg'])
+                    ->first(fn($f) => file_exists(public_path('images/'.$f)));
+            @endphp
+            @if($lkLogo)
+            <div class="ticket-logo-circle" style="overflow:hidden;padding:0;">
+                <img src="/images/{{ $lkLogo }}" alt="Lancang Kuning Travelindo"
+                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">
+            </div>
+            @else
             <svg viewBox="0 0 200 200" width="82" height="82" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <radialGradient id="lkGrad" cx="50%" cy="40%" r="60%">
@@ -401,6 +411,7 @@
                 <path d="M 22,75 A 80,80 0 0,1 30,55" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M 178,75 A 80,80 0 0,0 170,55" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
             </svg>
+            @endif
             <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
         </div>
 
