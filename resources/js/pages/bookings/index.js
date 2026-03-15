@@ -40,6 +40,7 @@ const state = {
     deleteItem: null,
     slotDriverMap: {},
     slotMobilMap: {},
+    occupiedSeatsForForm: [],
 };
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
@@ -642,23 +643,58 @@ function renderPassengerForms(seedPassengers = null) {
         </div>`;
 }
 
+async function fetchOccupiedSeats() {
+    const tripDate = document.getElementById('booking-trip-date')?.value || '';
+    const tripTime = document.getElementById('booking-trip-time')?.value || '';
+    const excludeId = state.editItem?.id || '';
+
+    if (!tripDate || !tripTime) {
+        state.occupiedSeatsForForm = [];
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime });
+
+        if (excludeId) params.set('exclude_id', excludeId);
+
+        const res = await apiRequest(`/bookings/occupied-seats?${params}`);
+
+        state.occupiedSeatsForForm = Array.isArray(res?.occupied_seats) ? res.occupied_seats : [];
+    } catch {
+        state.occupiedSeatsForForm = [];
+    }
+}
+
 function renderSeatButtons() {
     const seatButtons = document.querySelectorAll('[data-seat-code]');
     const currentPassengerCount = passengerCount();
     const allowedCodes = allowedSeatCodes();
 
-    state.selectedSeats = sortSeatCodes(state.selectedSeats.filter((code) => allowedCodes.includes(code)));
+    // Remove occupied seats from selected if they became occupied externally
+    state.selectedSeats = sortSeatCodes(
+        state.selectedSeats.filter((code) => allowedCodes.includes(code) && !state.occupiedSeatsForForm.includes(code)),
+    );
 
     seatButtons.forEach((button) => {
         const code = button.dataset.seatCode;
         const visible = allowedCodes.includes(code);
+        const isOccupied = state.occupiedSeatsForForm.includes(code);
         const isSelected = state.selectedSeats.includes(code);
         const disableUnselected = state.selectedSeats.length >= currentPassengerCount && !isSelected;
 
         button.hidden = !visible;
         button.classList.toggle('is-selected', isSelected);
-        button.classList.toggle('is-disabled', disableUnselected);
-        button.disabled = !visible || disableUnselected;
+        button.classList.toggle('is-occupied', isOccupied);
+        button.classList.toggle('is-disabled', !isOccupied && disableUnselected);
+        button.disabled = !visible || isOccupied || (!isSelected && disableUnselected);
+
+        // Update tooltip
+        if (isOccupied) {
+            button.title = 'Kursi sudah dipesan';
+        } else {
+            button.title = '';
+        }
     });
 
     updateSelectedSeatsInputs();
@@ -684,10 +720,9 @@ function resetForm() {
     document.getElementById('booking-payment-method').value = '';
     document.getElementById('booking-booking-status').value = 'Draft';
     updatePaymentFieldVisibility();
-    renderSeatButtons();
-    renderPassengerForms();
     updatePricing();
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
+    fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
 }
 
 function fillForm(item) {
@@ -715,10 +750,9 @@ function fillForm(item) {
     document.getElementById('booking-form-title').textContent = 'Edit Pemesanan';
     document.getElementById('booking-form-description').textContent = 'Perbarui data pemesanan reguler yang dipilih.';
 
-    renderSeatButtons();
-    renderPassengerForms(item.passengers || []);
     updatePricing();
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
+    fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(item.passengers || []); });
 }
 
 function buildPayload() {
@@ -1002,6 +1036,14 @@ export default function initBookingsPage({ user } = {}) {
         renderSeatButtons();
         renderPassengerForms();
         updatePricing();
+    });
+
+    // Re-fetch occupied seats when date or time changes
+    document.getElementById('booking-trip-date')?.addEventListener('change', () => {
+        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
+    });
+    document.getElementById('booking-trip-time')?.addEventListener('change', () => {
+        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
     });
 
     // Pricing

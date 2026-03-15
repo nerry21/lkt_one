@@ -65,6 +65,31 @@ class BookingController extends Controller
         return response()->json($service->detailPayload($updatedBooking));
     }
 
+    public function occupiedSeats(Request $request): JsonResponse
+    {
+        $tripDate = trim((string) $request->query('trip_date', ''));
+        $tripTime = trim((string) $request->query('trip_time', ''));
+        $excludeId = trim((string) $request->query('exclude_id', ''));
+
+        if ($tripDate === '' || $tripTime === '') {
+            return response()->json(['occupied_seats' => []]);
+        }
+
+        $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
+
+        $occupied = Booking::query()
+            ->where('trip_date', $tripDate)
+            ->where('trip_time', 'like', $timePrefix . '%')
+            ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
+            ->get()
+            ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
+            ->unique()
+            ->values()
+            ->all();
+
+        return response()->json(['occupied_seats' => $occupied]);
+    }
+
     public function updateDepartureStatus(Request $request, string $booking): JsonResponse
     {
         $this->actor($request);

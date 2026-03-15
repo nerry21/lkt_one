@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Booking;
 
+use App\Models\Booking;
 use App\Services\BookingManagementService;
 use App\Services\RegularBookingService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -142,6 +143,31 @@ abstract class BookingUpsertRequest extends FormRequest
 
                 if (! in_array($paymentStatus, $bookingService->paymentStatusAllowedForMethod($paymentMethod), true)) {
                     $validator->errors()->add('payment_status', 'Status pembayaran tidak sesuai dengan metode pembayaran yang dipilih.');
+                }
+
+                // Seat conflict check: same trip_date + trip_time
+                $tripDate = (string) $this->input('trip_date');
+                $tripTime = (string) $this->input('trip_time');
+                $excludeId = $this->route('booking') ? (string) $this->route('booking') : null;
+                $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
+
+                $occupiedSeats = Booking::query()
+                    ->where('trip_date', $tripDate)
+                    ->where('trip_time', 'like', $timePrefix . '%')
+                    ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+                    ->get()
+                    ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $conflictSeats = array_intersect($selectedSeats, $occupiedSeats);
+
+                if (! empty($conflictSeats)) {
+                    $validator->errors()->add(
+                        'selected_seats',
+                        'Kursi ' . implode(', ', $conflictSeats) . ' sudah dipesan pada jadwal ' . $tripDate . ' pukul ' . $tripTime . '.',
+                    );
                 }
             },
         ];

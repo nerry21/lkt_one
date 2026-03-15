@@ -5927,6 +5927,33 @@ button {
     transform: none;
 }
 
+.bookings-seat-button.is-occupied {
+    border-color: rgba(220, 38, 38, 0.45);
+    background: rgba(254, 226, 226, 0.85);
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.85;
+}
+
+.bookings-seat-button.is-occupied strong {
+    color: #b91c1c;
+}
+
+.bookings-seat-button.is-occupied span {
+    color: #ef4444;
+}
+
+.bookings-seat-button.is-occupied::after {
+    content: 'Terisi';
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #dc2626;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+}
+
 .bookings-seat-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
