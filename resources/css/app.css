@@ -6597,6 +6597,10 @@ button {
     gap: 2px;
 }
 
+.bpg-depart-menu[hidden] {
+    display: none;
+}
+
 .bpg-depart-opt {
     width: 100%;
     padding: 8px 12px;
