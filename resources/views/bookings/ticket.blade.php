@@ -26,13 +26,18 @@
         }
 
         .btn-print,
-        .btn-back {
+        .btn-back,
+        .btn-download {
             padding: 10px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
             border: none;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .btn-print {
@@ -44,6 +49,11 @@
             background: #ffffff;
             color: #1565c0;
             border: 2px solid #1565c0;
+        }
+
+        .btn-download {
+            background: #2e7d32;
+            color: #ffffff;
         }
 
         .ticket-wrapper {
@@ -98,7 +108,7 @@
             margin: 2px auto 8px auto;
             border-radius: 50%;
             border: 3px solid #152a90;
-            background: #ffffff;
+            background: transparent;
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -110,6 +120,7 @@
             height: 100%;
             object-fit: contain;
             display: block;
+            mix-blend-mode: multiply;
         }
 
         .ticket-logo-fallback {
@@ -425,7 +436,8 @@
 
 @if (! $isPdf)
     <div class="page-actions">
-        <button class="btn-back" onclick="history.back()">← Kembali</button>
+        <button class="btn-back" onclick="history.back()">← Kembali ke Invoice</button>
+        <a href="{{ route('bookings.ticket.download', $booking) }}" class="btn-download">⬇ Download PDF</a>
         <button class="btn-print" onclick="window.print()">🖨 Cetak Semua Tiket</button>
     </div>
 @endif

@@ -39,6 +39,7 @@ Route::prefix('dashboard')->group(function () {
         Route::get('/bookings/{booking}', [BookingPageController::class, 'show'])->name('bookings.show');
     });
     Route::get('/bookings/{booking}/ticket', [BookingPageController::class, 'ticket'])->name('bookings.ticket');
+    Route::get('/bookings/{booking}/ticket/download', [BookingPageController::class, 'downloadTicket'])->name('bookings.ticket.download');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');
