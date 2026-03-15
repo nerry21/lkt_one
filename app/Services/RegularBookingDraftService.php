@@ -251,6 +251,7 @@ class RegularBookingDraftService
         $totalAmount = $fareAmount > 0 ? ($fareAmount + $additionalFarePerPassenger) * max($normalizedDraft['passenger_count'], 1) : 0;
 
         return [
+            'trip_date' => $normalizedDraft['trip_date'],
             'booking_type' => $service->bookingTypeLabel($normalizedDraft['booking_type']),
             'pickup_location' => $normalizedDraft['pickup_location'],
             'destination_location' => $normalizedDraft['destination_location'],

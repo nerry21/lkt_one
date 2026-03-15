@@ -71,6 +71,10 @@
                             <strong>{{ $reviewState['destination_location'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item">
+                            <span>Tanggal Keberangkatan</span>
+                            <strong>{{ \Carbon\Carbon::parse($reviewState['trip_date'])->translatedFormat('d F Y') }}</strong>
+                        </div>
+                        <div class="regular-booking-summary-item">
                             <span>Jam Keberangkatan</span>
                             <strong>{{ $reviewState['departure_time'] }}</strong>
                         </div>
