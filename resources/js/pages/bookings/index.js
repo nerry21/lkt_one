@@ -283,12 +283,22 @@ function renderSlotCard(schedule, bookingsInSlot) {
         return `<option value="${escapeHtml(m.id)}" ${selectedMobilId === m.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
 
+    // Collect unique service types from bookings in this slot
+    const serviceTypes = [...new Set(
+        bookingsInSlot.map((b) => (b.service_type || '').trim()).filter(Boolean),
+    )];
+
     return `
         <article class="bpg-slot-card" data-slot="${escapeHtml(schedule.value)}" data-direction="${escapeHtml(state.direction)}">
             <div class="bpg-slot-head">
                 <div class="bpg-slot-time-badge">
                     <span class="bpg-slot-period">${escapeHtml(schedule.label)}</span>
                     <strong class="bpg-slot-time">${escapeHtml(schedule.time)}</strong>
+                </div>
+                <div class="bpg-slot-service-types">
+                    ${serviceTypes.length > 0
+                        ? serviceTypes.map((t) => `<span class="bpg-service-badge">${escapeHtml(t)}</span>`).join('')
+                        : '<span class="bpg-service-badge bpg-service-badge--empty">Belum ada layanan</span>'}
                 </div>
                 <div class="bpg-slot-counters">
                     <span class="stock-value-badge ${badgeClass}">${totalPassengers} / ${TOTAL_PASSENGER_SEATS} Kursi</span>

@@ -6199,6 +6199,38 @@ button {
     gap: 10px;
 }
 
+.bpg-slot-service-types {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex: 1;
+}
+
+.bpg-service-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(251, 191, 36, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.bpg-service-badge--empty {
+    background: rgba(148, 163, 184, 0.1);
+    color: rgba(148, 163, 184, 0.5);
+    border-color: rgba(148, 163, 184, 0.2);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 .bpg-slot-time-badge {
     display: flex;
     flex-direction: column;
