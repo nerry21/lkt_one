@@ -189,35 +189,39 @@ function renderPassengerList(bookingsInSlot) {
 
         return `
             <div class="bpg-passenger-item" data-booking-id="${escapeHtml(String(booking.id))}">
-                <div class="bpg-passenger-seats">
-                    ${seats.split(',').map((s) => `<span class="stock-value-badge stock-value-badge-blue">${escapeHtml(s.trim())}</span>`).join('')}
+                <div class="bpg-passenger-item-row">
+                    <div class="bpg-passenger-seats">
+                        ${seats.split(',').map((s) => `<span class="stock-value-badge stock-value-badge-blue">${escapeHtml(s.trim())}</span>`).join('')}
+                    </div>
+                    <div class="bpg-passenger-info">
+                        <span class="bpg-passenger-name">${escapeHtml(booking.nama_pemesanan || '-')}</span>
+                        <span class="bpg-passenger-phone">${escapeHtml(booking.phone || '-')}</span>
+                    </div>
+                    <div class="bpg-passenger-actions">
+                        <span class="${escapeHtml(booking.payment_status_badge_class || 'stock-value-badge stock-value-badge-blue')} bpg-status-sm">${escapeHtml(booking.payment_status || '-')}</span>
+                        <button class="bpg-lihat-btn" type="button" data-booking-lihat="${escapeHtml(String(booking.id))}" aria-label="Lihat detail ${escapeHtml(booking.nama_pemesanan)}">
+                            <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+                            Lihat
+                        </button>
+                        <button class="admin-users-icon-button" type="button" data-booking-edit="${escapeHtml(String(booking.id))}" title="Edit pemesanan">
+                            ${editIcon()}
+                        </button>
+                        <button class="admin-users-icon-button admin-users-icon-button-danger" type="button" data-booking-delete="${escapeHtml(String(booking.id))}" data-booking-name="${escapeHtml(booking.nama_pemesanan)}" title="Hapus pemesanan">
+                            ${trashIcon()}
+                        </button>
+                    </div>
                 </div>
-                <div class="bpg-passenger-info">
-                    <span class="bpg-passenger-name">${escapeHtml(booking.nama_pemesanan || '-')}</span>
-                    <span class="bpg-passenger-phone">${escapeHtml(booking.phone || '-')}</span>
-                </div>
-                <div class="bpg-passenger-actions">
+                <div class="bpg-passenger-depart-row">
                     <div class="bpg-depart-dropdown" data-depart-dropdown="${escapeHtml(String(booking.id))}">
                         <button class="bpg-depart-trigger ${meta.cls}" type="button" data-depart-toggle="${escapeHtml(String(booking.id))}">
-                            <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;flex-shrink:0;"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
                             ${escapeHtml(meta.label)}
-                            <svg viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;flex-shrink:0;"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" style="width:10px;height:10px;flex-shrink:0;"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
                         <div class="bpg-depart-menu" hidden>
                             ${dropdownItems}
                         </div>
                     </div>
-                    <span class="${escapeHtml(booking.payment_status_badge_class || 'stock-value-badge stock-value-badge-blue')} bpg-status-sm">${escapeHtml(booking.payment_status || '-')}</span>
-                    <button class="bpg-lihat-btn" type="button" data-booking-lihat="${escapeHtml(String(booking.id))}" aria-label="Lihat detail ${escapeHtml(booking.nama_pemesanan)}">
-                        <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
-                        Lihat
-                    </button>
-                    <button class="admin-users-icon-button" type="button" data-booking-edit="${escapeHtml(String(booking.id))}" title="Edit pemesanan">
-                        ${editIcon()}
-                    </button>
-                    <button class="admin-users-icon-button admin-users-icon-button-danger" type="button" data-booking-delete="${escapeHtml(String(booking.id))}" data-booking-name="${escapeHtml(booking.nama_pemesanan)}" title="Hapus pemesanan">
-                        ${trashIcon()}
-                    </button>
                 </div>
             </div>`;
     });

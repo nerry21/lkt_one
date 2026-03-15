@@ -6414,11 +6414,17 @@ button {
 
 .bpg-passenger-item {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     padding: 10px 14px;
     border-bottom: 1px solid var(--transit-border);
     transition: background 0.12s ease;
+}
+
+.bpg-passenger-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .bpg-passenger-item:last-child {
@@ -6492,6 +6498,14 @@ button {
     color: #000000;
 }
 
+/* Departure Status Row */
+.bpg-passenger-depart-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 2px;
+}
+
 /* Departure Status Dropdown */
 .bpg-depart-dropdown {
     position: relative;
@@ -6501,13 +6515,13 @@ button {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 5px 10px;
-    border-radius: 8px;
+    padding: 4px 10px;
+    border-radius: 7px;
     border: 1.5px solid #d1d5db;
     background: #ffffff;
     color: #374151;
     font: inherit;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
