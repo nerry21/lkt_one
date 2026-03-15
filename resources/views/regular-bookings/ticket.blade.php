@@ -363,10 +363,44 @@
     <div class="ticket-header">
         {{-- Logo PT. Lancang Kuning --}}
         <div class="ticket-logo-box">
-            <div class="ticket-logo-circle" style="overflow:hidden; padding:0;">
-                <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo"
-                     style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">
-            </div>
+            <svg viewBox="0 0 200 200" width="82" height="82" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="lkGrad" cx="50%" cy="40%" r="60%">
+                        <stop offset="0%" stop-color="#FFD700"/>
+                        <stop offset="50%" stop-color="#FF8C00"/>
+                        <stop offset="100%" stop-color="#E62000"/>
+                    </radialGradient>
+                </defs>
+                <!-- Outer gradient circle -->
+                <circle cx="100" cy="100" r="98" fill="url(#lkGrad)"/>
+                <!-- White ring separator -->
+                <circle cx="100" cy="100" r="98" fill="none" stroke="white" stroke-width="4"/>
+                <circle cx="100" cy="100" r="82" fill="none" stroke="white" stroke-width="2"/>
+                <!-- Inner white circle -->
+                <circle cx="100" cy="100" r="66" fill="white"/>
+                <!-- LK monogram -->
+                <!-- L shape -->
+                <text x="52" y="118" font-family="Arial Black,Arial" font-weight="900" font-size="62" font-style="italic" fill="url(#lkGrad)">L</text>
+                <!-- K shape -->
+                <text x="92" y="118" font-family="Arial Black,Arial" font-weight="900" font-size="62" font-style="italic" fill="url(#lkGrad)">K</text>
+                <!-- Bottom underline arc shape -->
+                <path d="M62 122 Q100 134 138 122" stroke="url(#lkGrad)" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <!-- "LKT - Enjoy The Journey" text -->
+                <text x="100" y="148" font-family="Arial" font-size="9" font-weight="700" fill="#333" text-anchor="middle">LKT – Enjoy The Journey</text>
+                <!-- LANCANG KUNING curved text on top -->
+                <path id="topArc" d="M 18,100 A 82,82 0 0,1 182,100" fill="none"/>
+                <text font-family="Arial Black,Arial" font-size="14" font-weight="900" fill="white" letter-spacing="2">
+                    <textPath href="#topArc" startOffset="50%" text-anchor="middle">LANCANG KUNING</textPath>
+                </text>
+                <!-- TRAVELINDO curved text on bottom -->
+                <path id="botArc" d="M 20,108 A 82,82 0 0,0 180,108" fill="none"/>
+                <text font-family="Arial Black,Arial" font-size="14" font-weight="900" fill="white" letter-spacing="2">
+                    <textPath href="#botArc" startOffset="50%" text-anchor="middle">TRAVELINDO</textPath>
+                </text>
+                <!-- Small arc lines left/right -->
+                <path d="M 22,75 A 80,80 0 0,1 30,55" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M 178,75 A 80,80 0 0,0 170,55" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
             <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
         </div>
 
