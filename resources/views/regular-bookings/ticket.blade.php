@@ -363,17 +363,9 @@
     <div class="ticket-header">
         {{-- Logo PT. Lancang Kuning --}}
         <div class="ticket-logo-box">
-            <div class="ticket-logo-circle">
-                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
-                    <rect x="10" y="44" width="60" height="22" rx="6" fill="#1a237e"/>
-                    <rect x="18" y="36" width="44" height="14" rx="4" fill="#1565c0"/>
-                    <circle cx="24" cy="66" r="7" fill="#FDD835" stroke="#1a237e" stroke-width="2"/>
-                    <circle cx="56" cy="66" r="7" fill="#FDD835" stroke="#1a237e" stroke-width="2"/>
-                    <ellipse cx="40" cy="28" rx="18" ry="14" fill="#1565c0"/>
-                    <rect x="22" y="20" width="36" height="12" rx="3" fill="#1a237e"/>
-                    <rect x="14" y="50" width="10" height="10" rx="2" fill="#FDD835"/>
-                    <rect x="56" y="50" width="10" height="10" rx="2" fill="#FDD835"/>
-                </svg>
+            <div class="ticket-logo-circle" style="overflow:hidden; padding:0;">
+                <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo"
+                     style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">
             </div>
             <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
         </div>
@@ -398,9 +390,21 @@
             </div>
         </div>
 
-        {{-- Logo JP --}}
+        {{-- Logo Jasa Raharja --}}
         <div class="ticket-logo-box">
-            <div class="ticket-logo-jp"><span>JP</span></div>
+            <div class="ticket-logo-circle" style="overflow:hidden; padding:0; background:#fff;">
+                @if (file_exists(public_path('images/jasa-raharja.png')))
+                    <img src="/images/jasa-raharja.png" alt="Jasa Raharja"
+                         style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">
+                @elseif (file_exists(public_path('images/jasa-raharja.jpeg')) || file_exists(public_path('images/jasa-raharja.jpg')))
+                    <img src="/images/jasa-raharja.{{ file_exists(public_path('images/jasa-raharja.jpeg')) ? 'jpeg' : 'jpg' }}"
+                         alt="Jasa Raharja"
+                         style="width:100%; height:100%; object-fit:cover; border-radius:50%; display:block;">
+                @else
+                    {{-- Fallback JP circle jika file belum diupload --}}
+                    <div class="ticket-logo-jp"><span>JP</span></div>
+                @endif
+            </div>
             <div class="ticket-logo-text" style="color:#1a237e;">Jasa Raharja<br>Protected</div>
         </div>
     </div>
