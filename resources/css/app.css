@@ -6397,7 +6397,20 @@ button {
     gap: 0;
     border: 1px solid var(--transit-border);
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
+}
+
+.bpg-passenger-list > .bpg-passenger-list-head {
+    border-radius: 13px 13px 0 0;
+}
+
+.bpg-passenger-item:first-of-type {
+    border-radius: 0;
+}
+
+.bpg-passenger-item:last-of-type {
+    border-bottom: none;
+    border-radius: 0 0 13px 13px;
 }
 
 .bpg-passenger-list-head {
@@ -6509,6 +6522,7 @@ button {
 /* Departure Status Dropdown */
 .bpg-depart-dropdown {
     position: relative;
+    isolation: isolate;
 }
 
 .bpg-depart-trigger {
@@ -6568,9 +6582,9 @@ button {
 
 .bpg-depart-menu {
     position: absolute;
-    top: calc(100% + 5px);
+    top: calc(100% + 4px);
     left: 0;
-    z-index: 200;
+    z-index: 300;
     min-width: 150px;
     background: #ffffff;
     border: 1px solid #e5e7eb;
