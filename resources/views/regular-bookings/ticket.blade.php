@@ -390,7 +390,7 @@
 
         {{-- Logo Jasa Raharja --}}
         <div class="ticket-logo-box">
-            <img src="/images/logo_jasaraharja.jpg" alt="Jasa Raharja"
+            <img src="/images/logo_jasaraharja.png" alt="Jasa Raharja"
                  style="width:90px;height:90px;object-fit:contain;display:block;">
             <div class="ticket-logo-text" style="color:#1a237e;">Jasa Raharja<br>Protected</div>
         </div>

@@ -324,27 +324,54 @@
 <body>
 
 @php
-    $lkLogoFile = public_path('images/lk_travel.png');
-    $jrLogoFile = public_path('images/logo_jasaraharja.jpg');
+    /**
+     * Resize gambar ke ukuran kecil lalu encode ke base64 PNG.
+     * Ini penting karena file logo asli sangat besar (1-2 MiB),
+     * sehingga tidak bisa langsung di-embed ke DomPDF.
+     */
+    function resizeImageToBase64(string $filePath, string $type, int $size = 80): ?string {
+        if (!file_exists($filePath)) return null;
 
-    // PNG: base64 langsung
-    $lkLogo = file_exists($lkLogoFile)
-        ? 'data:image/png;base64,' . base64_encode(file_get_contents($lkLogoFile))
-        : null;
+        try {
+            $src = match ($type) {
+                'png'  => imagecreatefrompng($filePath),
+                'jpg'  => imagecreatefromjpeg($filePath),
+                default => null,
+            };
+            if (!$src) return null;
 
-    // JPEG: konversi ke PNG dulu agar DomPDF bisa render dengan benar
-    if (file_exists($jrLogoFile) && function_exists('imagecreatefromjpeg')) {
-        $img = imagecreatefromjpeg($jrLogoFile);
-        ob_start();
-        imagepng($img);
-        $jrPng = ob_get_clean();
-        imagedestroy($img);
-        $jrLogo = 'data:image/png;base64,' . base64_encode($jrPng);
-    } elseif (file_exists($jrLogoFile)) {
-        $jrLogo = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($jrLogoFile));
-    } else {
-        $jrLogo = null;
+            $w = imagesx($src);
+            $h = imagesy($src);
+
+            // Hitung rasio agar proporsional
+            $ratio = min($size / $w, $size / $h);
+            $newW  = (int) round($w * $ratio);
+            $newH  = (int) round($h * $ratio);
+
+            $dst = imagecreatetruecolor($newW, $newH);
+
+            // Aktifkan transparansi untuk PNG
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            $transparent = imagecolorallocatealpha($dst, 255, 255, 255, 127);
+            imagefilledrectangle($dst, 0, 0, $newW, $newH, $transparent);
+
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
+            imagedestroy($src);
+
+            ob_start();
+            imagepng($dst);
+            $data = ob_get_clean();
+            imagedestroy($dst);
+
+            return 'data:image/png;base64,' . base64_encode($data);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
+
+    $lkLogo = resizeImageToBase64(public_path('images/lk_travel.png'), 'png', 80);
+    $jrLogo = resizeImageToBase64(public_path('images/logo_jasaraharja.png'), 'png', 80);
 
     $seatMap = [
         ['1A', 'SOPIR'],
