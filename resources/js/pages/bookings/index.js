@@ -161,22 +161,30 @@ function renderPassengerList(bookingsInSlot) {
     }
 
     const DEPARTURE_STATUSES = [
-        { value: 'Berangkat', label: 'Berangkat', cls: 'bpg-depart-btn--go' },
-        { value: 'Tidak Berangkat', label: 'Tidak Berangkat', cls: 'bpg-depart-btn--no' },
-        { value: 'Di Oper', label: 'Di Oper', cls: 'bpg-depart-btn--oper' },
+        { value: 'Berangkat', label: 'Berangkat', cls: 'bpg-depart-opt--go' },
+        { value: 'Tidak Berangkat', label: 'Tidak Berangkat', cls: 'bpg-depart-opt--no' },
+        { value: 'Di Oper', label: 'Di Oper', cls: 'bpg-depart-opt--oper' },
     ];
+
+    function departureStatusMeta(status) {
+        if (status === 'Berangkat') return { label: 'Berangkat', cls: 'bpg-depart-trigger--go' };
+        if (status === 'Tidak Berangkat') return { label: 'Tidak Berangkat', cls: 'bpg-depart-trigger--no' };
+        if (status === 'Di Oper') return { label: 'Di Oper', cls: 'bpg-depart-trigger--oper' };
+
+        return { label: 'Status', cls: '' };
+    }
 
     const rows = bookingsInSlot.map((booking) => {
         const seats = (booking.selected_seats_label || '-');
         const currentDeparture = booking.departure_status || '';
+        const meta = departureStatusMeta(currentDeparture);
 
-        const departureButtons = DEPARTURE_STATUSES.map((s) => {
+        const dropdownItems = DEPARTURE_STATUSES.map((s) => {
             const isActive = currentDeparture === s.value;
 
-            return `<button class="bpg-depart-btn ${s.cls}${isActive ? ' is-active' : ''}" type="button"
+            return `<button class="bpg-depart-opt ${s.cls}${isActive ? ' is-active' : ''}" type="button"
                 data-departure-status="${escapeHtml(s.value)}"
-                data-booking-departure="${escapeHtml(String(booking.id))}"
-                title="${escapeHtml(s.value)}">${escapeHtml(s.label)}</button>`;
+                data-booking-departure="${escapeHtml(String(booking.id))}">${escapeHtml(s.label)}</button>`;
         }).join('');
 
         return `
@@ -188,10 +196,17 @@ function renderPassengerList(bookingsInSlot) {
                     <span class="bpg-passenger-name">${escapeHtml(booking.nama_pemesanan || '-')}</span>
                     <span class="bpg-passenger-phone">${escapeHtml(booking.phone || '-')}</span>
                 </div>
-                <div class="bpg-departure-status-group">
-                    ${departureButtons}
-                </div>
                 <div class="bpg-passenger-actions">
+                    <div class="bpg-depart-dropdown" data-depart-dropdown="${escapeHtml(String(booking.id))}">
+                        <button class="bpg-depart-trigger ${meta.cls}" type="button" data-depart-toggle="${escapeHtml(String(booking.id))}">
+                            <svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+                            ${escapeHtml(meta.label)}
+                            <svg viewBox="0 0 24 24" fill="none" style="width:11px;height:11px;flex-shrink:0;"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="bpg-depart-menu" hidden>
+                            ${dropdownItems}
+                        </div>
+                    </div>
                     <span class="${escapeHtml(booking.payment_status_badge_class || 'stock-value-badge stock-value-badge-blue')} bpg-status-sm">${escapeHtml(booking.payment_status || '-')}</span>
                     <button class="bpg-lihat-btn" type="button" data-booking-lihat="${escapeHtml(String(booking.id))}" aria-label="Lihat detail ${escapeHtml(booking.nama_pemesanan)}">
                         <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -800,13 +815,44 @@ export default function initBookingsPage({ user } = {}) {
     });
 
     // Slots shell: delegate clicks and changes
+    // Close all departure dropdowns
+    function closeAllDepartureMenus(exceptId = null) {
+        slotsShell?.querySelectorAll('[data-depart-dropdown]').forEach((dd) => {
+            if (String(dd.dataset.departDropdown) === String(exceptId)) return;
+            dd.querySelector('.bpg-depart-menu')?.removeAttribute('hidden');
+            dd.querySelector('.bpg-depart-menu')?.setAttribute('hidden', '');
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-depart-dropdown]')) {
+            closeAllDepartureMenus();
+        }
+    });
+
     slotsShell?.addEventListener('click', async (event) => {
+        const toggleBtn = event.target.closest('[data-depart-toggle]');
+        const departureBtn = event.target.closest('[data-booking-departure]');
         const lihatBtn = event.target.closest('[data-booking-lihat]');
         const editBtn = event.target.closest('[data-booking-edit]');
         const deleteBtn = event.target.closest('[data-booking-delete]');
-        const departureBtn = event.target.closest('[data-booking-departure]');
 
         try {
+            if (toggleBtn) {
+                const bookingId = toggleBtn.dataset.departToggle;
+                const dropdown = slotsShell.querySelector(`[data-depart-dropdown="${CSS.escape(bookingId)}"]`);
+                const menu = dropdown?.querySelector('.bpg-depart-menu');
+
+                if (!menu) return;
+
+                const isHidden = menu.hasAttribute('hidden');
+
+                closeAllDepartureMenus(bookingId);
+                menu.toggleAttribute('hidden', !isHidden);
+
+                return;
+            }
+
             if (departureBtn) {
                 const bookingId = departureBtn.dataset.bookingDeparture;
                 const newStatus = departureBtn.dataset.departureStatus;
@@ -814,17 +860,25 @@ export default function initBookingsPage({ user } = {}) {
 
                 if (!booking) return;
 
-                // Toggle off if already active
                 const statusToSet = booking.departure_status === newStatus ? '' : newStatus;
 
-                // Optimistic UI update
                 booking.departure_status = statusToSet;
-                const row = slotsShell.querySelector(`[data-booking-id="${CSS.escape(String(bookingId))}"]`);
 
-                if (row) {
-                    row.querySelectorAll('[data-booking-departure]').forEach((btn) => {
+                // Update trigger label + color
+                const dropdown = slotsShell.querySelector(`[data-depart-dropdown="${CSS.escape(bookingId)}"]`);
+
+                if (dropdown) {
+                    const trigger = dropdown.querySelector('.bpg-depart-trigger');
+                    const meta = departureStatusMeta(statusToSet);
+
+                    trigger.className = `bpg-depart-trigger ${meta.cls}`;
+                    trigger.childNodes.forEach((n) => { if (n.nodeType === 3) n.textContent = meta.label; });
+
+                    dropdown.querySelectorAll('[data-booking-departure]').forEach((btn) => {
                         btn.classList.toggle('is-active', btn.dataset.departureStatus === statusToSet);
                     });
+
+                    dropdown.querySelector('.bpg-depart-menu')?.setAttribute('hidden', '');
                 }
 
                 await apiRequest(`/bookings/${bookingId}/departure-status`, {
