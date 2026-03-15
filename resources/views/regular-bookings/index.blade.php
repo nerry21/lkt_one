@@ -142,6 +142,33 @@
                         </div>
 
                         <div class="regular-booking-field">
+                            <label for="regular-booking-additional-fare">Ongkos Tambahan per Penumpang</label>
+                            <div class="regular-booking-input-shell">
+                                <span class="regular-booking-input-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <path d="M12 2V22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                        <path d="M17 6.5C17 4.567 14.7614 3 12 3C9.23858 3 7 4.567 7 6.5C7 8.433 9.23858 10 12 10C14.7614 10 17 11.567 17 13.5C17 15.433 14.7614 17 12 17C9.23858 17 7 15.433 7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                        <path d="M12 6V18M9 12H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+                                <input
+                                    id="regular-booking-additional-fare"
+                                    type="number"
+                                    name="additional_fare_per_passenger"
+                                    value="{{ $formState['additional_fare_per_passenger'] > 0 ? $formState['additional_fare_per_passenger'] : '' }}"
+                                    placeholder="0"
+                                    min="0"
+                                    step="1000"
+                                    data-additional-fare-input
+                                >
+                            </div>
+                            <p class="regular-booking-field-note">Isi jika ada ongkos tambahan untuk keperluan khusus (Lebaran, Tahun Baru, pengantaran jauh, dll). Kosongkan jika tidak ada.</p>
+                            @error('additional_fare_per_passenger')
+                                <p class="regular-booking-field-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="regular-booking-field">
                             <label for="regular-booking-trip-date">Tanggal Keberangkatan</label>
                             <div class="regular-booking-input-shell">
                                 <span class="regular-booking-input-icon" aria-hidden="true">
@@ -229,7 +256,7 @@
                                     data-estimated-total-input
                                 >
                             </div>
-                            <p class="regular-booking-field-note">Estimasi total dihitung dari tarif per penumpang dikali jumlah penumpang.</p>
+                            <p class="regular-booking-field-note">Estimasi total dihitung dari (tarif + ongkos tambahan) per penumpang dikali jumlah penumpang.</p>
                         </div>
                     </div>
 
@@ -329,6 +356,10 @@
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
                             <span>Tarif per Penumpang</span>
                             <strong data-summary-fare>{{ $draftSummary['fare_amount'] }}</strong>
+                        </div>
+                        <div class="regular-booking-summary-item">
+                            <span>Ongkos Tambahan/Penumpang</span>
+                            <strong data-summary-additional-fare>{{ $draftSummary['additional_fare_per_passenger'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
                             <span>Estimasi Total</span>

@@ -54,10 +54,11 @@ class RegularBookingPageController extends Controller
     ): RedirectResponse {
         $validated = $request->validated();
         $fareAmount = $service->resolveFare($validated['pickup_location'], $validated['destination_location']) ?? 0;
+        $additionalFare = (int) ($validated['additional_fare_per_passenger'] ?? 0);
 
         $drafts->store(
             $request->session(),
-            $drafts->fromValidated($validated, $fareAmount),
+            $drafts->fromValidated($validated, $fareAmount, $additionalFare),
         );
 
         return redirect()

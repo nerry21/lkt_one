@@ -104,6 +104,12 @@
                             <span>Tarif per Kursi</span>
                             <strong>{{ $reviewState['fare_amount_formatted'] }}</strong>
                         </div>
+                        @if ($reviewState['additional_fare_per_passenger'] > 0)
+                            <div class="regular-booking-summary-item">
+                                <span>Ongkos Tambahan per Penumpang</span>
+                                <strong>{{ $reviewState['additional_fare_per_passenger_formatted'] }}</strong>
+                            </div>
+                        @endif
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
                             <span>Total Tarif</span>
                             <strong>{{ $reviewState['total_amount_formatted'] }}</strong>

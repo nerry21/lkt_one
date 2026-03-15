@@ -25,6 +25,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'destination_location' => ['required', 'string', Rule::in($service->locations())],
             'departure_time' => ['required', 'string', Rule::in($service->departureScheduleValues())],
             'passenger_count' => ['required', 'integer', 'between:1,6'],
+            'additional_fare_per_passenger' => ['nullable', 'integer', 'min:0'],
             'pickup_address' => ['required', 'string', 'min:10', 'max:255'],
             'dropoff_address' => ['required', 'string', 'min:10', 'max:255'],
         ];
@@ -39,6 +40,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'destination_location' => 'tujuan',
             'departure_time' => 'jam keberangkatan',
             'passenger_count' => 'jumlah penumpang',
+            'additional_fare_per_passenger' => 'ongkos tambahan per penumpang',
             'pickup_address' => 'alamat penjemputan',
             'dropoff_address' => 'alamat pengantaran',
         ];
@@ -86,6 +88,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'pickup_location' => trim((string) $this->input('pickup_location')),
             'destination_location' => trim((string) $this->input('destination_location')),
             'departure_time' => trim((string) $this->input('departure_time')),
+            'additional_fare_per_passenger' => max((int) $this->input('additional_fare_per_passenger', 0), 0),
             'pickup_address' => trim((string) $this->input('pickup_address')),
             'dropoff_address' => trim((string) $this->input('dropoff_address')),
         ]);
