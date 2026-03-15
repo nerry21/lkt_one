@@ -27,7 +27,17 @@
             </div>
 
             <div class="bpg-header-actions" @if (! $canManageBookings) hidden @endif>
-                <input type="date" id="bookings-date-picker" class="bpg-date-input" data-testid="bookings-date-picker">
+                <div class="bpg-date-wrapper">
+                    <label class="bpg-date-label" for="bookings-date-picker">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:15px;height:15px;flex-shrink:0;">
+                            <rect x="3" y="4" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.8"/>
+                            <path d="M3 9H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M8 2V5M16 2V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                        Tanggal
+                    </label>
+                    <input type="date" id="bookings-date-picker" class="bpg-date-input" data-testid="bookings-date-picker">
+                </div>
                 <button class="admin-users-primary-button" type="button" id="bookings-add-btn" data-testid="add-booking-btn">
                     <span class="admin-users-button-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none">

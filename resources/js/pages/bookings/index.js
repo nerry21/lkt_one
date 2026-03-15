@@ -57,8 +57,8 @@ function isAdminRole(role) {
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
 function passengerSeatSvg(occupied) {
-    const color = occupied ? 'var(--transit-primary)' : 'rgba(110,231,183,0.25)';
-    const stroke = occupied ? 'var(--transit-primary-dark)' : 'rgba(110,231,183,0.4)';
+    const color = occupied ? '#dc2626' : '#166534';
+    const stroke = occupied ? '#991b1b' : '#14532d';
     return `
         <svg viewBox="0 0 50 62" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="10" y="2" width="30" height="20" rx="8" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>

@@ -6069,21 +6069,48 @@ button {
     flex-wrap: wrap;
 }
 
+.bpg-date-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bpg-date-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--transit-text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+}
+
 .bpg-date-input {
-    padding: 10px 14px;
+    padding: 10px 16px;
     border-radius: 12px;
-    border: 1px solid var(--transit-border-strong);
+    border: 2px solid var(--transit-border-strong);
     background: rgba(255, 255, 255, 0.06);
     color: var(--transit-text);
     font: inherit;
-    font-size: 0.92rem;
+    font-size: 1rem;
+    font-weight: 600;
     outline: none;
+    cursor: pointer;
     transition: border-color 0.16s ease, background 0.16s ease;
+    min-width: 175px;
+}
+
+.bpg-date-input:hover {
+    border-color: var(--transit-primary);
+    background: rgba(255, 255, 255, 0.09);
 }
 
 .bpg-date-input:focus {
     border-color: var(--transit-primary);
     background: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* Route Tabs */
@@ -6210,12 +6237,13 @@ button {
 }
 
 .bpg-legend-dot--available {
-    background: rgba(110, 231, 183, 0.25);
-    border: 1px solid rgba(110, 231, 183, 0.4);
+    background: #166534;
+    border: 1px solid #14532d;
 }
 
 .bpg-legend-dot--occupied {
-    background: var(--transit-primary);
+    background: #dc2626;
+    border: 1px solid #991b1b;
 }
 
 .bpg-legend-dot--driver {
@@ -6284,7 +6312,7 @@ button {
 
 .bpg-seat-name {
     font-size: 0.65rem;
-    color: var(--transit-primary);
+    color: #fca5a5;
     text-align: center;
     line-height: 1.3;
     max-width: 72px;
@@ -6294,11 +6322,11 @@ button {
 }
 
 .bpg-seat-available .bpg-seat-label {
-    color: rgba(110, 231, 183, 0.4);
+    color: #4ade80;
 }
 
 .bpg-seat-occupied .bpg-seat-label {
-    color: var(--transit-primary);
+    color: #fca5a5;
 }
 
 .bpg-seat-driver .bpg-seat-label {
