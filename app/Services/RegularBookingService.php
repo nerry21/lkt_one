@@ -198,21 +198,23 @@ class RegularBookingService
         ];
     }
 
-    public function seatLayoutState(array $selectedSeatCodes = [], ?int $passengerCount = null): array
+    public function seatLayoutState(array $selectedSeatCodes = [], ?int $passengerCount = null, array $occupiedSeatCodes = []): array
     {
         $availableSeatCodes = $passengerCount === null
             ? $this->selectableSeatCodes()
             : $this->availableSeatCodesForPassengerCount($passengerCount);
         $selectedSeatLookup = array_flip($this->sortSeatCodes($selectedSeatCodes, $availableSeatCodes));
+        $occupiedLookup = array_flip($occupiedSeatCodes);
 
         return collect($this->seatLayout())
-            ->map(function (array $seat) use ($availableSeatCodes, $selectedSeatLookup): array {
+            ->map(function (array $seat) use ($availableSeatCodes, $selectedSeatLookup, $occupiedLookup): array {
                 if ($seat['kind'] !== 'seat') {
                     return $seat;
                 }
 
                 $seat['is_visible'] = in_array($seat['code'], $availableSeatCodes, true);
-                $seat['is_selected'] = $seat['is_visible'] && array_key_exists($seat['code'], $selectedSeatLookup);
+                $seat['is_occupied'] = $seat['is_visible'] && array_key_exists($seat['code'], $occupiedLookup);
+                $seat['is_selected'] = $seat['is_visible'] && !$seat['is_occupied'] && array_key_exists($seat['code'], $selectedSeatLookup);
 
                 return $seat;
             })

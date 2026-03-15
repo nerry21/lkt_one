@@ -50,8 +50,7 @@ class RegularBookingPersistenceService
                 'category' => 'Reguler',
                 'from_city' => $reviewState['pickup_location'],
                 'to_city' => $reviewState['destination_location'],
-                // Skema booking mewajibkan trip_date, sementara alur regular booking saat ini baru menangkap jam keberangkatan.
-                'trip_date' => now()->toDateString(),
+                'trip_date' => $reviewState['trip_date'] ?? now()->toDateString(),
                 'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for' => $reviewState['booking_type'],
                 'passenger_name' => $primaryPassenger['name'],

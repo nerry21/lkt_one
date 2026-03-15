@@ -48,12 +48,16 @@ export default function initRegularBookingSeatsPage() {
                 return;
             }
 
+            const isOccupied = input.disabled && !input.checked && card.classList.contains('is-occupied');
             const isSelected = input.checked;
-            const shouldDisable = selectionIsFull && !isSelected;
+            const shouldDisable = isOccupied || (selectionIsFull && !isSelected);
 
-            input.disabled = shouldDisable;
+            if (!isOccupied) {
+                input.disabled = shouldDisable;
+            }
+
             card.classList.toggle('is-selected', isSelected);
-            card.classList.toggle('is-disabled', shouldDisable);
+            card.classList.toggle('is-disabled', !isOccupied && shouldDisable);
         });
 
         if (summaryCount) {

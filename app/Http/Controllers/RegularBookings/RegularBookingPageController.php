@@ -79,6 +79,24 @@ class RegularBookingPageController extends Controller
 
         $seatSelectionState = $drafts->buildSeatSelectionState($request, $draft, $service);
 
+        $tripDate = trim((string) ($draft['trip_date'] ?? now()->toDateString()));
+        $tripTime = trim((string) ($draft['departure_time'] ?? ''));
+        $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
+        $persistedBookingId = $drafts->getPersistedBookingId($request->session());
+
+        $occupiedSeats = ($tripDate !== '' && $tripTime !== '')
+            ? Booking::query()
+                ->where('trip_date', $tripDate)
+                ->where('trip_time', 'like', $timePrefix . '%')
+                ->whereNotIn('booking_status', ['Dibatalkan'])
+                ->when($persistedBookingId, fn ($q) => $q->where('id', '!=', $persistedBookingId))
+                ->get()
+                ->flatMap(fn (Booking $b): array => (array) ($b->selected_seats ?? []))
+                ->unique()
+                ->values()
+                ->all()
+            : [];
+
         return view('regular-bookings.seats', [
             'pageTitle' => 'Pilih Kursi | Lancang Kuning Travelindo',
             'pageScript' => 'regular-bookings/seats',
@@ -91,6 +109,7 @@ class RegularBookingPageController extends Controller
             'seatLayout' => $service->seatLayoutState(
                 $seatSelectionState['selected_seats'],
                 $seatSelectionState['required_seat_count'],
+                $occupiedSeats,
             ),
             'seatSelectionState' => $seatSelectionState,
             'flashSuccess' => $request->session()->get('regular_booking_success'),

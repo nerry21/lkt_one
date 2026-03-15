@@ -142,6 +142,30 @@
                         </div>
 
                         <div class="regular-booking-field">
+                            <label for="regular-booking-trip-date">Tanggal Keberangkatan</label>
+                            <div class="regular-booking-input-shell">
+                                <span class="regular-booking-input-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                                        <path d="M3 9H21" stroke="currentColor" stroke-width="1.8"/>
+                                        <path d="M8 2V5M16 2V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+                                <input
+                                    id="regular-booking-trip-date"
+                                    type="date"
+                                    name="trip_date"
+                                    value="{{ $formState['trip_date'] }}"
+                                    min="{{ now()->toDateString() }}"
+                                    required
+                                >
+                            </div>
+                            @error('trip_date')
+                                <p class="regular-booking-field-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="regular-booking-field">
                             <label for="regular-booking-departure-time">Jam Keberangkatan</label>
                             <div class="regular-booking-input-shell">
                                 <span class="regular-booking-input-icon" aria-hidden="true">

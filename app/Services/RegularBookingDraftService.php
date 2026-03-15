@@ -46,6 +46,7 @@ class RegularBookingDraftService
     public function fromValidated(array $validated, int $fareAmount): array
     {
         return $this->normalizeDraft([
+            'trip_date' => $validated['trip_date'],
             'booking_type' => $validated['booking_type'],
             'pickup_location' => $validated['pickup_location'],
             'destination_location' => $validated['destination_location'],
@@ -82,6 +83,7 @@ class RegularBookingDraftService
     public function buildFormState(Request $request, array $draft, RegularBookingService $service): array
     {
         $state = [
+            'trip_date' => (string) $request->old('trip_date', $draft['trip_date'] ?? now()->toDateString()),
             'booking_type' => (string) $request->old('booking_type', $draft['booking_type'] ?? 'self'),
             'pickup_location' => (string) $request->old('pickup_location', $draft['pickup_location'] ?? ''),
             'destination_location' => (string) $request->old('destination_location', $draft['destination_location'] ?? ''),
@@ -265,6 +267,7 @@ class RegularBookingDraftService
     private function normalizeDraft(array $draft): array
     {
         return [
+            'trip_date' => trim((string) ($draft['trip_date'] ?? '')),
             'booking_type' => trim((string) ($draft['booking_type'] ?? '')),
             'pickup_location' => trim((string) ($draft['pickup_location'] ?? '')),
             'destination_location' => trim((string) ($draft['destination_location'] ?? '')),

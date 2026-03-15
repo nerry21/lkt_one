@@ -19,6 +19,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
         $service = app(RegularBookingService::class);
 
         return [
+            'trip_date' => ['required', 'date', 'after_or_equal:today'],
             'booking_type' => ['required', 'string', Rule::in($service->bookingTypeValues())],
             'pickup_location' => ['required', 'string', Rule::in($service->locations())],
             'destination_location' => ['required', 'string', Rule::in($service->locations())],
@@ -32,6 +33,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
     public function attributes(): array
     {
         return [
+            'trip_date' => 'tanggal keberangkatan',
             'booking_type' => 'jenis pemesanan',
             'pickup_location' => 'asal penjemputan',
             'destination_location' => 'tujuan',
@@ -79,6 +81,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
+            'trip_date' => trim((string) $this->input('trip_date')),
             'booking_type' => trim((string) $this->input('booking_type')),
             'pickup_location' => trim((string) $this->input('pickup_location')),
             'destination_location' => trim((string) $this->input('destination_location')),

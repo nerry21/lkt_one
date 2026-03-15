@@ -96,6 +96,10 @@
                             <span>Dipilih</span>
                         </div>
                         <div class="regular-booking-seat-legend-item">
+                            <span class="regular-booking-seat-legend-chip is-occupied"></span>
+                            <span>Sudah Terisi</span>
+                        </div>
+                        <div class="regular-booking-seat-legend-item">
                             <span class="regular-booking-seat-legend-chip is-disabled"></span>
                             <span>Tidak tersedia</span>
                         </div>
@@ -132,7 +136,7 @@
                                         </article>
                                     @elseif ($seat['is_visible'] ?? true)
                                         <label
-                                            class="regular-booking-seat-card{{ $seat['is_selected'] ? ' is-selected' : '' }}{{ $seat['is_optional'] ? ' is-optional' : '' }}"
+                                            class="regular-booking-seat-card{{ $seat['is_selected'] ? ' is-selected' : '' }}{{ ($seat['is_occupied'] ?? false) ? ' is-occupied' : '' }}{{ $seat['is_optional'] ? ' is-optional' : '' }}"
                                             data-seat-card
                                             data-seat-area="{{ $seat['area'] }}"
                                             data-seat-code="{{ $seat['code'] }}"
@@ -143,6 +147,7 @@
                                                 value="{{ $seat['code'] }}"
                                                 data-seat-input
                                                 @checked($seat['is_selected'])
+                                                @disabled($seat['is_occupied'] ?? false)
                                             >
 
                                             <span class="regular-booking-seat-card-shell" aria-hidden="true">

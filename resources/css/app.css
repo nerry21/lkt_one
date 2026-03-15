@@ -4865,6 +4865,11 @@ button {
     background: #2563eb;
 }
 
+.regular-booking-seat-legend-chip.is-occupied {
+    border-color: rgba(220, 38, 38, 0.4);
+    background: #dc2626;
+}
+
 .regular-booking-seat-legend-chip.is-disabled {
     border-style: dashed;
     border-color: rgba(107, 114, 128, 0.24);
@@ -5116,6 +5121,27 @@ button {
 .regular-booking-seat-card.is-selected .regular-booking-seat-card-tag {
     background: rgba(255, 255, 255, 0.16);
     color: #eff6ff;
+}
+
+.regular-booking-seat-card.is-occupied {
+    color: #b91c1c;
+    cursor: not-allowed;
+}
+
+.regular-booking-seat-card.is-occupied .regular-booking-seat-card-shell {
+    filter: drop-shadow(0 6px 12px rgba(220, 38, 38, 0.2));
+}
+
+.regular-booking-seat-card.is-occupied .regular-booking-seat-card-shell svg path:first-child {
+    fill: rgba(220, 38, 38, 0.88);
+}
+
+.regular-booking-seat-card.is-occupied .regular-booking-seat-card-inner strong {
+    color: #7f1d1d;
+}
+
+.regular-booking-seat-card.is-occupied:hover {
+    transform: none;
 }
 
 .regular-booking-seat-card.is-disabled {
