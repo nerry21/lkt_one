@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Ticket {{ $booking->booking_code }} | Lancang Kuning Travelindo</title>
+    <title>E-Ticket {{ $booking->booking_code ?? 'Booking' }} | Lancang Kuning Travelindo</title>
     <style>
         * {
             margin: 0;
@@ -13,14 +13,14 @@
 
         body {
             font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
-            background: #e8f5e9;
+            background: #dfe9df;
             padding: 24px;
             color: #1a237e;
         }
 
         .page-actions {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             justify-content: center;
             margin-bottom: 24px;
         }
@@ -37,26 +37,26 @@
 
         .btn-print {
             background: #1565c0;
-            color: #fff;
+            color: #ffffff;
         }
 
         .btn-back {
-            background: #fff;
+            background: #ffffff;
             color: #1565c0;
             border: 2px solid #1565c0;
         }
 
         .ticket-wrapper {
-            max-width: 900px;
-            margin: 0 auto 40px;
+            max-width: 920px;
+            margin: 0 auto 36px auto;
         }
 
         .ticket {
-            background: #fdd835;
-            border: 3px solid #1a237e;
-            border-radius: 8px;
-            overflow: hidden;
             width: 100%;
+            background: #f7d533;
+            border: 3px solid #152a90;
+            border-radius: 14px;
+            overflow: hidden;
             page-break-after: always;
         }
 
@@ -65,23 +65,21 @@
         }
 
         .ticket-header {
-            background: #fdd835;
-            border-bottom: 3px solid #1a237e;
-            display: table;
             width: 100%;
+            border-bottom: 3px solid #152a90;
+            display: table;
             table-layout: fixed;
-            padding: 0;
         }
 
         .ticket-header-col {
             display: table-cell;
-            vertical-align: middle;
-            padding: 10px 12px;
+            vertical-align: top;
+            padding: 14px 14px 10px 14px;
         }
 
         .ticket-header-col.left,
         .ticket-header-col.right {
-            width: 120px;
+            width: 140px;
             text-align: center;
         }
 
@@ -95,19 +93,16 @@
 
         .ticket-logo-circle,
         .ticket-logo-jp {
-            width: 72px;
-            height: 72px;
+            width: 76px;
+            height: 76px;
+            margin: 2px auto 8px auto;
             border-radius: 50%;
-            border: 3px solid #1a237e;
-            background: #fff;
-            margin: 0 auto 6px;
+            border: 3px solid #152a90;
+            background: #ffffff;
             overflow: hidden;
-            text-align: center;
-            line-height: 66px;
-        }
-
-        .ticket-logo-jp {
-            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .ticket-logo-img {
@@ -117,62 +112,69 @@
             display: block;
         }
 
+        .ticket-logo-fallback {
+            font-size: 22px;
+            font-weight: 900;
+            color: #152a90;
+            line-height: 1;
+        }
+
         .ticket-logo-text {
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 800;
-            color: #1a237e;
-            text-align: center;
-            line-height: 1.35;
+            line-height: 1.3;
             text-transform: uppercase;
+            color: #152a90;
         }
 
         .ticket-company-name {
             font-size: 28px;
             font-weight: 900;
-            color: #1a237e;
             text-transform: uppercase;
             line-height: 1.05;
+            color: #152a90;
         }
 
         .ticket-company-sub {
+            display: inline-block;
+            margin-top: 6px;
+            margin-bottom: 8px;
+            padding: 4px 14px;
+            border: 2px solid #152a90;
+            border-radius: 4px;
             font-size: 13px;
             font-weight: 800;
-            color: #1a237e;
             text-transform: uppercase;
-            border: 2px solid #1a237e;
-            display: inline-block;
-            padding: 3px 12px;
-            margin: 6px 0;
-            border-radius: 3px;
+            color: #152a90;
         }
 
         .ticket-address {
             font-size: 10px;
             line-height: 1.45;
-            color: #1a237e;
+            color: #152a90;
         }
 
         .ticket-phones {
-            margin-top: 6px;
-            text-align: center;
+            margin-top: 8px;
         }
 
         .ticket-phone-item {
             display: inline-block;
-            margin: 0 8px;
+            margin: 0 10px;
+            text-align: center;
             vertical-align: top;
         }
 
         .ticket-phone-city {
             font-size: 10px;
             font-weight: 700;
-            color: #1a237e;
+            color: #152a90;
         }
 
         .ticket-phone-number {
             font-size: 12px;
             font-weight: 900;
-            color: #1a237e;
+            color: #152a90;
         }
 
         .ticket-body {
@@ -186,50 +188,50 @@
         .ticket-right {
             display: table-cell;
             vertical-align: top;
-            padding: 10px 12px;
+            padding: 10px 14px 12px 14px;
         }
 
         .ticket-left {
             width: 40%;
-            border-right: 2.5px solid #1a237e;
+            border-right: 2px solid #152a90;
         }
 
         .ticket-middle {
-            width: 20%;
-            border-right: 2.5px solid #1a237e;
+            width: 21%;
+            border-right: 2px solid #152a90;
             text-align: center;
         }
 
         .ticket-right {
-            width: 40%;
+            width: 39%;
         }
 
         .ticket-section-title {
-            background: #1a237e;
-            color: #fdd835;
+            background: #152a90;
+            color: #f7d533;
             font-size: 12px;
-            font-weight: 800;
+            font-weight: 900;
             text-transform: uppercase;
-            padding: 5px 10px;
+            letter-spacing: .03em;
+            padding: 6px 10px;
             margin-bottom: 10px;
-            letter-spacing: 0.03em;
         }
 
         .ticket-sub-title {
+            background: rgba(21, 42, 144, 0.12);
+            color: #152a90;
+            border-left: 4px solid #152a90;
             font-size: 11px;
-            font-weight: 800;
-            color: #1a237e;
+            font-weight: 900;
             text-transform: uppercase;
-            background: rgba(26, 35, 126, 0.08);
-            padding: 4px 6px;
-            margin: 10px 0 6px;
-            border-left: 3px solid #1a237e;
+            padding: 5px 8px;
+            margin: 10px 0 8px 0;
         }
 
         .ticket-field {
             display: table;
             width: 100%;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
         }
 
         .ticket-field-label,
@@ -238,93 +240,88 @@
             display: table-cell;
             vertical-align: top;
             font-size: 11px;
-            color: #1a237e;
+            color: #152a90;
         }
 
         .ticket-field-label {
-            width: 120px;
+            width: 118px;
             font-weight: 600;
         }
 
         .ticket-field-colon {
             width: 10px;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .ticket-field-value {
             font-weight: 700;
-            border-bottom: 1px dotted #1a237e;
+            border-bottom: 1px dotted #152a90;
             padding-bottom: 1px;
         }
 
-        .ticket-seat-grid {
+        .ticket-seat-table {
             width: 100%;
-            margin-top: 6px;
             border-collapse: separate;
-            border-spacing: 5px;
-        }
-
-        .ticket-seat-grid td {
-            width: 50%;
+            border-spacing: 6px;
+            margin-top: 2px;
         }
 
         .ticket-seat-cell {
-            border: 2px solid #1a237e;
-            border-radius: 5px;
-            padding: 8px 4px;
+            border: 2px solid #152a90;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.45);
+            color: #152a90;
+            font-size: 14px;
+            font-weight: 900;
             text-align: center;
-            font-size: 13px;
-            font-weight: 800;
-            color: #1a237e;
-            background: rgba(255, 255, 255, 0.55);
-            min-height: 36px;
+            padding: 9px 4px;
+            min-height: 40px;
         }
 
         .ticket-seat-cell.is-active {
-            background: #1a237e;
-            color: #fdd835;
+            background: #152a90;
+            color: #f7d533;
         }
 
         .ticket-seat-cell.is-driver {
-            background: rgba(26, 35, 126, 0.08);
-            color: #666;
             font-size: 10px;
+            font-weight: 700;
+            color: #8b8b8b;
+            background: rgba(21, 42, 144, 0.08);
         }
 
         .ticket-purchase-date {
+            margin-top: 8px;
             font-size: 10px;
             font-weight: 700;
-            color: #1a237e;
-            text-align: center;
             line-height: 1.45;
-            margin-top: 8px;
+            color: #152a90;
         }
 
         .ticket-pengurus {
-            font-size: 11px;
-            font-weight: 800;
-            color: #1a237e;
-            text-align: center;
-            text-transform: uppercase;
             margin-top: 8px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #152a90;
         }
 
         .ticket-sign-line {
-            border-top: 1.5px solid #1a237e;
             width: 100%;
-            margin: 4px 0 6px;
+            border-top: 1.5px solid #152a90;
+            margin: 6px 0 8px 0;
         }
 
         .ticket-asuransi {
+            display: inline-block;
+            border: 2px solid #152a90;
+            border-radius: 4px;
+            padding: 6px 10px;
             font-size: 10px;
-            font-weight: 700;
-            color: #1a237e;
-            text-align: center;
+            font-weight: 900;
+            line-height: 1.3;
             text-transform: uppercase;
-            border: 2px solid #1a237e;
-            padding: 4px 6px;
-            border-radius: 3px;
-            line-height: 1.35;
+            color: #152a90;
         }
 
         .ticket-rules {
@@ -334,53 +331,53 @@
         }
 
         .ticket-rules li {
-            font-size: 10px;
-            color: #1a237e;
-            line-height: 1.45;
-            margin-bottom: 5px;
-            padding-left: 16px;
             position: relative;
+            padding-left: 16px;
+            margin-bottom: 6px;
+            font-size: 10px;
+            line-height: 1.45;
+            color: #152a90;
         }
 
         .ticket-rules li .num {
             position: absolute;
             left: 0;
             top: 0;
-            font-weight: 700;
+            font-weight: 900;
         }
 
         .ticket-promo {
-            margin-top: 8px;
-            border-top: 1.5px dashed #1a237e;
-            padding-top: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #152a90;
         }
 
         .ticket-promo-title {
             font-size: 10px;
-            font-weight: 800;
-            color: #1a237e;
+            font-weight: 900;
             text-transform: uppercase;
+            color: #152a90;
+            margin-bottom: 2px;
         }
 
         .ticket-promo-text {
             font-size: 10px;
-            color: #1a237e;
-            line-height: 1.4;
-            margin-top: 2px;
+            line-height: 1.45;
+            color: #152a90;
         }
 
         .ticket-tagline {
-            margin-top: 10px;
-            font-size: 12px;
-            font-weight: 800;
-            color: #1a237e;
-            font-style: italic;
+            margin-top: 12px;
             text-align: right;
+            font-size: 12px;
+            font-weight: 900;
+            font-style: italic;
+            color: #152a90;
         }
 
         @media print {
             body {
-                background: none;
+                background: #ffffff;
                 padding: 0;
             }
 
@@ -395,7 +392,6 @@
 
             .ticket {
                 border-radius: 0;
-                box-shadow: none;
             }
         }
     </style>
@@ -404,13 +400,21 @@
 @php
     $isPdf = isset($isPdf) ? (bool) $isPdf : false;
 
-    $lkLogo = $isPdf
-        ? public_path('images/lk_travel.png')
-        : asset('images/lk_travel.png');
+    $lkLogoFile = public_path('images/lk_travel.png');
+    $jrLogoFile = public_path('images/logo_jasaraharja.jpg');
 
-    $jrLogo = $isPdf
-        ? public_path('images/logo_jasaraharja.jpg')
-        : asset('images/logo_jasaraharja.jpg');
+    if ($isPdf) {
+        $lkLogo = file_exists($lkLogoFile)
+            ? 'data:image/png;base64,' . base64_encode(file_get_contents($lkLogoFile))
+            : null;
+
+        $jrLogo = file_exists($jrLogoFile)
+            ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($jrLogoFile))
+            : null;
+    } else {
+        $lkLogo = file_exists($lkLogoFile) ? asset('images/lk_travel.png') : null;
+        $jrLogo = file_exists($jrLogoFile) ? asset('images/logo_jasaraharja.jpg') : null;
+    }
 
     $seatMap = [
         ['1A', 'SOPIR'],
@@ -429,12 +433,15 @@
 @foreach ($tickets as $ticket)
     <div class="ticket-wrapper">
         <div class="ticket">
-
             <div class="ticket-header">
                 <div class="ticket-header-col left">
                     <div class="ticket-logo-box">
                         <div class="ticket-logo-circle">
-                            <img src="{{ $lkLogo }}" alt="LK Travel" class="ticket-logo-img">
+                            @if ($lkLogo)
+                                <img src="{{ $lkLogo }}" alt="Lancang Kuning Travelindo" class="ticket-logo-img">
+                            @else
+                                <div class="ticket-logo-fallback">LK</div>
+                            @endif
                         </div>
                         <div class="ticket-logo-text">
                             PT. Lancang Kuning<br>Travelindo
@@ -464,7 +471,11 @@
                 <div class="ticket-header-col right">
                     <div class="ticket-logo-box">
                         <div class="ticket-logo-jp">
-                            <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="ticket-logo-img">
+                            @if ($jrLogo)
+                                <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="ticket-logo-img">
+                            @else
+                                <div class="ticket-logo-fallback">JR</div>
+                            @endif
                         </div>
                         <div class="ticket-logo-text">
                             Jasa Raharja<br>Protected
@@ -482,11 +493,13 @@
                         <div class="ticket-field-colon">:</div>
                         <div class="ticket-field-value">{{ $ticket['passenger_name'] ?? '-' }}</div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Dari</div>
                         <div class="ticket-field-colon">:</div>
                         <div class="ticket-field-value">{{ $ticket['from_city'] ?? '-' }}</div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Tujuan</div>
                         <div class="ticket-field-colon">:</div>
@@ -500,21 +513,27 @@
                         <div class="ticket-field-colon">:</div>
                         <div class="ticket-field-value">{{ $ticket['trip_date'] ?? '-' }}</div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Jam</div>
                         <div class="ticket-field-colon">:</div>
-                        <div class="ticket-field-value">{{ isset($ticket['trip_time']) ? $ticket['trip_time'].' WIB' : '-' }}</div>
+                        <div class="ticket-field-value">
+                            {{ isset($ticket['trip_time']) && $ticket['trip_time'] ? $ticket['trip_time'] . ' WIB' : '-' }}
+                        </div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Tarif</div>
                         <div class="ticket-field-colon">:</div>
                         <div class="ticket-field-value">{{ $ticket['tarif'] ?? '-' }}</div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Uang Muka</div>
                         <div class="ticket-field-colon">:</div>
                         <div class="ticket-field-value">{{ $ticket['uang_muka'] ?? '-' }}</div>
                     </div>
+
                     <div class="ticket-field">
                         <div class="ticket-field-label">Sisa</div>
                         <div class="ticket-field-colon">:</div>
@@ -525,7 +544,7 @@
                 <div class="ticket-middle">
                     <div class="ticket-section-title">Nomor Bangku</div>
 
-                    <table class="ticket-seat-grid">
+                    <table class="ticket-seat-table">
                         @foreach ($seatMap as $row)
                             <tr>
                                 @foreach ($row as $seat)
@@ -560,24 +579,23 @@
                     <div class="ticket-section-title">Perhatian</div>
 
                     <ul class="ticket-rules">
-                        <li><span class="num">1.</span> Jemput Antar Ke Alamat Dalam Batas Tertentu</li>
-                        <li><span class="num">2.</span> Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya</li>
-                        <li><span class="num">3.</span> Barang bawaan penumpang jika terjadi kehilangan yang sifatnya kelalaian penumpang, bukan menjadi tanggung jawab perusahaan</li>
-                        <li><span class="num">4.</span> Dilarang membawa benda terlarang, hewan, atau barang bawaan yang baunya menyengat dan dapat mengganggu kenyamanan penumpang</li>
-                        <li><span class="num">5.</span> Dilarang melakukan tindakan amoral atau asusila serta tindak pidana lainnya selama perjalanan</li>
+                        <li><span class="num">1.</span> Jemput antar ke alamat dalam batas tertentu.</li>
+                        <li><span class="num">2.</span> Bagasi free 15 kg/orang, kelebihan dikenakan biaya.</li>
+                        <li><span class="num">3.</span> Barang bawaan penumpang jika terjadi kehilangan yang sifatnya kelalaian penumpang, bukan menjadi tanggung jawab perusahaan.</li>
+                        <li><span class="num">4.</span> Dilarang membawa benda terlarang, hewan, atau barang bawaan yang baunya menyengat dan dapat mengganggu kenyamanan penumpang.</li>
+                        <li><span class="num">5.</span> Dilarang melakukan tindakan amoral atau asusila serta tindak pidana lainnya selama perjalanan.</li>
                     </ul>
 
                     <div class="ticket-promo">
                         <div class="ticket-promo-title">Promo</div>
                         <div class="ticket-promo-text">
-                            Kumpulkan 5 tiket diskon 50% / kumpulkan 10 tiket dengan nama dan no HP yang sama gratis 1x keberangkatan
+                            Kumpulkan 5 tiket diskon 50% / kumpulkan 10 tiket dengan nama dan no. HP yang sama gratis 1x keberangkatan.
                         </div>
                     </div>
 
                     <div class="ticket-tagline">Cepat, Aman &amp; Nyaman</div>
                 </div>
             </div>
-
         </div>
     </div>
 @endforeach
