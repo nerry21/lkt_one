@@ -346,11 +346,9 @@
 
 @php
     $ts = $ticketState;
-    $pricePerSeat = (float) ($ts['price_per_seat'] ?? 0);
-    $nominalPaid  = (float) ($ts['nominal_payment'] ?? 0);
+    $totalAmount    = (float) ($ts['total_amount'] ?? 0);
     $passengerCount = max(1, (int) ($ts['passenger_count'] ?? 1));
-    $uangMukaPerSeat = $passengerCount > 0 ? round($nominalPaid / $passengerCount) : 0;
-    $sisaPerSeat     = max(0, $pricePerSeat - $uangMukaPerSeat);
+    $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
 
     $seatMap = [['1A','SOPIR'],['2A','3A'],['4A','5A']];
 @endphp
@@ -434,17 +432,17 @@
             <div class="ticket-field">
                 <span class="ticket-field-label">Tarif</span>
                 <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">Rp {{ number_format($pricePerSeat, 0, ',', '.') }}</span>
+                <span class="ticket-field-value">Rp {{ number_format($tarifFinal, 0, ',', '.') }}</span>
             </div>
             <div class="ticket-field">
                 <span class="ticket-field-label">Uang Muka</span>
                 <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">Rp {{ number_format($uangMukaPerSeat, 0, ',', '.') }}</span>
+                <span class="ticket-field-value">Rp 0</span>
             </div>
             <div class="ticket-field">
                 <span class="ticket-field-label">Sisa</span>
                 <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">Rp {{ number_format($sisaPerSeat, 0, ',', '.') }}</span>
+                <span class="ticket-field-value">Rp 0</span>
             </div>
         </div>
 
