@@ -21,12 +21,12 @@ async function processScan(qrToken) {
     const token = qrToken.trim();
     if (! token) return;
 
-    // cooldown – prevent duplicate scans
+    // cooldown – cegah scan duplikat dalam satu frame kamera (3 detik)
     const now = Date.now();
     if (token === lastToken && now - lastScanAt < cooldownMs) return;
+
     lastToken  = token;
     lastScanAt = now;
-
     setStatusText('Memproses scan…');
 
     try {

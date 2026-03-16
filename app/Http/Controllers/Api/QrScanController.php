@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class QrScanController extends Controller
@@ -28,28 +29,53 @@ class QrScanController extends Controller
             throw new HttpException(422, 'Pemesanan ini belum memiliki QR code aktif');
         }
 
+        $loyaltyTarget     = 5;
         $previousScanCount = (int) ($booking->scan_count ?? 0);
-        $booking->scan_count = $previousScanCount + 1;
-        $booking->save();
+        $newScanCount      = $previousScanCount + 1;
+        $justCompletedCycle = $newScanCount >= $loyaltyTarget;
 
-        $loyaltyCount   = (int) $booking->loyalty_count;
-        $loyaltyTarget  = 5;
-        $discountEligible = (bool) $booking->discount_eligible;
+        if ($justCompletedCycle) {
+            // Siklus selesai: beri diskon, reset untuk siklus berikutnya
+            // Gunakan DB::table() agar tidak di-override oleh saving hook model
+            DB::table('bookings')->where('id', $booking->id)->update([
+                'scan_count'         => 0,
+                'loyalty_count'      => 0,
+                'loyalty_trip_count' => DB::raw('COALESCE(loyalty_trip_count, 0) + 1'),
+                'discount_eligible'  => true,
+                'eligible_discount'  => true,
+            ]);
 
-        $isNewlyEligible = ! (bool) ($previousScanCount >= $loyaltyTarget)
-            && $discountEligible;
+            $loyaltyCountDisplay = $loyaltyTarget; // tampilkan 5/5 di layar saat ini
+            $discountEligible    = true;
+        } else {
+            // Scan normal: increment, reset eligible ke false (belum 5)
+            DB::table('bookings')->where('id', $booking->id)->update([
+                'scan_count'        => $newScanCount,
+                'loyalty_count'     => $newScanCount,
+                'discount_eligible' => false,
+                'eligible_discount' => false,
+            ]);
+
+            $loyaltyCountDisplay = $newScanCount;
+            $discountEligible    = false;
+        }
+
+        $booking->refresh();
+
+        $isNewlyEligible = $justCompletedCycle;
 
         return response()->json([
-            'success'           => true,
-            'message'           => $isNewlyEligible
+            'success'             => true,
+            'message'             => $isNewlyEligible
                 ? 'Selamat! Penumpang kini eligible diskon 50%'
                 : 'QR berhasil di-scan',
-            'scan_count'        => $booking->scan_count,
-            'loyalty_count'     => $loyaltyCount,
-            'loyalty_target'    => $loyaltyTarget,
-            'discount_eligible' => $discountEligible,
-            'is_newly_eligible' => $isNewlyEligible,
-            'booking'           => [
+            'scan_count'          => (int) $booking->scan_count,
+            'loyalty_count'       => $loyaltyCountDisplay,
+            'loyalty_target'      => $loyaltyTarget,
+            'discount_eligible'   => $discountEligible,
+            'discount_percentage' => 50,
+            'is_newly_eligible'   => $isNewlyEligible,
+            'booking'             => [
                 'id'              => $booking->id,
                 'booking_code'    => $booking->booking_code,
                 'nama_pemesanan'  => $booking->passenger_name,
