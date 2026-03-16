@@ -440,7 +440,7 @@ class BookingManagementService
                     $passengerQrValue = json_encode([
                         'type'                => 'passenger_ticket',
                         'booking_code'        => $booking->booking_code,
-                        'passenger_qr_token'  => $passengerQrToken,
+                        'qr_token'            => $passengerQrToken,
                         'seat_no'             => $seatNo,
                         'loyalty_target'      => 5,
                         'discount_percentage' => 50,
