@@ -437,14 +437,8 @@ class BookingManagementService
                     $passengerQrToken = $existing?->qr_token
                         ?: $this->generatePassengerQrToken();
 
-                    $passengerQrValue = json_encode([
-                        'type'                => 'passenger_ticket',
-                        'booking_code'        => $booking->booking_code,
-                        'qr_token'            => $passengerQrToken,
-                        'seat_no'             => $seatNo,
-                        'loyalty_target'      => 5,
-                        'discount_percentage' => 50,
-                    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    // qr_code_value = raw token (QR encodes the token directly, no JSON)
+                    $passengerQrValue = $passengerQrToken;
 
                     return [
                         'seat_no'           => $seatNo,

@@ -166,14 +166,14 @@ function startScanner() {
         (decodedText) => {
             let token = decodedText.trim();
 
-            // jika QR value adalah JSON, ambil qr_token-nya
+            // jika QR value adalah JSON (format lama), ambil qr_token-nya
             try {
                 const parsed = JSON.parse(decodedText);
                 if (parsed && (parsed.qr_token || parsed.passenger_qr_token)) {
                     token = parsed.qr_token || parsed.passenger_qr_token;
                 }
             } catch (_) {
-                // bukan JSON, gunakan nilai langsung
+                // bukan JSON — gunakan nilai langsung (format baru: raw token)
             }
 
             processScan(token);
