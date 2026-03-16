@@ -16,6 +16,18 @@
 
 @section('content')
     <style>
+        /* Warna teks di dalam modal detail pemesanan */
+        .bpg-detail-dialog-card .bpg-detail-item strong,
+        .bpg-detail-dialog-card .bpg-detail-item p {
+            color: #0f172a !important;
+        }
+        .bpg-detail-dialog-card .bpg-detail-item span {
+            color: #475569 !important;
+        }
+        .bpg-detail-dialog-card .admin-users-dialog-head h3,
+        .bpg-detail-dialog-card .bpg-detail-subtitle {
+            color: #0f172a !important;
+        }
         #bpg-detail-full-link,
         #bpg-detail-full-link * {
             color: #000000 !important;
