@@ -60,6 +60,14 @@
             'icon' => 'package',
             'active_patterns' => ['stock.*'],
         ],
+        [
+            'route' => 'scan-qr.index',
+            'label' => 'Scan QR Tiket',
+            'testid' => 'nav-scan-qr',
+            'icon' => 'qrcode',
+            'requires_admin' => true,
+            'active_patterns' => ['scan-qr.*'],
+        ],
     ];
 @endphp
 

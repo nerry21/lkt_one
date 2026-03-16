@@ -3,6 +3,7 @@
 use App\Http\Controllers\BuildAssetController;
 use App\Http\Controllers\AdminUsers\AdminUserPageController;
 use App\Http\Controllers\Bookings\BookingPageController;
+use App\Http\Controllers\QrScan\QrScanPageController;
 use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
 use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
@@ -45,4 +46,5 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');
     Route::get('/keberangkatan', [KeberangkatanPageController::class, 'index'])->name('keberangkatan.index');
     Route::get('/stock', [StockPageController::class, 'index'])->name('stock.index');
+    Route::get('/scan-qr', [QrScanPageController::class, 'index'])->name('scan-qr.index');
 });

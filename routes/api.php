@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\KeberangkatanController;
 use App\Http\Controllers\Api\MobilController;
+use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\RootController;
 use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StatisticsController;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', RootController::class)->name('api.root');
 
 Route::middleware(['web', 'jwt.auth'])->group(function () {
+    Route::post('/scan-qr', [QrScanController::class, 'scan'])->name('api.scan-qr');
+
     Route::middleware('admin.role:admin')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index'])->name('api.bookings.index');
         Route::post('/bookings', [BookingController::class, 'store'])->name('api.bookings.store');

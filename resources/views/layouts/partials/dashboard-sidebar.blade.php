@@ -92,6 +92,18 @@
                                 <path d="M12 12V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                             </svg>
                             @break
+                        @case('qrcode')
+                            <svg viewBox="0 0 24 24" fill="none" class="icon icon-qrcode">
+                                <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/>
+                                <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/>
+                                <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/>
+                                <rect x="5" y="5" width="3" height="3" fill="currentColor" rx="0.4"/>
+                                <rect x="16" y="5" width="3" height="3" fill="currentColor" rx="0.4"/>
+                                <rect x="5" y="16" width="3" height="3" fill="currentColor" rx="0.4"/>
+                                <path d="M14 14h3v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M21 14v.01M14 21h.01M17 21h4M21 17v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                            @break
                     @endswitch
                 </span>
                 <span class="sidebar-link-label">{{ $item['label'] }}</span>
