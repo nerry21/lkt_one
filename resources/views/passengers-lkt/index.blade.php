@@ -28,13 +28,13 @@
             <div class="plkt-chart-head">
                 <div>
                     <h2>Frekuensi Pemesanan Penumpang</h2>
-                    <p>Penumpang paling sering memesan (berdasarkan nama &amp; nomor HP)</p>
+                    <p>10 penumpang paling sering memesan (berdasarkan nama &amp; nomor HP)</p>
                 </div>
                 <div class="plkt-chart-limit-wrap">
                     <label for="plkt-chart-limit" class="plkt-chart-limit-label">Tampilkan</label>
                     <select id="plkt-chart-limit" class="plkt-chart-limit-select">
-                        <option value="10">10</option>
-                        <option value="15" selected>15</option>
+                        <option value="10" selected>10</option>
+                        <option value="15">15</option>
                         <option value="20">20</option>
                         <option value="30">30</option>
                     </select>
@@ -78,11 +78,13 @@
                             <th>Tanggal Berangkat</th>
                             <th>Jam</th>
                             <th>Tarif</th>
+                            <th class="plkt-col-count">Kali Memesan</th>
+                            <th class="text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="plkt-table-body">
                         <tr>
-                            <td colspan="8" class="plkt-table-state">
+                            <td colspan="10" class="plkt-table-state">
                                 <div class="plkt-loading-inline">
                                     <span class="plkt-loading-inline-spinner" aria-hidden="true"></span>
                                     <span>Memuat data...</span>
@@ -112,4 +114,61 @@
         </section>
 
     </section>
+
+    {{-- Edit Modal --}}
+    <div class="modal-shell" id="plkt-edit-modal" hidden>
+        <div class="modal-backdrop" data-modal-close="plkt-edit-modal"></div>
+        <div class="modal-card plkt-dialog-card">
+            <div class="plkt-dialog-head">
+                <div>
+                    <h3>Edit Data Penumpang</h3>
+                    <p>Perbarui nama dan nomor HP penumpang</p>
+                </div>
+                <button type="button" class="plkt-dialog-close" data-modal-close="plkt-edit-modal" aria-label="Tutup">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <form id="plkt-edit-form" class="plkt-form">
+                <input type="hidden" id="plkt-edit-id">
+                <div class="plkt-form-group">
+                    <label for="plkt-edit-name">Nama Penumpang</label>
+                    <input id="plkt-edit-name" type="text" placeholder="Masukkan nama penumpang" required>
+                </div>
+                <div class="plkt-form-group">
+                    <label for="plkt-edit-phone">Nomor HP</label>
+                    <input id="plkt-edit-phone" type="text" placeholder="Contoh: 08117599804">
+                </div>
+                <div class="plkt-dialog-actions">
+                    <button class="plkt-secondary-button" type="button" data-modal-close="plkt-edit-modal">Batal</button>
+                    <button class="plkt-primary-button" type="submit" id="plkt-edit-submit-btn">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Delete Modal --}}
+    <div class="modal-shell" id="plkt-delete-modal" hidden>
+        <div class="modal-backdrop" data-modal-close="plkt-delete-modal"></div>
+        <div class="modal-card plkt-dialog-card plkt-delete-dialog-card">
+            <div class="plkt-dialog-head">
+                <div>
+                    <h3>Hapus Data Penumpang</h3>
+                    <p id="plkt-delete-copy">Apakah Anda yakin ingin menghapus penumpang <strong>-</strong>? Tindakan ini tidak dapat dibatalkan.</p>
+                </div>
+                <button type="button" class="plkt-dialog-close" data-modal-close="plkt-delete-modal" aria-label="Tutup">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="plkt-dialog-actions">
+                <button class="plkt-secondary-button" type="button" data-modal-close="plkt-delete-modal">Batal</button>
+                <button class="plkt-danger-button" type="button" id="plkt-delete-confirm-btn">Hapus</button>
+            </div>
+        </div>
+    </div>
 @endsection

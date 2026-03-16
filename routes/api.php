@@ -70,6 +70,9 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::get('/passengers-lkt', [PassengerLktController::class, 'index'])->name('api.passengers-lkt.index');
     Route::get('/passengers-lkt/count', [PassengerLktController::class, 'count'])->name('api.passengers-lkt.count');
     Route::get('/passengers-lkt/loyalty-chart', [PassengerLktController::class, 'loyaltyChart'])->name('api.passengers-lkt.loyalty-chart');
+    Route::get('/passengers-lkt/{id}', [PassengerLktController::class, 'show'])->name('api.passengers-lkt.show');
+    Route::put('/passengers-lkt/{id}', [PassengerLktController::class, 'update'])->name('api.passengers-lkt.update');
+    Route::delete('/passengers-lkt/{id}', [PassengerLktController::class, 'destroy'])->name('api.passengers-lkt.destroy');
 
     Route::get('/statistics/dashboard', [StatisticsController::class, 'dashboard'])->name('api.statistics.dashboard');
     Route::get('/statistics/revenue-chart', [StatisticsController::class, 'revenueChart'])->name('api.statistics.revenue-chart');

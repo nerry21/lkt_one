@@ -7557,3 +7557,64 @@ button {
 .plkt-pagination-button:disabled { opacity: 0.4; cursor: not-allowed; }
 .plkt-pagination-button svg { width: 16px; height: 16px; display: block; }
 .plkt-pagination-page { font-size: 0.8rem; color: #374151; min-width: 3.5rem; text-align: center; }
+
+/* plkt — edit/delete/count additions */
+.plkt-col-count { white-space: nowrap; }
+.plkt-count-cell { text-align: center; }
+.plkt-count-badge {
+    display: inline-block; padding: 0.2rem 0.55rem;
+    background: rgba(16,185,129,0.12); color: #047857;
+    border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+}
+.plkt-action-row { display: flex; align-items: center; justify-content: center; gap: 0.35rem; }
+.plkt-icon-button {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid #e5e7eb;
+    background: #fff; color: #374151; cursor: pointer; transition: background 0.15s;
+}
+.plkt-icon-button svg { width: 14px; height: 14px; display: block; }
+.plkt-icon-button:hover { background: #f3f4f6; }
+.plkt-icon-button-danger { color: #ef4444; border-color: #fecaca; }
+.plkt-icon-button-danger:hover { background: #fef2f2; }
+
+/* plkt modal */
+.plkt-dialog-card {
+    width: min(440px, calc(100vw - 2rem));
+    background: #fff; border-radius: 18px; padding: 1.5rem;
+}
+.plkt-delete-dialog-card { width: min(420px, calc(100vw - 2rem)); }
+.plkt-dialog-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; margin-bottom: 1.25rem;
+}
+.plkt-dialog-head h3 { font-size: 1rem; font-weight: 700; color: #111827; margin: 0; }
+.plkt-dialog-head p  { font-size: 0.8rem; color: #6b7280; margin: 0.2rem 0 0; }
+.plkt-dialog-close {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px;
+    border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer;
+}
+.plkt-dialog-close svg { width: 14px; height: 14px; display: block; }
+.plkt-form { display: flex; flex-direction: column; gap: 1rem; }
+.plkt-form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.plkt-form-group label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+.plkt-form-group input {
+    padding: 0.5rem 0.75rem; border: 1.5px solid #e5e7eb; border-radius: 9px;
+    font-size: 0.875rem; color: #111827; background: #f9fafb; outline: none;
+    transition: border-color 0.15s;
+}
+.plkt-form-group input:focus { border-color: var(--transit-primary); background: #fff; }
+.plkt-dialog-actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+.plkt-primary-button {
+    flex: 1; padding: 0.55rem; background: var(--transit-primary); color: #fff;
+    border: none; border-radius: 10px; font-size: 0.875rem; font-weight: 700;
+    cursor: pointer; transition: background 0.15s;
+}
+.plkt-primary-button:hover:not(:disabled) { background: var(--transit-primary-dark); }
+.plkt-primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
+.plkt-danger-button {
+    flex: 1; padding: 0.55rem; background: #ef4444; color: #fff;
+    border: none; border-radius: 10px; font-size: 0.875rem; font-weight: 700;
+    cursor: pointer; transition: background 0.15s;
+}
+.plkt-danger-button:hover { background: #dc2626; }

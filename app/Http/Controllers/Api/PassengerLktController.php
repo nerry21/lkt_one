@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PassengerLktController extends Controller
 {
@@ -18,7 +19,7 @@ class PassengerLktController extends Controller
 
         $query = DB::table('booking_passengers as bp')
             ->join('bookings as b', 'b.id', '=', 'bp.booking_id')
-            ->whereNotNull('bp.qr_token')   // hanya yang e-tiket/barcode-nya sudah terbentuk
+            ->whereNotNull('bp.qr_token')
             ->select([
                 'bp.id',
                 'bp.name as passenger_name',
@@ -32,6 +33,11 @@ class PassengerLktController extends Controller
                 'b.passenger_count',
                 'b.booking_code',
                 'b.created_at',
+                // Jumlah pemesanan berdasarkan nama+HP yang sama
+                DB::raw('(SELECT COUNT(*) FROM booking_passengers bp2
+                          WHERE UPPER(TRIM(bp2.name)) = UPPER(TRIM(bp.name))
+                            AND TRIM(COALESCE(bp2.phone,\'\')) = TRIM(COALESCE(bp.phone,\'\'))
+                            AND bp2.qr_token IS NOT NULL) as booking_count'),
             ])
             ->orderBy('b.trip_date', 'desc')
             ->orderBy('b.created_at', 'desc');
@@ -53,20 +59,21 @@ class PassengerLktController extends Controller
             $tarif = round((float) ($row->total_amount ?? 0) / $passengerCount);
 
             return [
-                'id'             => $row->id,
-                'passenger_name' => $row->passenger_name,
-                'phone'          => $row->phone ?? '-',
-                'seat_no'        => $row->seat_no ?? '-',
-                'from_city'      => $row->from_city ?? '-',
-                'to_city'        => $row->to_city ?? '-',
-                'trip_date'      => $row->trip_date
+                'id'            => $row->id,
+                'passenger_name'=> $row->passenger_name,
+                'phone'         => $row->phone ?? '',
+                'seat_no'       => $row->seat_no ?? '-',
+                'from_city'     => $row->from_city ?? '-',
+                'to_city'       => $row->to_city ?? '-',
+                'trip_date'     => $row->trip_date
                     ? \Carbon\Carbon::parse($row->trip_date)->locale('id')->translatedFormat('d M Y')
                     : '-',
-                'trip_time'      => $row->trip_time
+                'trip_time'     => $row->trip_time
                     ? substr((string) $row->trip_time, 0, 5)
                     : '-',
-                'tarif'          => 'Rp ' . number_format($tarif, 0, ',', '.'),
-                'booking_code'   => $row->booking_code,
+                'tarif'         => 'Rp ' . number_format($tarif, 0, ',', '.'),
+                'booking_code'  => $row->booking_code,
+                'booking_count' => (int) ($row->booking_count ?? 1),
             ];
         });
 
@@ -79,7 +86,7 @@ class PassengerLktController extends Controller
 
         $query = DB::table('booking_passengers as bp')
             ->join('bookings as b', 'b.id', '=', 'bp.booking_id')
-            ->whereNotNull('bp.qr_token');  // hanya yang e-tiket/barcode-nya sudah terbentuk
+            ->whereNotNull('bp.qr_token');
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -94,9 +101,60 @@ class PassengerLktController extends Controller
         return response()->json(['count' => $query->count()]);
     }
 
+    public function show(int $id): JsonResponse
+    {
+        $row = DB::table('booking_passengers')->where('id', $id)->first(['id', 'name', 'phone', 'seat_no']);
+
+        if (! $row) {
+            throw new HttpException(404, 'Data penumpang tidak ditemukan');
+        }
+
+        return response()->json([
+            'id'    => $row->id,
+            'name'  => $row->name,
+            'phone' => $row->phone ?? '',
+        ]);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $row = DB::table('booking_passengers')->where('id', $id)->first(['id', 'qr_token']);
+
+        if (! $row) {
+            throw new HttpException(404, 'Data penumpang tidak ditemukan');
+        }
+
+        $name  = trim((string) $request->input('name', ''));
+        $phone = trim((string) $request->input('phone', ''));
+
+        if ($name === '') {
+            throw new HttpException(422, 'Nama penumpang tidak boleh kosong');
+        }
+
+        DB::table('booking_passengers')->where('id', $id)->update([
+            'name'  => $name,
+            'phone' => $phone,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Data penumpang berhasil diperbarui']);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $row = DB::table('booking_passengers')->where('id', $id)->first(['id']);
+
+        if (! $row) {
+            throw new HttpException(404, 'Data penumpang tidak ditemukan');
+        }
+
+        DB::table('booking_passengers')->where('id', $id)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Data penumpang berhasil dihapus']);
+    }
+
     public function loyaltyChart(Request $request): JsonResponse
     {
-        $limit = max(5, min(50, (int) $request->input('limit', 15)));
+        $limit = max(5, min(50, (int) $request->input('limit', 10)));
 
         $rows = DB::table('booking_passengers as bp')
             ->join('bookings as b', 'b.id', '=', 'bp.booking_id')
@@ -105,7 +163,7 @@ class PassengerLktController extends Controller
                 DB::raw('TRIM(bp.phone) as phone'),
                 DB::raw('COUNT(*) as booking_count'),
             ])
-            ->whereNotNull('bp.qr_token')   // hanya yang e-tiket/barcode-nya sudah terbentuk
+            ->whereNotNull('bp.qr_token')
             ->whereNotNull('bp.name')
             ->where('bp.name', '!=', '')
             ->groupBy(DB::raw('UPPER(TRIM(bp.name))'), DB::raw('TRIM(bp.phone)'))
