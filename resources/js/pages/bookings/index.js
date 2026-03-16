@@ -102,6 +102,10 @@ function truckIcon() {
     return `<svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><rect x="2" y="7" width="15" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M17 10H20L22 13V17H17V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6" cy="18" r="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="18" r="1.5" stroke="currentColor" stroke-width="1.5"/></svg>`;
 }
 
+function documentIcon() {
+    return `<svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2V8H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13H16M8 17H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+}
+
 // ─── Car Seat Diagram ─────────────────────────────────────────────────────────
 
 function renderCarDiagram(seatBookingMap) {
@@ -368,6 +372,13 @@ function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas)
                 title="Tambah pemesanan untuk Armada ${armadaIndex}, jadwal ${escapeHtml(schedule.time)}">
                 ${plusIcon()}
                 Tambah Pemesanan Armada ${armadaIndex}
+            </button>
+            <button class="bpg-surat-jalan-btn" type="button"
+                data-surat-jalan="${escapeHtml(schedule.value)}"
+                data-surat-jalan-armada="${armadaIndex}"
+                title="Buat Surat Jalan Armada ${armadaIndex}, jadwal ${escapeHtml(schedule.time)}">
+                ${documentIcon()}
+                Surat Jalan
             </button>
         </article>`;
 }
@@ -1000,6 +1011,7 @@ export default function initBookingsPage({ user } = {}) {
         const deleteBtn = event.target.closest('[data-booking-delete]');
         const addArmadaBtn = event.target.closest('[data-add-armada]');
         const slotBookBtn = event.target.closest('[data-slot-book]');
+        const suratJalanBtn = event.target.closest('[data-surat-jalan]');
 
         try {
             if (toggleBtn) {
@@ -1116,6 +1128,33 @@ export default function initBookingsPage({ user } = {}) {
 
                 resetForm(armadaIndex, tripTime);
                 openModal('booking-form-modal');
+
+                return;
+            }
+
+            // "Surat Jalan" button: open PDF in new tab
+            if (suratJalanBtn) {
+                const tripTime = suratJalanBtn.dataset.suratJalan;
+                const armadaIndex = parseInt(suratJalanBtn.dataset.suratJalanArmada || '1');
+                const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
+
+                const driverId = state.slotDriverMap[slotArmadaKey] || '';
+                const mobilId = state.slotMobilMap[slotArmadaKey] || '';
+
+                const driverObj = driverId ? state.drivers.find((d) => String(d.id) === String(driverId)) : null;
+                const mobilObj = mobilId ? state.mobils.find((m) => String(m.id) === String(mobilId)) : null;
+
+                const params = new URLSearchParams({
+                    date: state.date,
+                    trip_time: tripTime,
+                    armada_index: String(armadaIndex),
+                    direction: state.direction,
+                });
+
+                if (driverObj) params.set('driver_name', driverObj.nama);
+                if (mobilObj) params.set('no_pol', mobilObj.kode_mobil);
+
+                window.open(`/dashboard/bookings/surat-jalan?${params}`, '_blank');
 
                 return;
             }

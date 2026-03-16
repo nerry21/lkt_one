@@ -9,6 +9,7 @@ use App\Models\Driver;
 use App\Models\Mobil;
 use App\Services\BookingManagementService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Contracts\View\View;
@@ -138,6 +139,83 @@ class BookingPageController extends Controller
             'tickets' => $tickets,
             'booking' => $booking,
         ])->setPaper('a4')->download($fileName);
+    }
+
+    public function suratJalan(Request $request): \Symfony\Component\HttpFoundation\Response
+    {
+        $date        = trim((string) $request->query('date', ''));
+        $tripTime    = trim((string) $request->query('trip_time', ''));
+        $armadaIndex = max(1, (int) $request->query('armada_index', 1));
+        $direction   = trim((string) $request->query('direction', ''));
+        $driverName  = trim((string) $request->query('driver_name', ''));
+        $noPol       = trim((string) $request->query('no_pol', ''));
+
+        $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
+
+        $bookings = Booking::query()
+            ->when($date !== '', fn ($q) => $q->where('trip_date', $date))
+            ->when($timePrefix !== '', fn ($q) => $q->where('trip_time', 'like', $timePrefix . '%'))
+            ->when($direction === 'to_pkb', fn ($q) => $q->where('to_city', 'Pekanbaru'))
+            ->when($direction === 'from_pkb', fn ($q) => $q->where('from_city', 'Pekanbaru'))
+            ->where(function ($q) use ($armadaIndex) {
+                $q->where('armada_index', $armadaIndex);
+                if ($armadaIndex === 1) {
+                    $q->orWhereNull('armada_index');
+                }
+            })
+            ->with('passengers')
+            ->orderBy('created_at')
+            ->get();
+
+        $rows = [];
+        foreach ($bookings as $booking) {
+            $passengers = $booking->passengers->sortBy('seat_no')->values();
+
+            if ($passengers->isNotEmpty()) {
+                foreach ($passengers as $passenger) {
+                    $rows[] = [
+                        'nama'       => (string) $passenger->name,
+                        'no_hp'      => (string) $passenger->phone,
+                        'jemput'     => (string) ($booking->pickup_location ?? ''),
+                        'tujuan'     => (string) ($booking->dropoff_location ?? ''),
+                        'tarif'      => (float) ($booking->price_per_seat ?? 0),
+                        'keterangan' => (string) ($booking->notes ?? ''),
+                    ];
+                }
+            } else {
+                $rows[] = [
+                    'nama'       => (string) ($booking->passenger_name ?? ''),
+                    'no_hp'      => (string) ($booking->passenger_phone ?? ''),
+                    'jemput'     => (string) ($booking->pickup_location ?? ''),
+                    'tujuan'     => (string) ($booking->dropoff_location ?? ''),
+                    'tarif'      => (float) ($booking->price_per_seat ?? 0),
+                    'keterangan' => (string) ($booking->notes ?? ''),
+                ];
+            }
+        }
+
+        // Minimum 12 rows — pad with empty rows if needed
+        while (count($rows) < 12) {
+            $rows[] = ['nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null, 'keterangan' => ''];
+        }
+
+        $tanggal = $date !== '' ? \Carbon\Carbon::parse($date)->translatedFormat('d F Y') : '-';
+
+        $logoPath = public_path('images/lk_travel.png');
+        $logoBase64 = file_exists($logoPath)
+            ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
+            : null;
+
+        $fileName = 'surat-jalan-' . ($date ?: now()->format('Y-m-d')) . '-' . str_replace(':', '', $timePrefix ?: '0000') . '.pdf';
+
+        return Pdf::loadView('bookings.pdf.surat-jalan', [
+            'rows'        => $rows,
+            'tanggal'     => $tanggal,
+            'driver_name' => $driverName ?: '-',
+            'no_pol'      => $noPol ?: '-',
+            'trip_time'   => $timePrefix ?: '-',
+            'logo_base64' => $logoBase64,
+        ])->setPaper('a4', 'landscape')->download($fileName);
     }
 
     private function ensurePassengerQrToken(BookingPassenger $passenger, Booking $booking): string

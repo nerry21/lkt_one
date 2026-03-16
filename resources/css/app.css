@@ -6566,6 +6566,30 @@ button {
     opacity: 0.87;
 }
 
+/* Surat Jalan Button (within armada card) */
+.bpg-surat-jalan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1.5px solid rgba(var(--transit-primary-rgb, 22, 101, 52), 0.4);
+    background: transparent;
+    color: var(--transit-primary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    width: 100%;
+    letter-spacing: 0.01em;
+    margin-top: 6px;
+}
+
+.bpg-surat-jalan-btn:hover {
+    background: rgba(var(--transit-primary-rgb, 22, 101, 52), 0.08);
+}
+
 /* Passenger List */
 .bpg-passenger-list {
     display: flex;

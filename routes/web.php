@@ -40,6 +40,7 @@ Route::prefix('dashboard')->group(function () {
     Route::middleware(['jwt.auth', 'admin.role:admin'])->group(function () {
         Route::get('/bookings/{booking}', [BookingPageController::class, 'show'])->name('bookings.show');
     });
+    Route::get('/bookings/surat-jalan', [BookingPageController::class, 'suratJalan'])->name('bookings.surat-jalan');
     Route::get('/bookings/{booking}/ticket', [BookingPageController::class, 'ticket'])->name('bookings.ticket');
     Route::get('/bookings/{booking}/ticket/download', [BookingPageController::class, 'downloadTicket'])->name('bookings.ticket.download');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
