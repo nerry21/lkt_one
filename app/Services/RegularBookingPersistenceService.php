@@ -68,6 +68,7 @@ class RegularBookingPersistenceService
                 'payment_account_bank' => null,
                 'payment_account_name' => null,
                 'payment_account_number' => null,
+                'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
                 'payment_status' => 'Belum Bayar',
                 'booking_status' => 'Draft',
                 'ticket_status' => 'Draft',

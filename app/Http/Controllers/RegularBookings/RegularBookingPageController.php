@@ -89,19 +89,46 @@ class RegularBookingPageController extends Controller
         $tripTime = trim((string) ($draft['departure_time'] ?? ''));
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
         $persistedBookingId = $drafts->getPersistedBookingId($request->session());
+        $passengerCount = max(1, (int) ($draft['passenger_count'] ?? 1));
+        $totalSeatCount = count($service->selectableSeatCodes());
 
-        $occupiedSeats = ($tripDate !== '' && $tripTime !== '')
+        // Build per-armada occupied-seat map for this date/time slot
+        $allSlotBookings = ($tripDate !== '' && $tripTime !== '')
             ? Booking::query()
                 ->where('trip_date', $tripDate)
                 ->where('trip_time', 'like', $timePrefix . '%')
                 ->whereNotIn('booking_status', ['Dibatalkan'])
                 ->when($persistedBookingId, fn ($q) => $q->where('id', '!=', $persistedBookingId))
                 ->get()
-                ->flatMap(fn (Booking $b): array => (array) ($b->selected_seats ?? []))
+            : collect();
+
+        // Group occupied seat codes by armada_index (NULL treated as armada 1)
+        $occupiedByArmada = $allSlotBookings
+            ->groupBy(fn (Booking $b) => $b->armada_index ?? 1)
+            ->map(fn ($bookings) => $bookings
+                ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
                 ->unique()
                 ->values()
                 ->all()
-            : [];
+            );
+
+        // Find the first armada that has enough room for the requested passenger count.
+        // If all known armadas are full, spill into the next index automatically.
+        $maxKnownArmada = $occupiedByArmada->keys()->max() ?? 0;
+        $targetArmadaIndex = 1;
+        for ($i = 1; $i <= $maxKnownArmada + 1; $i++) {
+            $taken = count($occupiedByArmada->get($i, []));
+            if ($taken + $passengerCount <= $totalSeatCount) {
+                $targetArmadaIndex = $i;
+                break;
+            }
+        }
+
+        $occupiedSeats = $occupiedByArmada->get($targetArmadaIndex, []);
+
+        // Persist the resolved armada index into the draft so persistence uses it
+        $draft['armada_index'] = $targetArmadaIndex;
+        $drafts->store($request->session(), $draft);
 
         return view('regular-bookings.seats', [
             'pageTitle' => 'Pilih Kursi | Lancang Kuning Travelindo',

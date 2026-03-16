@@ -271,6 +271,7 @@ class RegularBookingDraftService
             'selected_seats' => $selectedSeatCodes,
             'selected_seats_label' => $service->selectedSeatLabels($selectedSeatCodes),
             'passengers' => $passengers,
+            'armada_index' => $normalizedDraft['armada_index'],
         ];
     }
 
@@ -287,6 +288,7 @@ class RegularBookingDraftService
             'dropoff_address' => trim((string) ($draft['dropoff_address'] ?? '')),
             'fare_amount' => max((int) ($draft['fare_amount'] ?? 0), 0),
             'additional_fare_per_passenger' => max((int) ($draft['additional_fare_per_passenger'] ?? 0), 0),
+            'armada_index' => max(1, (int) ($draft['armada_index'] ?? 1)),
             'selected_seats' => collect($draft['selected_seats'] ?? [])
                 ->map(fn ($seatCode): string => trim((string) $seatCode))
                 ->filter(fn (string $seatCode): bool => $seatCode !== '')
