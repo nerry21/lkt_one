@@ -7044,14 +7044,14 @@ button {
 .qrscan-result-header h3 {
     margin: 0;
     font-size: 1rem;
-    color: var(--transit-text);
+    color: #0f172a;
     font-family: 'JetBrains Mono', monospace;
 }
 
 .qrscan-result-header p {
     margin: 2px 0 0;
     font-size: 0.82rem;
-    color: var(--transit-text-muted);
+    color: #475569;
 }
 
 .qrscan-result-grid {
@@ -7069,20 +7069,20 @@ button {
 
 .qrscan-result-item span {
     font-size: 0.72rem;
-    color: var(--transit-text-muted);
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
 .qrscan-result-item strong {
     font-size: 0.9rem;
-    color: var(--transit-text);
+    color: #0f172a;
 }
 
 /* Loyalty bar */
 .qrscan-loyalty {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(110,231,183,0.1);
+    background: rgba(241,245,249,0.9);
+    border: 1px solid rgba(16,185,129,0.2);
     border-radius: 12px;
     padding: 14px 16px;
 }
@@ -7091,13 +7091,13 @@ button {
     display: flex;
     justify-content: space-between;
     font-size: 0.82rem;
-    color: var(--transit-text-muted);
+    color: #334155;
     margin-bottom: 8px;
 }
 
 .qrscan-loyalty-bar {
     height: 8px;
-    background: rgba(255,255,255,0.08);
+    background: #e2e8f0;
     border-radius: 99px;
     overflow: hidden;
     margin-bottom: 8px;
@@ -7117,7 +7117,7 @@ button {
 .qrscan-loyalty-note {
     margin: 0;
     font-size: 0.8rem;
-    color: var(--transit-text-muted);
+    color: #475569;
 }
 
 /* History */
@@ -7133,7 +7133,7 @@ button {
 .qrscan-history-empty {
     margin: 0;
     font-size: 0.85rem;
-    color: var(--transit-text-muted);
+    color: #64748b;
     text-align: center;
     padding: 16px 0;
 }
@@ -7144,7 +7144,8 @@ button {
     gap: 10px;
     padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.04);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
 }
 
 .qrscan-history-item--ok  .qrscan-history-dot { background: #10b981; }
@@ -7167,7 +7168,7 @@ button {
 
 .qrscan-history-body strong {
     font-size: 0.82rem;
-    color: var(--transit-text);
+    color: #0f172a;
     font-family: 'JetBrains Mono', monospace;
     white-space: nowrap;
     overflow: hidden;
@@ -7176,7 +7177,7 @@ button {
 
 .qrscan-history-body span {
     font-size: 0.78rem;
-    color: var(--transit-text-muted);
+    color: #64748b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -7184,7 +7185,7 @@ button {
 
 .qrscan-history-time {
     font-size: 0.75rem;
-    color: var(--transit-text-muted);
+    color: #94a3b8;
     flex-shrink: 0;
     font-family: 'JetBrains Mono', monospace;
 }
