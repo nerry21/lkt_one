@@ -74,12 +74,12 @@
 
         {{-- Route Direction Tabs --}}
         <div class="bpg-route-tabs" id="bpg-route-tabs" @if (! $canManageBookings) hidden @endif>
-            <button class="bpg-route-tab is-active" type="button" data-direction="to_pkb" data-testid="tab-to-pkb">
+            {{-- <button class="bpg-route-tab is-active" type="button" data-direction="to_pkb" data-testid="tab-to-pkb">
                 <svg viewBox="0 0 24 24" fill="none">
                     <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 Rokan Hulu → Pekanbaru
-            </button>
+            </button> --}}
             <button class="bpg-route-tab" type="button" data-direction="from_pkb" data-testid="tab-from-pkb">
                 <svg viewBox="0 0 24 24" fill="none">
                     <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
