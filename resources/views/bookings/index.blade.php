@@ -15,6 +15,12 @@
 @endphp
 
 @section('content')
+    <style>
+        #bpg-detail-full-link,
+        #bpg-detail-full-link * {
+            color: #000000 !important;
+        }
+    </style>
     <section class="admin-users-page animate-fade-in" data-bookings-page>
         <script id="bookings-form-options" type="application/json">@json($formOptions)</script>
         <script id="bookings-drivers-data" type="application/json">@json($drivers ?? [])</script>
