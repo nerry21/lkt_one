@@ -6257,17 +6257,29 @@ button {
 
 .bpg-slot-head {
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bpg-slot-head-row {
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bpg-slot-head-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .bpg-slot-service-types {
     display: flex;
     gap: 5px;
     flex-wrap: wrap;
-    justify-content: center;
-    flex: 1;
 }
 
 .bpg-service-badge {
@@ -6492,20 +6504,21 @@ button {
 
 /* Tambah Armada Button */
 .bpg-add-armada-btn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 11px;
-    font-size: 0.75rem;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 14px;
+    font-size: 0.78rem;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1.5px dashed var(--transit-primary);
-    background: transparent;
+    background: rgba(22, 101, 52, 0.06);
     color: var(--transit-primary);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
     white-space: nowrap;
-    flex-shrink: 0;
 }
 
 .bpg-add-armada-btn:hover {
@@ -6532,25 +6545,25 @@ button {
 
 /* Slot Book Button (within armada card) */
 .bpg-slot-book-btn {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 7px 14px;
-    font-size: 0.78rem;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    font-size: 0.8rem;
     font-weight: 600;
-    border-radius: 8px;
-    border: 1.5px solid var(--transit-primary);
+    border-radius: 10px;
+    border: none;
     background: var(--transit-primary);
     color: #ffffff;
     cursor: pointer;
     transition: opacity 0.15s;
-    margin-top: 10px;
     width: 100%;
-    justify-content: center;
+    letter-spacing: 0.01em;
 }
 
 .bpg-slot-book-btn:hover {
-    opacity: 0.85;
+    opacity: 0.87;
 }
 
 /* Passenger List */
@@ -6591,7 +6604,7 @@ button {
 .bpg-passenger-item {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     padding: 10px 14px;
     border-bottom: 1px solid var(--transit-border);
     transition: background 0.12s ease;
@@ -6599,8 +6612,16 @@ button {
 
 .bpg-passenger-item-row {
     display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.bpg-passenger-item-actions-row {
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
+    padding-left: 0;
+    flex-wrap: wrap;
 }
 
 .bpg-passenger-item:last-child {
@@ -6616,6 +6637,7 @@ button {
     gap: 4px;
     flex-wrap: wrap;
     flex-shrink: 0;
+    padding-top: 2px;
 }
 
 .bpg-passenger-info {
@@ -6627,7 +6649,7 @@ button {
 }
 
 .bpg-passenger-name {
-    font-size: 0.88rem;
+    font-size: 0.86rem;
     font-weight: 600;
     color: var(--transit-text);
     white-space: nowrap;
@@ -6636,14 +6658,15 @@ button {
 }
 
 .bpg-passenger-phone {
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     color: var(--transit-text-muted);
+    white-space: nowrap;
 }
 
 .bpg-passenger-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-shrink: 0;
 }
 
@@ -6683,7 +6706,7 @@ button {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding-left: 2px;
+    padding-left: 0;
 }
 
 /* Departure Status Dropdown */
