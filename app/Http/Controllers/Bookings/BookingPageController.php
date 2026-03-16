@@ -179,26 +179,24 @@ class BookingPageController extends Controller
             if (empty($seats)) {
                 // No seat info — use booking-level data as single row
                 $rows[] = [
-                    'kursi'      => '-',
-                    'nama'       => (string) ($booking->passenger_name ?? ''),
-                    'no_hp'      => (string) ($booking->passenger_phone ?? ''),
-                    'jemput'     => (string) ($booking->pickup_location ?? ''),
-                    'tujuan'     => (string) ($booking->dropoff_location ?? ''),
-                    'tarif'      => (float) ($booking->price_per_seat ?? 0),
-                    'keterangan' => (string) ($booking->notes ?? ''),
+                    'kursi' => '-',
+                    'nama'  => (string) ($booking->passenger_name ?? ''),
+                    'no_hp' => (string) ($booking->passenger_phone ?? ''),
+                    'jemput'=> (string) ($booking->pickup_location ?? ''),
+                    'tujuan'=> (string) ($booking->dropoff_location ?? ''),
+                    'tarif' => (float) ($booking->price_per_seat ?? 0),
                 ];
             } else {
                 foreach ($seats as $seatCode) {
                     // Prefer per-seat passenger data; fall back to booking-level
                     $pData = $passengerBySeat->get($seatCode);
                     $rows[] = [
-                        'kursi'      => (string) $seatCode,
-                        'nama'       => $pData['nama'] ?? (string) ($booking->passenger_name ?? ''),
-                        'no_hp'      => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
-                        'jemput'     => (string) ($booking->pickup_location ?? ''),
-                        'tujuan'     => (string) ($booking->dropoff_location ?? ''),
-                        'tarif'      => (float) ($booking->price_per_seat ?? 0),
-                        'keterangan' => (string) ($booking->notes ?? ''),
+                        'kursi' => (string) $seatCode,
+                        'nama'  => $pData['nama'] ?? (string) ($booking->passenger_name ?? ''),
+                        'no_hp' => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
+                        'jemput'=> (string) ($booking->pickup_location ?? ''),
+                        'tujuan'=> (string) ($booking->dropoff_location ?? ''),
+                        'tarif' => (float) ($booking->price_per_seat ?? 0),
                     ];
                 }
             }
@@ -206,7 +204,12 @@ class BookingPageController extends Controller
 
         // Minimum 12 rows — pad with empty rows if needed
         while (count($rows) < 12) {
-            $rows[] = ['kursi' => '', 'nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null, 'keterangan' => ''];
+            $rows[] = ['kursi' => '', 'nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null];
+        }
+
+        // If driver_name not passed via query, try to get it from bookings
+        if ($driverName === '') {
+            $driverName = $bookings->first(fn ($b) => filled($b->driver_name))?->driver_name ?? '';
         }
 
         $tanggal = $date !== '' ? \Carbon\Carbon::parse($date)->translatedFormat('d F Y') : '-';
@@ -221,9 +224,8 @@ class BookingPageController extends Controller
         return Pdf::loadView('bookings.pdf.surat-jalan', [
             'rows'        => $rows,
             'tanggal'     => $tanggal,
-            'driver_name' => $driverName ?: '-',
-            'no_pol'      => $noPol ?: '-',
-            'trip_time'   => $timePrefix ?: '-',
+            'driver_name' => $driverName ?: '',
+            'kode_mobil'  => $noPol ?: '',
             'logo_base64' => $logoBase64,
         ])->setPaper('a4', 'landscape')->download($fileName);
     }

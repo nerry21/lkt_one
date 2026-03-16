@@ -54,7 +54,7 @@
         }
 
         .header-meta-cell {
-            width: 195px;
+            width: 210px;
             vertical-align: middle;
             padding-left: 12px;
         }
@@ -67,7 +67,7 @@
 
         .meta-label {
             display: table-cell;
-            width: 58px;
+            width: 72px;
             font-size: 10px;
             font-weight: 600;
             white-space: nowrap;
@@ -80,7 +80,7 @@
             font-weight: 600;
         }
 
-        .meta-dots {
+        .meta-value {
             display: table-cell;
             font-size: 10px;
             border-bottom: 1px solid #000;
@@ -115,19 +115,18 @@
             vertical-align: top;
         }
 
-        .col-no    { width: 26px; text-align: center; }
-        .col-kursi { width: 38px; text-align: center; }
-        .col-nama  { width: 125px; }
-        .col-nohp  { width: 90px; }
-        .col-jemput{ width: 165px; }
-        .col-tujuan{ width: 90px; }
-        .col-tarif { width: 75px; text-align: right; }
-        .col-ket   { width: 100px; }
+        .col-no    { width: 26px;  text-align: center; }
+        .col-kursi { width: 38px;  text-align: center; }
+        .col-nama  { width: 150px; }
+        .col-nohp  { width: 95px;  }
+        .col-jemput{ width: 195px; }
+        .col-tujuan{ width: 120px; }
+        .col-tarif { width: 80px;  text-align: right; }
 
         .td-center { text-align: center; }
         .td-right  { text-align: right; }
 
-        .row-empty td { height: 21px; }
+        .row-empty td { height: 22px; }
 
         /* ── FOOTER ── */
         .footer-table {
@@ -142,16 +141,29 @@
             padding-top: 4px;
         }
 
-        .footer-sign-label {
+        .footer-role {
             font-size: 11px;
             font-weight: 700;
-            margin-bottom: 46px;
+        }
+
+        .footer-name {
+            font-size: 10px;
+            margin-top: 2px;
+            margin-bottom: 44px;
+            font-style: italic;
+            color: #444;
         }
 
         .footer-sign-line {
             border-top: 1px solid #000;
-            width: 140px;
+            width: 150px;
             margin: 0 auto;
+        }
+
+        .footer-name-under {
+            font-size: 10px;
+            margin-top: 4px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -171,19 +183,19 @@
             </td>
             <td class="header-meta-cell">
                 <div class="meta-row">
-                    <span class="meta-label">No. Pol</span>
+                    <span class="meta-label">Kode Mobil</span>
                     <span class="meta-sep">:</span>
-                    <span class="meta-dots">{{ $no_pol !== '-' ? $no_pol : '' }}</span>
+                    <span class="meta-value">{{ $kode_mobil }}</span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Tanggal</span>
                     <span class="meta-sep">:</span>
-                    <span class="meta-dots">{{ $tanggal !== '-' ? $tanggal : '' }}</span>
+                    <span class="meta-value">{{ $tanggal !== '-' ? $tanggal : '' }}</span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">Driver</span>
                     <span class="meta-sep">:</span>
-                    <span class="meta-dots">{{ $driver_name !== '-' ? $driver_name : '' }}</span>
+                    <span class="meta-value">{{ $driver_name }}</span>
                 </div>
             </td>
         </tr>
@@ -200,7 +212,6 @@
                 <th class="col-jemput">JEMPUT</th>
                 <th class="col-tujuan">TUJUAN</th>
                 <th class="col-tarif">TARIF</th>
-                <th class="col-ket">KETERANGAN</th>
             </tr>
         </thead>
         <tbody>
@@ -222,7 +233,6 @@
                             Rp {{ number_format($row['tarif'], 0, ',', '.') }}
                         @endif
                     </td>
-                    <td class="col-ket">{{ $row['keterangan'] }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -232,12 +242,18 @@
     <table class="footer-table">
         <tr>
             <td class="footer-sign-cell">
-                <div class="footer-sign-label">Pengemudi</div>
+                <div class="footer-role">Pengemudi</div>
+                <div class="footer-name">{{ $driver_name ?: '( ........................... )' }}</div>
                 <div class="footer-sign-line"></div>
+                @if ($driver_name)
+                    <div class="footer-name-under">{{ $driver_name }}</div>
+                @endif
             </td>
             <td class="footer-sign-cell">
-                <div class="footer-sign-label">Pengurus</div>
+                <div class="footer-role">Pengurus</div>
+                <div class="footer-name">&nbsp;</div>
                 <div class="footer-sign-line"></div>
+                <div class="footer-name-under">Zizi</div>
             </td>
         </tr>
     </table>
