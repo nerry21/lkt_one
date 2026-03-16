@@ -6811,6 +6811,11 @@ button {
     font-size: 1rem !important;
 }
 
+#bpg-detail-full-link,
+#bpg-detail-full-link * {
+    color: #000000 !important;
+}
+
 /* Responsive */
 @media (max-width: 1280px) {
     .bpg-slots-grid {
