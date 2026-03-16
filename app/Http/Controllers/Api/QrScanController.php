@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
+use App\Models\BookingPassenger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,72 +19,62 @@ class QrScanController extends Controller
             throw new HttpException(422, 'QR token tidak boleh kosong');
         }
 
-        $booking = Booking::query()->where('qr_token', $qrToken)->first();
+        // Cari penumpang berdasarkan passenger-level qr_token
+        $passenger = BookingPassenger::query()
+            ->with('booking')
+            ->where('qr_token', $qrToken)
+            ->first();
 
-        if (! $booking) {
-            throw new HttpException(404, 'QR code tidak valid atau pemesanan tidak ditemukan');
+        if (! $passenger) {
+            throw new HttpException(404, 'QR code tidak valid atau penumpang tidak ditemukan');
         }
 
-        if (blank($booking->qr_code_value)) {
-            throw new HttpException(422, 'Pemesanan ini belum memiliki QR code aktif');
+        if (blank($passenger->qr_code_value)) {
+            throw new HttpException(422, 'Tiket penumpang ini belum memiliki QR code aktif');
         }
 
-        $loyaltyTarget     = 5;
-        $previousScanCount = (int) ($booking->scan_count ?? 0);
+        $booking       = $passenger->booking;
+        $loyaltyTarget = 5;
 
-        // Cek apakah tiket ini sudah pernah di-scan sebelumnya (satu tiket hanya 1x untuk loyalty)
-        $alreadyScanned = $booking->last_scanned_at !== null;
+        // Cek apakah tiket penumpang ini sudah pernah di-scan (1 tiket = 1x loyalty)
+        $alreadyScanned = $passenger->last_scanned_at !== null;
 
         if ($alreadyScanned) {
-            // Tampilkan info penumpang tapi TIDAK tambah loyalty
             return response()->json([
                 'success'             => true,
                 'already_scanned'     => true,
                 'message'             => 'Tiket ini sudah pernah di-scan. Loyalty tidak ditambahkan.',
-                'scan_count'          => $previousScanCount,
-                'loyalty_count'       => $previousScanCount,
+                'scan_count'          => (int) $passenger->scan_count,
+                'loyalty_count'       => (int) $passenger->scan_count,
                 'loyalty_target'      => $loyaltyTarget,
-                'discount_eligible'   => (bool) $booking->discount_eligible,
+                'discount_eligible'   => (bool) $passenger->discount_eligible,
                 'discount_percentage' => 50,
                 'is_newly_eligible'   => false,
-                'booking'             => [
-                    'id'              => $booking->id,
-                    'booking_code'    => $booking->booking_code,
-                    'nama_pemesanan'  => $booking->passenger_name,
-                    'phone'           => $booking->passenger_phone,
-                    'from_city'       => $booking->from_city,
-                    'to_city'         => $booking->to_city,
-                    'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
-                    'trip_time'       => substr((string) ($booking->trip_time ?? ''), 0, 5),
-                    'route_label'     => $booking->route_label
-                        ?? ($booking->from_city . ' – ' . $booking->to_city),
-                    'passenger_count' => (int) ($booking->passenger_count ?? 0),
-                    'selected_seats'  => implode(', ', (array) ($booking->selected_seats ?? [])),
-                    'category'        => $booking->category ?? '-',
-                ],
+                'passenger'           => $this->passengerPayload($passenger, $booking),
+                'booking'             => $this->bookingPayload($booking),
             ]);
         }
 
-        // Scan valid: hitung sebagai perjalanan baru
+        // Scan valid: hitung sebagai perjalanan baru untuk penumpang ini
+        $previousScanCount  = (int) ($passenger->scan_count ?? 0);
         $newScanCount       = $previousScanCount + 1;
         $justCompletedCycle = $newScanCount >= $loyaltyTarget;
 
         if ($justCompletedCycle) {
             // Siklus selesai: beri diskon, reset untuk siklus berikutnya
-            DB::table('bookings')->where('id', $booking->id)->update([
-                'scan_count'         => 0,
-                'loyalty_count'      => 0,
+            DB::table('booking_passengers')->where('id', $passenger->id)->update([
+                'scan_count'        => 0,
+                'loyalty_count'     => 0,
                 'loyalty_trip_count' => DB::raw('COALESCE(loyalty_trip_count, 0) + 1'),
-                'discount_eligible'  => true,
-                'eligible_discount'  => true,
-                'last_scanned_at'    => now(),
+                'discount_eligible' => true,
+                'eligible_discount' => true,
+                'last_scanned_at'   => now(),
             ]);
 
-            $loyaltyCountDisplay = $loyaltyTarget; // tampilkan 5/5 saat siklus selesai
+            $loyaltyCountDisplay = $loyaltyTarget;
             $discountEligible    = true;
         } else {
-            // Scan normal: increment dan tandai sudah di-scan hari ini
-            DB::table('bookings')->where('id', $booking->id)->update([
+            DB::table('booking_passengers')->where('id', $passenger->id)->update([
                 'scan_count'        => $newScanCount,
                 'loyalty_count'     => $newScanCount,
                 'discount_eligible' => false,
@@ -96,37 +86,55 @@ class QrScanController extends Controller
             $discountEligible    = false;
         }
 
-        $booking->refresh();
-
-        $isNewlyEligible = $justCompletedCycle;
+        $passenger->refresh();
 
         return response()->json([
             'success'             => true,
             'already_scanned'     => false,
-            'message'             => $isNewlyEligible
+            'message'             => $justCompletedCycle
                 ? 'Selamat! Penumpang kini eligible diskon 50%'
                 : 'QR berhasil di-scan',
-            'scan_count'          => (int) $booking->scan_count,
+            'scan_count'          => (int) $passenger->scan_count,
             'loyalty_count'       => $loyaltyCountDisplay,
             'loyalty_target'      => $loyaltyTarget,
             'discount_eligible'   => $discountEligible,
             'discount_percentage' => 50,
-            'is_newly_eligible'   => $isNewlyEligible,
-            'booking'             => [
-                'id'              => $booking->id,
-                'booking_code'    => $booking->booking_code,
-                'nama_pemesanan'  => $booking->passenger_name,
-                'phone'           => $booking->passenger_phone,
-                'from_city'       => $booking->from_city,
-                'to_city'         => $booking->to_city,
-                'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
-                'trip_time'       => substr((string) ($booking->trip_time ?? ''), 0, 5),
-                'route_label'     => $booking->route_label
-                    ?? ($booking->from_city . ' – ' . $booking->to_city),
-                'passenger_count' => (int) ($booking->passenger_count ?? 0),
-                'selected_seats'  => implode(', ', (array) ($booking->selected_seats ?? [])),
-                'category'        => $booking->category ?? '-',
-            ],
+            'is_newly_eligible'   => $justCompletedCycle,
+            'passenger'           => $this->passengerPayload($passenger, $booking),
+            'booking'             => $this->bookingPayload($booking),
         ]);
+    }
+
+    private function passengerPayload(BookingPassenger $passenger, $booking): array
+    {
+        return [
+            'id'        => $passenger->id,
+            'name'      => (string) $passenger->name,
+            'phone'     => (string) ($passenger->phone ?? ''),
+            'seat_no'   => (string) ($passenger->seat_no ?? ''),
+        ];
+    }
+
+    private function bookingPayload($booking): array
+    {
+        if (! $booking) {
+            return [];
+        }
+
+        return [
+            'id'              => $booking->id,
+            'booking_code'    => $booking->booking_code,
+            'nama_pemesanan'  => $booking->passenger_name,
+            'phone'           => $booking->passenger_phone,
+            'from_city'       => $booking->from_city,
+            'to_city'         => $booking->to_city,
+            'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
+            'trip_time'       => substr((string) ($booking->trip_time ?? ''), 0, 5),
+            'route_label'     => $booking->route_label
+                ?? ($booking->from_city . ' – ' . $booking->to_city),
+            'passenger_count' => (int) ($booking->passenger_count ?? 0),
+            'selected_seats'  => implode(', ', (array) ($booking->selected_seats ?? [])),
+            'category'        => $booking->category ?? '-',
+        ];
     }
 }

@@ -7177,8 +7177,9 @@ button {
     border: 1px solid #e2e8f0;
 }
 
-.qrscan-history-item--ok  .qrscan-history-dot { background: #10b981; }
-.qrscan-history-item--err .qrscan-history-dot { background: #f43f5e; }
+.qrscan-history-item--ok   .qrscan-history-dot { background: #10b981; }
+.qrscan-history-item--err  .qrscan-history-dot { background: #f43f5e; }
+.qrscan-history-item--warn .qrscan-history-dot { background: #f59e0b; }
 
 .qrscan-history-dot {
     width: 8px;

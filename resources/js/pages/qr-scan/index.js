@@ -59,25 +59,26 @@ function showResult(data) {
     $('qrscan-result-idle').hidden = true;
     $('qrscan-result-card').hidden = false;
 
-    const booking  = data.booking;
-    const count    = data.loyalty_count;
-    const target   = data.loyalty_target;
-    const eligible = data.discount_eligible;
-    const pct      = Math.min(Math.round((count / target) * 100), 100);
+    const booking   = data.booking  || {};
+    const passenger = data.passenger || {};
+    const count     = data.loyalty_count;
+    const target    = data.loyalty_target;
+    const eligible  = data.discount_eligible;
+    const pct       = Math.min(Math.round((count / target) * 100), 100);
 
     // Header
     const headerState = data.already_scanned ? 'warn' : (data.success ? 'success' : 'error');
     $('qrscan-result-header').className = 'qrscan-result-header qrscan-result-header--' + headerState;
     $('qrscan-result-icon').innerHTML   = data.already_scanned ? iconWarn() : (data.success ? iconCheck() : iconX());
-    $('qrscan-result-title').textContent    = booking.booking_code;
+    $('qrscan-result-title').textContent    = booking.booking_code || '-';
     $('qrscan-result-subtitle').textContent = data.message;
 
-    // Fields
-    $('qr-res-name').textContent     = booking.nama_pemesanan  || '-';
+    // Fields — gunakan data penumpang individual untuk nama & kursi
+    $('qr-res-name').textContent     = passenger.name          || booking.nama_pemesanan || '-';
     $('qr-res-code').textContent     = booking.booking_code    || '-';
     $('qr-res-route').textContent    = booking.route_label     || '-';
     $('qr-res-datetime').textContent = (booking.trip_date || '-') + ' ' + (booking.trip_time || '');
-    $('qr-res-seats').textContent    = booking.selected_seats  || '-';
+    $('qr-res-seats').textContent    = passenger.seat_no       || booking.selected_seats  || '-';
     $('qr-res-pax').textContent      = (booking.passenger_count || 0) + ' Orang';
 
     // Loyalty bar
@@ -112,7 +113,8 @@ function addHistory(data) {
     const booking = data.booking;
     const time    = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    history.unshift({ booking, time, success: data.success, message: data.message });
+    const passenger = data.passenger || {};
+    history.unshift({ booking, passenger, time, success: data.success, already_scanned: data.already_scanned, message: data.message });
     renderHistory();
 }
 
@@ -124,16 +126,21 @@ function renderHistory() {
         return;
     }
 
-    list.innerHTML = history.map((item) => `
-        <div class="qrscan-history-item qrscan-history-item--${item.success ? 'ok' : 'err'}">
+    list.innerHTML = history.map((item) => {
+        const stateClass = item.already_scanned ? 'warn' : (item.success ? 'ok' : 'err');
+        const nameDisplay = (item.passenger && item.passenger.name)
+            ? item.passenger.name + (item.passenger.seat_no ? ' (' + item.passenger.seat_no + ')' : '')
+            : (item.booking.nama_pemesanan || '-');
+        return `
+        <div class="qrscan-history-item qrscan-history-item--${stateClass}">
             <div class="qrscan-history-dot"></div>
             <div class="qrscan-history-body">
-                <strong>${escapeHtml(item.booking.booking_code)}</strong>
-                <span>${escapeHtml(item.booking.nama_pemesanan || '-')}</span>
+                <strong>${escapeHtml(item.booking.booking_code || '-')}</strong>
+                <span>${escapeHtml(nameDisplay)}</span>
             </div>
             <span class="qrscan-history-time">${item.time}</span>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 // ─── Camera scanner ───────────────────────────────────────────────────────────

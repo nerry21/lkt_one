@@ -19,10 +19,22 @@ class BookingPassenger extends Model
         'checked_in_at',
         'checked_in_by',
         'checkin_status',
+        'qr_token',
+        'qr_code_value',
+        'scan_count',
+        'loyalty_count',
+        'discount_eligible',
+        'eligible_discount',
+        'last_scanned_at',
     ];
 
     protected $casts = [
-        'checked_in_at' => 'datetime',
+        'checked_in_at'   => 'datetime',
+        'last_scanned_at' => 'datetime',
+        'scan_count'      => 'integer',
+        'loyalty_count'   => 'integer',
+        'discount_eligible' => 'boolean',
+        'eligible_discount' => 'boolean',
     ];
 
     public function booking(): BelongsTo

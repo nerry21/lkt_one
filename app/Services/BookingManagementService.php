@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\BookingPassenger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -422,15 +423,41 @@ class BookingManagementService
         $booking->discount_eligible = max((int) $booking->loyalty_trip_count, (int) $booking->scan_count) >= 5;
         $booking->save();
 
+        // Preserve QR + loyalty data for existing passengers (keyed by seat_no)
+        $existingByseat = $booking->passengers->keyBy('seat_no');
+
         $booking->passengers()->delete();
         $booking->passengers()->createMany(
             collect($passengers)
-                ->map(function (array $passenger) use ($ticketStatus, $firstPassenger): array {
+                ->map(function (array $passenger) use ($ticketStatus, $firstPassenger, $existingByseat, $booking): array {
+                    $seatNo   = $passenger['seat_no'];
+                    $existing = $existingByseat->get($seatNo);
+
+                    // Reuse the passenger's existing QR token, or generate a new one
+                    $passengerQrToken = $existing?->qr_token
+                        ?: $this->generatePassengerQrToken();
+
+                    $passengerQrValue = json_encode([
+                        'type'                => 'passenger_ticket',
+                        'booking_code'        => $booking->booking_code,
+                        'passenger_qr_token'  => $passengerQrToken,
+                        'seat_no'             => $seatNo,
+                        'loyalty_target'      => 5,
+                        'discount_percentage' => 50,
+                    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
                     return [
-                        'seat_no' => $passenger['seat_no'],
-                        'name' => $passenger['name'] !== '' ? $passenger['name'] : $firstPassenger['name'],
-                        'phone' => $passenger['phone'] !== '' ? $passenger['phone'] : $firstPassenger['phone'],
-                        'ticket_status' => $ticketStatus,
+                        'seat_no'           => $seatNo,
+                        'name'              => $passenger['name'] !== '' ? $passenger['name'] : $firstPassenger['name'],
+                        'phone'             => $passenger['phone'] !== '' ? $passenger['phone'] : $firstPassenger['phone'],
+                        'ticket_status'     => $ticketStatus,
+                        'qr_token'          => $passengerQrToken,
+                        'qr_code_value'     => $passengerQrValue,
+                        'scan_count'        => (int) ($existing?->scan_count ?? 0),
+                        'loyalty_count'     => (int) ($existing?->loyalty_count ?? 0),
+                        'discount_eligible' => (bool) ($existing?->discount_eligible ?? false),
+                        'eligible_discount' => (bool) ($existing?->eligible_discount ?? false),
+                        'last_scanned_at'   => $existing?->last_scanned_at,
                     ];
                 })
                 ->all(),
@@ -514,6 +541,15 @@ class BookingManagementService
         do {
             $code = $prefix . '-' . now()->format('ymd') . '-' . Str::upper(Str::random($randomLength));
         } while (Booking::query()->where($column, $code)->exists());
+
+        return $code;
+    }
+
+    private function generatePassengerQrToken(): string
+    {
+        do {
+            $code = 'PQR-' . now()->format('ymd') . '-' . Str::upper(Str::random(6));
+        } while (BookingPassenger::query()->where('qr_token', $code)->exists());
 
         return $code;
     }
