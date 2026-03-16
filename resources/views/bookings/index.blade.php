@@ -106,7 +106,7 @@
                         </svg>
                         Cetak Tiket
                     </a>
-                    <a class="admin-users-primary-button" id="bpg-detail-full-link" href="#" target="_blank">
+                    <a class="admin-users-primary-button" id="bpg-detail-full-link" href="#" target="_blank" style="color:#000;">
                         <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;margin-right:6px;">
                             <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/>
                             <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
