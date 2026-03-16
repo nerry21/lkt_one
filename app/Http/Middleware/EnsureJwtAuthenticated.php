@@ -31,8 +31,10 @@ class EnsureJwtAuthenticated
 
         $header = (string) $request->header('Authorization', '');
 
+        $expectsJson = $request->expectsJson();
+
         if (! str_starts_with($header, 'Bearer ')) {
-            return $this->unauthorized('Token tidak valid');
+            return $this->unauthorized('Token tidak valid', $expectsJson);
         }
 
         $token = substr($header, 7);
@@ -40,19 +42,19 @@ class EnsureJwtAuthenticated
         try {
             $payload = $this->jwtService->decode($token);
         } catch (Throwable $exception) {
-            return $this->unauthorized($exception->getMessage());
+            return $this->unauthorized($exception->getMessage(), $expectsJson);
         }
 
         $userId = (string) ($payload['sub'] ?? '');
 
         if ($userId === '') {
-            return $this->unauthorized('Token tidak valid');
+            return $this->unauthorized('Token tidak valid', $expectsJson);
         }
 
         $user = User::query()->find($userId);
 
         if (! $user) {
-            return $this->unauthorized('User tidak ditemukan');
+            return $this->unauthorized('User tidak ditemukan', $expectsJson);
         }
 
         Auth::shouldUse('web');
@@ -63,8 +65,12 @@ class EnsureJwtAuthenticated
         return $next($request);
     }
 
-    protected function unauthorized(string $detail): JsonResponse
+    protected function unauthorized(string $detail, bool $expectsJson = true): \Symfony\Component\HttpFoundation\Response
     {
+        if (! $expectsJson) {
+            return redirect()->route('login');
+        }
+
         return response()->json([
             'detail' => $detail,
         ], 401);
