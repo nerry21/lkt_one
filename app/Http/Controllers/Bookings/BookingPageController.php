@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Bookings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingPassenger;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Services\BookingManagementService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Contracts\View\View;
 
@@ -55,9 +57,11 @@ class BookingPageController extends Controller
             $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
             $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
 
+            // Ensure passenger has a QR token (generate+save if missing)
+            $passengerQrToken = $this->ensurePassengerQrToken($passenger, $booking);
+
             // Generate per-passenger QR SVG
             $passengerQrSvg = null;
-            $passengerQrToken = (string) ($passenger->qr_token ?? '');
             if (filled($passengerQrToken)) {
                 $qrValue = filled($passenger->qr_code_value)
                     ? $passenger->qr_code_value
@@ -103,8 +107,10 @@ class BookingPageController extends Controller
             $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
             $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
 
+            // Ensure passenger has a QR token (generate+save if missing)
+            $passengerQrToken = $this->ensurePassengerQrToken($passenger, $booking);
+
             // For PDF (DomPDF), generate per-passenger PNG base64
-            $passengerQrToken = (string) ($passenger->qr_token ?? '');
             $qrPngBase64 = null;
             if (filled($passengerQrToken)) {
                 $qrValue     = filled($passenger->qr_code_value)
@@ -139,5 +145,37 @@ class BookingPageController extends Controller
             'tickets' => $tickets,
             'booking' => $booking,
         ])->setPaper('a4')->download($fileName);
+    }
+
+    private function ensurePassengerQrToken(BookingPassenger $passenger, Booking $booking): string
+    {
+        if (filled($passenger->qr_token)) {
+            return (string) $passenger->qr_token;
+        }
+
+        // Generate a unique token
+        do {
+            $token = 'PQR-' . now()->format('ymd') . '-' . Str::upper(Str::random(6));
+        } while (BookingPassenger::query()->where('qr_token', $token)->exists());
+
+        $seatNo = (string) ($passenger->seat_no ?? '');
+        $qrValue = json_encode([
+            'type'               => 'passenger_ticket',
+            'booking_code'       => $booking->booking_code,
+            'passenger_qr_token' => $token,
+            'seat_no'            => $seatNo,
+            'loyalty_target'     => 5,
+            'discount_percentage'=> 50,
+        ]);
+
+        BookingPassenger::query()->where('id', $passenger->id)->update([
+            'qr_token'       => $token,
+            'qr_code_value'  => $qrValue,
+        ]);
+
+        $passenger->qr_token       = $token;
+        $passenger->qr_code_value  = $qrValue;
+
+        return $token;
     }
 }
