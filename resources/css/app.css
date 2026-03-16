@@ -6847,6 +6847,28 @@ button {
     padding: 24px;
 }
 
+.qrscan-card .dashboard-panel-head h3 {
+    color: #0f172a !important;
+}
+
+.qrscan-card .dashboard-panel-head p {
+    color: #475569 !important;
+}
+
+.qrscan-hint {
+    color: #64748b !important;
+}
+
+.qrscan-manual-input {
+    color: #0f172a !important;
+    background: #fff !important;
+    border-color: #cbd5e1 !important;
+}
+
+.qrscan-manual-input::placeholder {
+    color: #94a3b8 !important;
+}
+
 /* Viewfinder */
 .qrscan-viewfinder {
     position: relative;
