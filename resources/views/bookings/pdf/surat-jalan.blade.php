@@ -117,11 +117,12 @@
 
         .col-no    { width: 26px;  text-align: center; }
         .col-kursi { width: 38px;  text-align: center; }
-        .col-nama  { width: 150px; }
-        .col-nohp  { width: 95px;  }
-        .col-jemput{ width: 195px; }
-        .col-tujuan{ width: 120px; }
-        .col-tarif { width: 80px;  text-align: right; }
+        .col-nama  { width: 130px; }
+        .col-nohp  { width: 90px;  }
+        .col-jemput{ width: 170px; }
+        .col-tujuan{ width: 100px; }
+        .col-tarif { width: 75px;  text-align: right; }
+        .col-ket   { width: 90px;  }
 
         .td-center { text-align: center; }
         .td-right  { text-align: right; }
@@ -144,26 +145,12 @@
         .footer-role {
             font-size: 11px;
             font-weight: 700;
-        }
-
-        .footer-name {
-            font-size: 10px;
-            margin-top: 2px;
-            margin-bottom: 44px;
-            font-style: italic;
-            color: #444;
-        }
-
-        .footer-sign-line {
-            border-top: 1px solid #000;
-            width: 150px;
-            margin: 0 auto;
+            margin-bottom: 52px;
         }
 
         .footer-name-under {
-            font-size: 10px;
-            margin-top: 4px;
-            font-weight: 600;
+            font-size: 10.5px;
+            font-weight: 700;
         }
     </style>
 </head>
@@ -212,6 +199,7 @@
                 <th class="col-jemput">JEMPUT</th>
                 <th class="col-tujuan">TUJUAN</th>
                 <th class="col-tarif">TARIF</th>
+                <th class="col-ket">KETERANGAN</th>
             </tr>
         </thead>
         <tbody>
@@ -233,6 +221,7 @@
                             Rp {{ number_format($row['tarif'], 0, ',', '.') }}
                         @endif
                     </td>
+                    <td class="col-ket"></td>
                 </tr>
             @endforeach
         </tbody>
@@ -243,16 +232,10 @@
         <tr>
             <td class="footer-sign-cell">
                 <div class="footer-role">Pengemudi</div>
-                <div class="footer-name">{{ $driver_name ?: '( ........................... )' }}</div>
-                <div class="footer-sign-line"></div>
-                @if ($driver_name)
-                    <div class="footer-name-under">{{ $driver_name }}</div>
-                @endif
+                <div class="footer-name-under">{{ $driver_name ?: '' }}</div>
             </td>
             <td class="footer-sign-cell">
                 <div class="footer-role">Pengurus</div>
-                <div class="footer-name">&nbsp;</div>
-                <div class="footer-sign-line"></div>
                 <div class="footer-name-under">Zizi</div>
             </td>
         </tr>

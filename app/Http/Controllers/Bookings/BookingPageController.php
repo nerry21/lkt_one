@@ -176,6 +176,10 @@ class BookingPageController extends Controller
 
             $seats = (array) ($booking->selected_seats ?? []);
 
+            // Final tarif per seat = total_amount / passenger_count (includes additional fare)
+            $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
+            $tarifFinal     = round((float) ($booking->total_amount ?? 0) / $passengerCount);
+
             if (empty($seats)) {
                 // No seat info — use booking-level data as single row
                 $rows[] = [
@@ -184,11 +188,10 @@ class BookingPageController extends Controller
                     'no_hp' => (string) ($booking->passenger_phone ?? ''),
                     'jemput'=> (string) ($booking->pickup_location ?? ''),
                     'tujuan'=> (string) ($booking->dropoff_location ?? ''),
-                    'tarif' => (float) ($booking->price_per_seat ?? 0),
+                    'tarif' => $tarifFinal,
                 ];
             } else {
                 foreach ($seats as $seatCode) {
-                    // Prefer per-seat passenger data; fall back to booking-level
                     $pData = $passengerBySeat->get($seatCode);
                     $rows[] = [
                         'kursi' => (string) $seatCode,
@@ -196,7 +199,7 @@ class BookingPageController extends Controller
                         'no_hp' => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
                         'jemput'=> (string) ($booking->pickup_location ?? ''),
                         'tujuan'=> (string) ($booking->dropoff_location ?? ''),
-                        'tarif' => (float) ($booking->price_per_seat ?? 0),
+                        'tarif' => $tarifFinal,
                     ];
                 }
             }
