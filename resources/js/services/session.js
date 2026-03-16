@@ -85,20 +85,24 @@ export function setStoredToken(token) {
 
     if (normalizedToken === '') {
         window.localStorage.removeItem(TOKEN_KEY);
+        document.cookie = TOKEN_KEY + '=; path=/; max-age=0; samesite=lax';
         return;
     }
 
     window.localStorage.setItem(TOKEN_KEY, normalizedToken);
+    document.cookie = TOKEN_KEY + '=' + normalizedToken + '; path=/; max-age=86400; samesite=lax';
 }
 
 export function clearStoredToken() {
     if (!canUseLocalStorage()) {
         window.transitAuthToken = null;
+        document.cookie = TOKEN_KEY + '=; path=/; max-age=0; samesite=lax';
         return;
     }
 
     window.transitAuthToken = null;
     window.localStorage.removeItem(TOKEN_KEY);
+    document.cookie = TOKEN_KEY + '=; path=/; max-age=0; samesite=lax';
 }
 
 export function setPendingToast(toast) {

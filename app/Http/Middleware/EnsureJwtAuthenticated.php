@@ -33,11 +33,15 @@ class EnsureJwtAuthenticated
 
         $expectsJson = $request->expectsJson();
 
-        if (! str_starts_with($header, 'Bearer ')) {
-            return $this->unauthorized('Token tidak valid', $expectsJson);
+        if (str_starts_with($header, 'Bearer ')) {
+            $token = substr($header, 7);
+        } else {
+            $cookieToken = (string) $request->cookie('transit_token', '');
+            if ($cookieToken === '') {
+                return $this->unauthorized('Token tidak valid', $expectsJson);
+            }
+            $token = $cookieToken;
         }
-
-        $token = substr($header, 7);
 
         try {
             $payload = $this->jwtService->decode($token);
