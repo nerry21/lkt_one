@@ -623,12 +623,18 @@ function resolveFare(origin, destination) {
     return fare === undefined || fare === null ? null : Number(fare);
 }
 
+function additionalFareValue() {
+    return Math.max(0, parseInt(document.getElementById('booking-additional-fare')?.value || '0', 10) || 0);
+}
+
 function updatePricing() {
     const origin = document.getElementById('booking-from-city')?.value || '';
     const destination = document.getElementById('booking-to-city')?.value || '';
     const count = passengerCount();
     const fare = resolveFare(origin, destination);
-    const total = fare !== null ? fare * count : null;
+    const additionalFare = additionalFareValue();
+    const effectiveFare = fare !== null ? fare + additionalFare : null;
+    const total = effectiveFare !== null ? effectiveFare * count : null;
 
     const fareInput = document.getElementById('booking-price-per-seat');
     const totalInput = document.getElementById('booking-total-amount');
@@ -822,6 +828,7 @@ function resetForm(armadaIndex = 1, tripTime = '') {
         document.getElementById('booking-trip-time').value = tripTime;
     }
     document.getElementById('booking-passenger-count').value = '1';
+    document.getElementById('booking-additional-fare').value = '0';
     document.getElementById('booking-payment-method').value = '';
     document.getElementById('booking-booking-status').value = 'Draft';
     updatePaymentFieldVisibility();
@@ -846,6 +853,7 @@ function fillForm(item) {
     document.getElementById('booking-trip-time').value = item.trip_time_value;
     document.getElementById('booking-passenger-count').value = String(item.passenger_count);
     document.getElementById('booking-driver-name').value = item.driver_name === 'Menunggu Penetapan Driver' ? '' : (item.driver_name || '');
+    document.getElementById('booking-additional-fare').value = String(item.additional_fare_per_passenger || 0);
     document.getElementById('booking-pickup-location').value = item.pickup_location;
     document.getElementById('booking-dropoff-location').value = item.dropoff_location;
     document.getElementById('booking-payment-method').value = item.payment_method_value || '';
@@ -876,6 +884,7 @@ function buildPayload() {
         trip_time: document.getElementById('booking-trip-time')?.value || '',
         passenger_count: Number(document.getElementById('booking-passenger-count')?.value || 0),
         driver_name: document.getElementById('booking-driver-name')?.value.trim() || '',
+        additional_fare_per_passenger: additionalFareValue(),
         pickup_location: document.getElementById('booking-pickup-location')?.value.trim() || '',
         dropoff_location: document.getElementById('booking-dropoff-location')?.value.trim() || '',
         selected_seats: state.selectedSeats,
@@ -1240,6 +1249,9 @@ export default function initBookingsPage({ user } = {}) {
         renderPassengerForms();
         updatePricing();
     });
+
+    // Additional fare change → recalculate total
+    document.getElementById('booking-additional-fare')?.addEventListener('input', updatePricing);
 
     // Re-fetch occupied seats when date or time changes
     document.getElementById('booking-trip-date')?.addEventListener('change', () => {

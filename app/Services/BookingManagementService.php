@@ -196,6 +196,7 @@ class BookingManagementService
             'payment_status_badge_class' => $this->statusBadgeClass((string) $booking->payment_status),
             'driver_id' => $booking->driver_id,
             'driver_name' => trim((string) ($booking->driver_name ?? '')) !== '' ? (string) $booking->driver_name : null,
+            'additional_fare_per_passenger' => max(0, (int) round((float) ($booking->total_amount ?? 0) / max(1, (int) ($booking->passenger_count ?? 1)) - (float) ($booking->price_per_seat ?? 0))),
             'selected_seats' => (array) ($booking->selected_seats ?? []),
             'pickup_location' => (string) ($booking->pickup_location ?? ''),
             'dropoff_location' => (string) ($booking->dropoff_location ?? ''),
@@ -358,7 +359,8 @@ class BookingManagementService
         $selectedSeats = $this->regularBookingService->sortSeatCodes((array) $validated['selected_seats']);
         $passengerCount = (int) $validated['passenger_count'];
         $pricePerSeat = $this->regularBookingService->resolveFare((string) $validated['from_city'], (string) $validated['to_city']) ?? 0;
-        $totalAmount = $pricePerSeat * $passengerCount;
+        $additionalFare = max(0, (int) ($validated['additional_fare_per_passenger'] ?? 0));
+        $totalAmount = ($pricePerSeat + $additionalFare) * $passengerCount;
         $paymentMethod = $this->normalizePaymentMethod($validated['payment_method'] ?? null);
         $paymentStatus = (string) $validated['payment_status'];
         $bookingStatus = (string) $validated['booking_status'];

@@ -38,6 +38,7 @@ abstract class BookingUpsertRequest extends FormRequest
             'passengers.*.name' => ['required', 'string', 'max:100'],
             'passengers.*.phone' => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
             'category' => ['required', 'string', Rule::in($bookingService->serviceTypeValues())],
+            'additional_fare_per_passenger' => ['nullable', 'integer', 'min:0'],
             'driver_name' => ['nullable', 'string', 'max:100'],
             'payment_method' => ['nullable', 'string', Rule::in($bookingService->paymentMethodValues())],
             'payment_status' => ['required', 'string', Rule::in($bookingService->paymentStatusValues())],
@@ -221,6 +222,7 @@ abstract class BookingUpsertRequest extends FormRequest
             'bank_account_code' => $paymentMethod === 'transfer' && $bankAccountCode !== ''
                 ? $bankAccountCode
                 : null,
+            'additional_fare_per_passenger' => max(0, (int) ($this->input('additional_fare_per_passenger') ?? 0)),
             'notes' => trim((string) $this->input('notes')),
             'armada_index' => max(1, (int) ($this->input('armada_index') ?? 1)),
         ]);

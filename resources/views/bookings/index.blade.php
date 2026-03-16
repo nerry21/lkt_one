@@ -255,6 +255,13 @@
                             </div>
 
                             <div class="admin-users-form-group">
+                                <label for="booking-additional-fare">Ongkos Tambahan per Kursi</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="booking-additional-fare" name="additional_fare_per_passenger" type="number" min="0" step="1000" value="0" placeholder="0" data-testid="input-booking-additional-fare">
+                                </div>
+                            </div>
+
+                            <div class="admin-users-form-group">
                                 <label for="booking-total-amount">Total Biaya</label>
                                 <div class="admin-users-input-shell">
                                     <input id="booking-total-amount" type="text" readonly placeholder="Total biaya akan dihitung otomatis" data-booking-total-amount>
