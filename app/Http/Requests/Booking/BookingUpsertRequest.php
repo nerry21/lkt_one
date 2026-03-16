@@ -44,6 +44,7 @@ abstract class BookingUpsertRequest extends FormRequest
             'booking_status' => ['required', 'string', Rule::in($bookingService->bookingStatusValues())],
             'bank_account_code' => ['nullable', 'string', Rule::in($bankAccountCodes !== [] ? $bankAccountCodes : [''])],
             'notes' => ['nullable', 'string', 'max:500'],
+            'armada_index' => ['nullable', 'integer', 'min:1', 'max:10'],
         ];
     }
 
@@ -145,15 +146,17 @@ abstract class BookingUpsertRequest extends FormRequest
                     $validator->errors()->add('payment_status', 'Status pembayaran tidak sesuai dengan metode pembayaran yang dipilih.');
                 }
 
-                // Seat conflict check: same trip_date + trip_time
+                // Seat conflict check: same trip_date + trip_time + armada_index
                 $tripDate = (string) $this->input('trip_date');
                 $tripTime = (string) $this->input('trip_time');
+                $armadaIndex = max(1, (int) ($this->input('armada_index') ?? 1));
                 $excludeId = $this->route('booking') ? (string) $this->route('booking') : null;
                 $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
                 $occupiedSeats = Booking::query()
                     ->where('trip_date', $tripDate)
                     ->where('trip_time', 'like', $timePrefix . '%')
+                    ->where('armada_index', $armadaIndex)
                     ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
                     ->get()
                     ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
@@ -210,6 +213,7 @@ abstract class BookingUpsertRequest extends FormRequest
                 ? $bankAccountCode
                 : null,
             'notes' => trim((string) $this->input('notes')),
+            'armada_index' => max(1, (int) ($this->input('armada_index') ?? 1)),
         ]);
     }
 }

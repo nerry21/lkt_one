@@ -200,6 +200,7 @@ class BookingManagementService
             'pickup_location' => (string) ($booking->pickup_location ?? ''),
             'dropoff_location' => (string) ($booking->dropoff_location ?? ''),
             'departure_status' => (string) ($booking->departure_status ?? ''),
+            'armada_index' => (int) ($booking->armada_index ?? 1),
             'can_edit' => true,
             'can_delete' => true,
         ];
@@ -391,6 +392,7 @@ class BookingManagementService
             'total_amount' => $totalAmount,
             'nominal_payment' => $requiresDocuments ? $totalAmount : null,
             'route_label' => trim((string) $validated['from_city']) . ' - ' . trim((string) $validated['to_city']),
+            'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
             'driver_name' => filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null,
             'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
             'payment_account_bank' => $transferAccount['bank_name'] ?? $qrisAccount['provider_name'] ?? null,

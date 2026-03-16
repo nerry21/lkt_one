@@ -70,6 +70,7 @@ class BookingController extends Controller
         $tripDate = trim((string) $request->query('trip_date', ''));
         $tripTime = trim((string) $request->query('trip_time', ''));
         $excludeId = trim((string) $request->query('exclude_id', ''));
+        $armadaIndex = max(1, (int) $request->query('armada_index', 1));
 
         if ($tripDate === '' || $tripTime === '') {
             return response()->json(['occupied_seats' => []]);
@@ -80,6 +81,7 @@ class BookingController extends Controller
         $occupied = Booking::query()
             ->where('trip_date', $tripDate)
             ->where('trip_time', 'like', $timePrefix . '%')
+            ->where('armada_index', $armadaIndex)
             ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
@@ -153,6 +155,7 @@ class BookingController extends Controller
         $direction = trim((string) $request->input('direction', ''));
         $driverName = trim((string) $request->input('driver_name', ''));
         $driverId = $request->input('driver_id') ?: null;
+        $armadaIndex = max(1, (int) $request->input('armada_index', 1));
 
         if ($tripDate === '' || $tripTime === '') {
             return response()->json(['message' => 'trip_date dan trip_time wajib diisi'], 422);
@@ -162,7 +165,8 @@ class BookingController extends Controller
 
         $query = Booking::query()
             ->where('trip_date', $tripDate)
-            ->where('trip_time', 'like', $timePrefix . '%');
+            ->where('trip_time', 'like', $timePrefix . '%')
+            ->where('armada_index', $armadaIndex);
 
         if ($direction === 'to_pkb') {
             $query->where('to_city', 'Pekanbaru');

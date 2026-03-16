@@ -41,6 +41,11 @@ const state = {
     slotDriverMap: {},
     slotMobilMap: {},
     occupiedSeatsForForm: [],
+    // Extra armadas added client-side per slot key (persists across renders until page reload)
+    // { 'HH:MM__direction': maxArmadaIndex }
+    slotExtraArmadas: {},
+    // Context for the currently open booking form
+    currentFormArmadaIndex: 1,
 };
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
@@ -87,6 +92,14 @@ function editIcon() {
 
 function trashIcon() {
     return `<svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M10 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M14 11V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M6 7L7 19C7.08964 20.0768 7.98946 20.9 9.07 20.9H14.93C16.0105 20.9 16.9104 20.0768 17 19L18 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M9 7V5.5C9 4.67157 9.67157 4 10.5 4H13.5C14.3284 4 15 4.67157 15 5.5V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>`;
+}
+
+function plusIcon() {
+    return `<svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><path d="M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+}
+
+function truckIcon() {
+    return `<svg viewBox="0 0 24 24" fill="none" style="width:12px;height:12px;flex-shrink:0;"><rect x="2" y="7" width="15" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M17 10H20L22 13V17H17V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6" cy="18" r="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="18" r="1.5" stroke="currentColor" stroke-width="1.5"/></svg>`;
 }
 
 // ─── Car Seat Diagram ─────────────────────────────────────────────────────────
@@ -237,7 +250,7 @@ function renderPassengerList(bookingsInSlot) {
         </div>`;
 }
 
-// ─── Slot Card ────────────────────────────────────────────────────────────────
+// ─── Slot Card (single armada) ────────────────────────────────────────────────
 
 function buildSeatBookingMap(bookingsInSlot) {
     const map = {};
@@ -255,47 +268,61 @@ function buildSeatBookingMap(bookingsInSlot) {
     return map;
 }
 
-function renderSlotCard(schedule, bookingsInSlot) {
-    const seatBookingMap = buildSeatBookingMap(bookingsInSlot);
-    const totalPassengers = bookingsInSlot.reduce((sum, b) => sum + (Number(b.passenger_count) || 0), 0);
-    const slotKey = `${schedule.value}__${state.direction}`;
-    // Pre-fill driver from first booking that has one
-    if (!state.slotDriverMap[slotKey]) {
-        const withDriver = bookingsInSlot.find((b) => b.driver_id);
+function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas) {
+    const seatBookingMap = buildSeatBookingMap(bookingsInArmada);
+    const totalPassengers = bookingsInArmada.reduce((sum, b) => sum + (Number(b.passenger_count) || 0), 0);
+    const isFull = totalPassengers >= TOTAL_PASSENGER_SEATS;
+    const slotArmadaKey = `${schedule.value}__${state.direction}__${armadaIndex}`;
 
+    if (!state.slotDriverMap[slotArmadaKey]) {
+        const withDriver = bookingsInArmada.find((b) => b.driver_id);
         if (withDriver) {
-            state.slotDriverMap[slotKey] = withDriver.driver_id;
+            state.slotDriverMap[slotArmadaKey] = withDriver.driver_id;
         }
     }
 
-    const selectedDriverId = state.slotDriverMap[slotKey] || '';
-    const selectedMobilId = state.slotMobilMap[slotKey] || '';
-    const badgeClass = 'stock-value-badge-yellow';
+    const selectedDriverId = state.slotDriverMap[slotArmadaKey] || '';
+    const selectedMobilId = state.slotMobilMap[slotArmadaKey] || '';
+    const badgeClass = isFull ? 'stock-value-badge-red' : 'stock-value-badge-yellow';
 
     const driverOptions = state.drivers.map((d) => {
         const label = d.lokasi ? `${d.nama} (${d.lokasi})` : d.nama;
-
         return `<option value="${escapeHtml(d.id)}" ${selectedDriverId === d.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
 
     const mobilOptions = state.mobils.map((m) => {
         const label = `${m.kode_mobil} — ${m.jenis_mobil}`;
-
         return `<option value="${escapeHtml(m.id)}" ${selectedMobilId === m.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     }).join('');
 
-    // Collect unique service types from bookings in this slot
     const serviceTypes = [...new Set(
-        bookingsInSlot.map((b) => (b.service_type || '').trim()).filter(Boolean),
+        bookingsInArmada.map((b) => (b.service_type || '').trim()).filter(Boolean),
     )];
 
+    // Show armada badge when there are multiple armadas for this slot
+    const armadaBadge = totalArmadas > 1
+        ? `<span class="bpg-armada-badge">${truckIcon()} Armada ${armadaIndex}</span>`
+        : '';
+
+    // Show "Tambah Armada" when this armada is full and it's the last one
+    const addArmadaBtn = isFull
+        ? `<button class="bpg-add-armada-btn" type="button"
+                data-add-armada="${escapeHtml(schedule.value)}"
+                data-armada-index="${armadaIndex}"
+                title="Tambah armada ke-${armadaIndex + 1} untuk jadwal ${escapeHtml(schedule.time)}">
+                ${plusIcon()}
+                Tambah Armada
+            </button>`
+        : '';
+
     return `
-        <article class="bpg-slot-card" data-slot="${escapeHtml(schedule.value)}" data-direction="${escapeHtml(state.direction)}">
+        <article class="bpg-slot-card" data-slot="${escapeHtml(schedule.value)}" data-direction="${escapeHtml(state.direction)}" data-armada="${armadaIndex}">
             <div class="bpg-slot-head">
                 <div class="bpg-slot-time-badge">
                     <span class="bpg-slot-period">${escapeHtml(schedule.label)}</span>
                     <strong class="bpg-slot-time">${escapeHtml(schedule.time)}</strong>
                 </div>
+                ${armadaBadge}
                 <div class="bpg-slot-service-types">
                     ${serviceTypes.length > 0
                         ? serviceTypes.map((t) => `<span class="bpg-service-badge">${escapeHtml(t)}</span>`).join('')
@@ -304,6 +331,7 @@ function renderSlotCard(schedule, bookingsInSlot) {
                 <div class="bpg-slot-counters">
                     <span class="stock-value-badge ${badgeClass}">${totalPassengers} / ${TOTAL_PASSENGER_SEATS} Kursi</span>
                 </div>
+                ${addArmadaBtn}
             </div>
 
             ${renderCarDiagram(seatBookingMap)}
@@ -314,7 +342,7 @@ function renderSlotCard(schedule, bookingsInSlot) {
                         <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20C4 17.2386 7.58172 15 12 15C16.4183 15 20 17.2386 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                         Pilih Driver
                     </label>
-                    <select class="bpg-slot-select" data-slot-driver="${escapeHtml(schedule.value)}">
+                    <select class="bpg-slot-select" data-slot-driver="${escapeHtml(schedule.value)}__${armadaIndex}">
                         <option value="">— Belum ditentukan —</option>
                         ${driverOptions}
                     </select>
@@ -324,15 +352,50 @@ function renderSlotCard(schedule, bookingsInSlot) {
                         <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;"><rect x="2" y="7" width="20" height="10" rx="3" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/></svg>
                         Pilih Mobil
                     </label>
-                    <select class="bpg-slot-select" data-slot-mobil="${escapeHtml(schedule.value)}">
+                    <select class="bpg-slot-select" data-slot-mobil="${escapeHtml(schedule.value)}__${armadaIndex}">
                         <option value="">— Belum ditentukan —</option>
                         ${mobilOptions}
                     </select>
                 </div>
             </div>
 
-            ${renderPassengerList(bookingsInSlot)}
+            ${renderPassengerList(bookingsInArmada)}
+
+            <button class="bpg-slot-book-btn" type="button"
+                data-slot-book="${escapeHtml(schedule.value)}"
+                data-slot-armada="${armadaIndex}"
+                title="Tambah pemesanan untuk Armada ${armadaIndex}, jadwal ${escapeHtml(schedule.time)}">
+                ${plusIcon()}
+                Tambah Pemesanan Armada ${armadaIndex}
+            </button>
         </article>`;
+}
+
+// ─── Slot Group (all armadas for one schedule) ────────────────────────────────
+
+function renderSlotGroup(schedule, bookingsInSlot) {
+    // Group bookings by armada_index
+    const armadaBookings = {};
+
+    bookingsInSlot.forEach((b) => {
+        const armada = b.armada_index || 1;
+        if (!armadaBookings[armada]) armadaBookings[armada] = [];
+        armadaBookings[armada].push(b);
+    });
+
+    const slotKey = `${schedule.value}__${state.direction}`;
+    const maxFromBookings = bookingsInSlot.length > 0
+        ? Math.max(...Object.keys(armadaBookings).map(Number))
+        : 1;
+    const maxFromExtras = state.slotExtraArmadas[slotKey] || 1;
+    const maxArmada = Math.max(maxFromBookings, maxFromExtras);
+
+    const cards = [];
+    for (let i = 1; i <= maxArmada; i++) {
+        cards.push(renderArmadaCard(schedule, i, armadaBookings[i] || [], maxArmada));
+    }
+
+    return `<div class="bpg-slot-group" data-slot-group="${escapeHtml(schedule.value)}">${cards.join('')}</div>`;
 }
 
 // ─── Slots Rendering ──────────────────────────────────────────────────────────
@@ -356,7 +419,6 @@ function renderSlots() {
         return;
     }
 
-    // Group bookings by trip_time prefix
     const bookingsByTime = {};
 
     SCHEDULES.forEach((s) => { bookingsByTime[s.value] = []; });
@@ -370,9 +432,9 @@ function renderSlots() {
         }
     });
 
-    const cards = SCHEDULES.map((schedule) => renderSlotCard(schedule, bookingsByTime[schedule.value] || []));
+    const groups = SCHEDULES.map((schedule) => renderSlotGroup(schedule, bookingsByTime[schedule.value] || []));
 
-    shell.innerHTML = `<div class="bpg-slots-grid">${cards.join('')}</div>`;
+    shell.innerHTML = `<div class="bpg-slots-grid">${groups.join('')}</div>`;
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
@@ -451,6 +513,10 @@ function openDetailModal(booking) {
             <div class="bpg-detail-item">
                 <span>Jenis Layanan</span>
                 <strong>${escapeHtml(booking.service_type || '-')}</strong>
+            </div>
+            <div class="bpg-detail-item">
+                <span>Armada</span>
+                <strong>Armada ${escapeHtml(String(booking.armada_index || 1))}</strong>
             </div>
             <div class="bpg-detail-item">
                 <span>Biaya</span>
@@ -648,6 +714,7 @@ async function fetchOccupiedSeats() {
     const tripDate = document.getElementById('booking-trip-date')?.value || '';
     const tripTime = document.getElementById('booking-trip-time')?.value || '';
     const excludeId = state.editItem?.id || '';
+    const armadaIndex = state.currentFormArmadaIndex || 1;
 
     if (!tripDate || !tripTime) {
         state.occupiedSeatsForForm = [];
@@ -655,7 +722,7 @@ async function fetchOccupiedSeats() {
     }
 
     try {
-        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime });
+        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime, armada_index: armadaIndex });
 
         if (excludeId) params.set('exclude_id', excludeId);
 
@@ -672,7 +739,6 @@ function renderSeatButtons() {
     const currentPassengerCount = passengerCount();
     const allowedCodes = allowedSeatCodes();
 
-    // Remove occupied seats from selected if they became occupied externally
     state.selectedSeats = sortSeatCodes(
         state.selectedSeats.filter((code) => allowedCodes.includes(code) && !state.occupiedSeatsForForm.includes(code)),
     );
@@ -690,7 +756,6 @@ function renderSeatButtons() {
         button.classList.toggle('is-disabled', !isOccupied && disableUnselected);
         button.disabled = !visible || isOccupied || (!isSelected && disableUnselected);
 
-        // Update tooltip
         if (isOccupied) {
             button.title = 'Kursi sudah dipesan';
         } else {
@@ -702,7 +767,7 @@ function renderSeatButtons() {
     updateSeatSummary();
 }
 
-function resetForm() {
+function resetForm(armadaIndex = 1, tripTime = '') {
     const form = document.getElementById('booking-form');
 
     form?.reset();
@@ -710,13 +775,21 @@ function resetForm() {
     state.editItem = null;
     state.selectedSeats = [];
     state.passengerDraftMap = {};
+    state.currentFormArmadaIndex = armadaIndex;
 
     const todayVal = state.date || todayString();
 
     document.getElementById('booking-id').value = '';
+    document.getElementById('booking-armada-index').value = String(armadaIndex);
     document.getElementById('booking-form-title').textContent = 'Tambah Pemesanan';
-    document.getElementById('booking-form-description').textContent = 'Lengkapi data pemesanan reguler dari dashboard admin.';
+
+    const armadaLabel = armadaIndex > 1 ? ` (Armada ${armadaIndex})` : '';
+    document.getElementById('booking-form-description').textContent = `Lengkapi data pemesanan reguler dari dashboard admin${armadaLabel}.`;
+
     document.getElementById('booking-trip-date').value = todayVal;
+    if (tripTime) {
+        document.getElementById('booking-trip-time').value = tripTime;
+    }
     document.getElementById('booking-passenger-count').value = '1';
     document.getElementById('booking-payment-method').value = '';
     document.getElementById('booking-booking-status').value = 'Draft';
@@ -730,8 +803,10 @@ function fillForm(item) {
     state.editItem = item;
     state.selectedSeats = sortSeatCodes(item.selected_seats || []);
     state.passengerDraftMap = Object.fromEntries((item.passengers || []).map((p) => [p.seat_no, p]));
+    state.currentFormArmadaIndex = item.armada_index || 1;
 
     document.getElementById('booking-id').value = item.id;
+    document.getElementById('booking-armada-index').value = String(item.armada_index || 1);
     document.getElementById('booking-booking-for').value = item.booking_for;
     document.getElementById('booking-category').value = item.category;
     document.getElementById('booking-from-city').value = item.from_city;
@@ -748,8 +823,10 @@ function fillForm(item) {
     document.getElementById('booking-booking-status').value = item.booking_status;
     document.getElementById('booking-bank-account-code').value = item.bank_account_code || '';
     document.getElementById('booking-notes').value = item.notes || '';
+
+    const armadaLabel = (item.armada_index || 1) > 1 ? ` (Armada ${item.armada_index})` : '';
     document.getElementById('booking-form-title').textContent = 'Edit Pemesanan';
-    document.getElementById('booking-form-description').textContent = 'Perbarui data pemesanan reguler yang dipilih.';
+    document.getElementById('booking-form-description').textContent = `Perbarui data pemesanan reguler yang dipilih${armadaLabel}.`;
 
     updatePricing();
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
@@ -781,6 +858,7 @@ function buildPayload() {
         booking_status: document.getElementById('booking-booking-status')?.value || 'Draft',
         bank_account_code: document.getElementById('booking-bank-account-code')?.value || '',
         notes: document.getElementById('booking-notes')?.value.trim() || '',
+        armada_index: state.currentFormArmadaIndex || 1,
     };
 }
 
@@ -807,6 +885,16 @@ function renderAccessDenied() {
     if (shell) { shell.hidden = true; }
 }
 
+// ─── Departure status helper (used in slotsShell click handler) ───────────────
+
+function departureStatusMeta(status) {
+    if (status === 'Berangkat') return { label: 'Berangkat', cls: 'bpg-depart-trigger--go' };
+    if (status === 'Tidak Berangkat') return { label: 'Tidak Berangkat', cls: 'bpg-depart-trigger--no' };
+    if (status === 'Di Oper') return { label: 'Di Oper', cls: 'bpg-depart-trigger--oper' };
+
+    return { label: 'Status', cls: '' };
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export default function initBookingsPage({ user } = {}) {
@@ -831,19 +919,18 @@ export default function initBookingsPage({ user } = {}) {
         return;
     }
 
-    // Ensure shell and tabs are visible (in case PHP hid them due to missing session)
     if (routeTabs) { routeTabs.hidden = false; }
     if (slotsShell) { slotsShell.hidden = false; }
     const accessNote = document.getElementById('bookings-access-note');
     if (accessNote) { accessNote.hidden = true; }
 
-    // Set date picker to today
     if (datePicker) {
         datePicker.value = state.date;
         datePicker.addEventListener('change', async () => {
             state.date = datePicker.value;
             state.slotDriverMap = {};
             state.slotMobilMap = {};
+            state.slotExtraArmadas = {};
             await fetchAndRender();
         });
     }
@@ -861,6 +948,7 @@ export default function initBookingsPage({ user } = {}) {
         state.direction = newDirection;
         state.slotDriverMap = {};
         state.slotMobilMap = {};
+        state.slotExtraArmadas = {};
 
         document.querySelectorAll('.bpg-route-tab').forEach((t) => {
             t.classList.toggle('is-active', t.dataset.direction === newDirection);
@@ -870,7 +958,6 @@ export default function initBookingsPage({ user } = {}) {
     });
 
     // Slots shell: delegate clicks and changes
-    // Close all departure dropdowns
     function closeAllDepartureMenus(exceptId = null) {
         slotsShell?.querySelectorAll('[data-depart-dropdown]').forEach((dd) => {
             if (String(dd.dataset.departDropdown) === String(exceptId)) return;
@@ -891,6 +978,8 @@ export default function initBookingsPage({ user } = {}) {
         const lihatBtn = event.target.closest('[data-booking-lihat]');
         const editBtn = event.target.closest('[data-booking-edit]');
         const deleteBtn = event.target.closest('[data-booking-delete]');
+        const addArmadaBtn = event.target.closest('[data-add-armada]');
+        const slotBookBtn = event.target.closest('[data-slot-book]');
 
         try {
             if (toggleBtn) {
@@ -919,7 +1008,6 @@ export default function initBookingsPage({ user } = {}) {
 
                 booking.departure_status = statusToSet;
 
-                // Update trigger label + color
                 const dropdown = slotsShell.querySelector(`[data-depart-dropdown="${CSS.escape(bookingId)}"]`);
 
                 if (dropdown) {
@@ -965,25 +1053,62 @@ export default function initBookingsPage({ user } = {}) {
                     id: deleteBtn.dataset.bookingDelete,
                     nama: deleteBtn.dataset.bookingName,
                 });
+                return;
+            }
+
+            // "Tambah Armada" button: expand extra armada for this slot and open form
+            if (addArmadaBtn) {
+                const tripTime = addArmadaBtn.dataset.addArmada;
+                const currentArmadaIndex = parseInt(addArmadaBtn.dataset.armadaIndex || '1');
+                const newArmadaIndex = currentArmadaIndex + 1;
+                const slotKey = `${tripTime}__${state.direction}`;
+
+                // Record that this slot now shows an extra armada
+                state.slotExtraArmadas[slotKey] = Math.max(
+                    state.slotExtraArmadas[slotKey] || 1,
+                    newArmadaIndex,
+                );
+
+                // Re-render slots to show new armada card
+                renderSlots();
+
+                // Open booking form pre-filled with new armada context
+                resetForm(newArmadaIndex, tripTime);
+                openModal('booking-form-modal');
+
+                return;
+            }
+
+            // Per-armada "Tambah Pemesanan" button within a card
+            if (slotBookBtn) {
+                const tripTime = slotBookBtn.dataset.slotBook;
+                const armadaIndex = parseInt(slotBookBtn.dataset.slotArmada || '1');
+
+                resetForm(armadaIndex, tripTime);
+                openModal('booking-form-modal');
+
+                return;
             }
         } catch (error) {
             toastError(error.message || 'Gagal memuat data pemesanan');
         }
     });
 
-    // Driver / Mobil select changes per slot
+    // Driver / Mobil select changes per slot+armada
     slotsShell?.addEventListener('change', async (event) => {
         const driverSelect = event.target.closest('[data-slot-driver]');
         const mobilSelect = event.target.closest('[data-slot-mobil]');
 
         if (driverSelect) {
-            const tripTime = driverSelect.dataset.slotDriver;
+            // data-slot-driver format: "HH:MM__armadaIndex"
+            const [tripTime, armadaIdxStr] = driverSelect.dataset.slotDriver.split('__');
+            const armadaIndex = parseInt(armadaIdxStr || '1');
             const driverId = driverSelect.value;
             const selectedOption = driverSelect.options[driverSelect.selectedIndex];
             const driverName = driverId ? (selectedOption?.text.split(' (')[0] || '') : '';
-            const slotKey = `${tripTime}__${state.direction}`;
+            const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
 
-            state.slotDriverMap[slotKey] = driverId;
+            state.slotDriverMap[slotArmadaKey] = driverId;
 
             try {
                 await apiRequest('/bookings/slot-assign', {
@@ -992,6 +1117,7 @@ export default function initBookingsPage({ user } = {}) {
                         trip_date: state.date,
                         trip_time: tripTime,
                         direction: state.direction,
+                        armada_index: armadaIndex,
                         driver_id: driverId || null,
                         driver_name: driverName,
                     },
@@ -1003,17 +1129,18 @@ export default function initBookingsPage({ user } = {}) {
         }
 
         if (mobilSelect) {
-            const tripTime = mobilSelect.dataset.slotMobil;
+            const [tripTime, armadaIdxStr] = mobilSelect.dataset.slotMobil.split('__');
+            const armadaIndex = parseInt(armadaIdxStr || '1');
             const mobilId = mobilSelect.value;
-            const slotKey = `${tripTime}__${state.direction}`;
+            const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
 
-            state.slotMobilMap[slotKey] = mobilId;
+            state.slotMobilMap[slotArmadaKey] = mobilId;
         }
     });
 
-    // Add booking button
+    // Add booking button (top-level, defaults to armada 1)
     addButton?.addEventListener('click', () => {
-        resetForm();
+        resetForm(1);
         openModal('booking-form-modal');
     });
 

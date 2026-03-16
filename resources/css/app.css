@@ -6485,6 +6485,74 @@ button {
     border-color: var(--transit-primary);
 }
 
+/* Armada Group */
+.bpg-slot-group {
+    display: contents;
+}
+
+/* Tambah Armada Button */
+.bpg-add-armada-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1.5px dashed var(--transit-primary);
+    background: transparent;
+    color: var(--transit-primary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.bpg-add-armada-btn:hover {
+    background: var(--transit-primary);
+    color: #ffffff;
+    border-style: solid;
+}
+
+/* Armada Badge */
+.bpg-armada-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 6px;
+    background: rgba(var(--transit-primary-rgb, 22, 101, 52), 0.12);
+    color: var(--transit-primary);
+    border: 1px solid rgba(var(--transit-primary-rgb, 22, 101, 52), 0.2);
+}
+
+/* Slot Book Button (within armada card) */
+.bpg-slot-book-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1.5px solid var(--transit-primary);
+    background: var(--transit-primary);
+    color: #ffffff;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-top: 10px;
+    width: 100%;
+    justify-content: center;
+}
+
+.bpg-slot-book-btn:hover {
+    opacity: 0.85;
+}
+
 /* Passenger List */
 .bpg-passenger-list {
     display: flex;

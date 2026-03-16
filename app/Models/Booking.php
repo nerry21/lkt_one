@@ -58,6 +58,7 @@ class Booking extends Model
         'departure_id',
         'booking_status',
         'departure_status',
+        'armada_index',
         'notes',
     ];
 

@@ -155,6 +155,7 @@
 
                 <form id="booking-form" class="admin-users-form bookings-form">
                     <input type="hidden" id="booking-id" name="id">
+                    <input type="hidden" id="booking-armada-index" name="armada_index" value="1">
 
                     <div class="bookings-form-section">
                         <div class="bookings-form-section-head">
