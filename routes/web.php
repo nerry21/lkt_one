@@ -37,10 +37,10 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/regular-bookings/e-ticket', [RegularBookingPageController::class, 'ticket'])->name('regular-bookings.ticket');
     Route::get('/regular-bookings/e-ticket/download', [RegularBookingPageController::class, 'downloadTicket'])->name('regular-bookings.ticket.download');
     Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/surat-jalan', [BookingPageController::class, 'suratJalan'])->name('bookings.surat-jalan');
     Route::middleware(['jwt.auth', 'admin.role:admin'])->group(function () {
         Route::get('/bookings/{booking}', [BookingPageController::class, 'show'])->name('bookings.show');
     });
-    Route::get('/bookings/surat-jalan', [BookingPageController::class, 'suratJalan'])->name('bookings.surat-jalan');
     Route::get('/bookings/{booking}/ticket', [BookingPageController::class, 'ticket'])->name('bookings.ticket');
     Route::get('/bookings/{booking}/ticket/download', [BookingPageController::class, 'downloadTicket'])->name('bookings.ticket.download');
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
