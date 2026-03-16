@@ -10,8 +10,8 @@
             font-family: DejaVu Sans, Arial, sans-serif;
             background: #ffffff;
             color: #000000;
-            font-size: 11px;
-            padding: 18px 22px;
+            font-size: 10.5px;
+            padding: 16px 20px;
         }
 
         /* ── HEADER ── */
@@ -22,14 +22,14 @@
         }
 
         .header-logo-cell {
-            width: 90px;
+            width: 88px;
             vertical-align: middle;
             text-align: center;
         }
 
         .header-logo-cell img {
-            width: 80px;
-            height: 80px;
+            width: 78px;
+            height: 78px;
         }
 
         .header-center-cell {
@@ -38,7 +38,7 @@
         }
 
         .company-name {
-            font-size: 22px;
+            font-size: 21px;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -46,7 +46,7 @@
         }
 
         .doc-title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -54,7 +54,7 @@
         }
 
         .header-meta-cell {
-            width: 200px;
+            width: 195px;
             vertical-align: middle;
             padding-left: 12px;
         }
@@ -62,28 +62,29 @@
         .meta-row {
             display: table;
             width: 100%;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
 
         .meta-label {
             display: table-cell;
-            width: 60px;
-            font-size: 10.5px;
+            width: 58px;
+            font-size: 10px;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .meta-sep {
             display: table-cell;
             width: 10px;
-            font-size: 10.5px;
+            font-size: 10px;
             font-weight: 600;
         }
 
         .meta-dots {
             display: table-cell;
-            font-size: 10.5px;
+            font-size: 10px;
             border-bottom: 1px solid #000;
-            min-width: 115px;
+            min-width: 110px;
             padding-bottom: 1px;
         }
 
@@ -97,39 +98,42 @@
         .data-table th,
         .data-table td {
             border: 1.5px solid #000;
-            padding: 5px 6px;
-            vertical-align: top;
+            padding: 5px 5px;
+            vertical-align: middle;
         }
 
         .data-table th {
             background: #ffffff;
             font-weight: 700;
-            font-size: 10.5px;
+            font-size: 10px;
             text-align: center;
             white-space: nowrap;
         }
 
         .data-table td {
-            font-size: 10px;
+            font-size: 9.5px;
+            vertical-align: top;
         }
 
-        .col-no    { width: 28px; text-align: center; }
-        .col-nama  { width: 175px; }
-        .col-jemput{ width: 185px; }
-        .col-tujuan{ width: 100px; }
-        .col-tarif { width: 85px; text-align: right; }
-        .col-ket   { width: 120px; }
+        .col-no    { width: 26px; text-align: center; }
+        .col-kursi { width: 38px; text-align: center; }
+        .col-nama  { width: 125px; }
+        .col-nohp  { width: 90px; }
+        .col-jemput{ width: 165px; }
+        .col-tujuan{ width: 90px; }
+        .col-tarif { width: 75px; text-align: right; }
+        .col-ket   { width: 100px; }
 
         .td-center { text-align: center; }
         .td-right  { text-align: right; }
 
-        .row-empty td { height: 22px; }
+        .row-empty td { height: 21px; }
 
         /* ── FOOTER ── */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 22px;
+            margin-top: 20px;
         }
 
         .footer-sign-cell {
@@ -140,8 +144,8 @@
 
         .footer-sign-label {
             font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 48px;
+            font-weight: 700;
+            margin-bottom: 46px;
         }
 
         .footer-sign-line {
@@ -190,7 +194,9 @@
         <thead>
             <tr>
                 <th class="col-no">NO.</th>
-                <th class="col-nama">NAMA / NOMOR HP</th>
+                <th class="col-kursi">KURSI</th>
+                <th class="col-nama">NAMA</th>
+                <th class="col-nohp">NOMOR HP</th>
                 <th class="col-jemput">JEMPUT</th>
                 <th class="col-tujuan">TUJUAN</th>
                 <th class="col-tarif">TARIF</th>
@@ -198,22 +204,21 @@
             </tr>
         </thead>
         <tbody>
-            @foreach ($rows as $i => $row)
-                @php $isEmpty = ($row['nama'] === '' && $row['jemput'] === '' && $row['tujuan'] === ''); @endphp
+            @php $rowNum = 0; @endphp
+            @foreach ($rows as $row)
+                @php
+                    $isEmpty = ($row['nama'] === '' && $row['jemput'] === '' && $row['tujuan'] === '');
+                    if (!$isEmpty) $rowNum++;
+                @endphp
                 <tr class="{{ $isEmpty ? 'row-empty' : '' }}">
-                    <td class="col-no td-center">{{ $isEmpty ? '' : $i + 1 }}</td>
-                    <td class="col-nama">
-                        @if (!$isEmpty)
-                            <strong>{{ $row['nama'] }}</strong>
-                            @if ($row['no_hp'] !== '')
-                                <br>{{ $row['no_hp'] }}
-                            @endif
-                        @endif
-                    </td>
+                    <td class="col-no td-center">{{ $isEmpty ? '' : $rowNum }}</td>
+                    <td class="col-kursi td-center">{{ $row['kursi'] ?? '' }}</td>
+                    <td class="col-nama">{{ $row['nama'] }}</td>
+                    <td class="col-nohp">{{ $row['no_hp'] }}</td>
                     <td class="col-jemput">{{ $row['jemput'] }}</td>
                     <td class="col-tujuan">{{ $row['tujuan'] }}</td>
                     <td class="col-tarif td-right">
-                        @if (!$isEmpty && $row['tarif'] !== null && $row['tarif'] > 0)
+                        @if (!$isEmpty && isset($row['tarif']) && $row['tarif'] > 0)
                             Rp {{ number_format($row['tarif'], 0, ',', '.') }}
                         @endif
                     </td>

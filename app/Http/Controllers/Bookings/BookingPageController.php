@@ -169,21 +169,17 @@ class BookingPageController extends Controller
 
         $rows = [];
         foreach ($bookings as $booking) {
-            $passengers = $booking->passengers->sortBy('seat_no')->values();
+            // Build a seat→passenger map from BookingPassenger records (if any)
+            $passengerBySeat = $booking->passengers
+                ->keyBy('seat_no')
+                ->map(fn ($p) => ['nama' => (string) $p->name, 'no_hp' => (string) $p->phone]);
 
-            if ($passengers->isNotEmpty()) {
-                foreach ($passengers as $passenger) {
-                    $rows[] = [
-                        'nama'       => (string) $passenger->name,
-                        'no_hp'      => (string) $passenger->phone,
-                        'jemput'     => (string) ($booking->pickup_location ?? ''),
-                        'tujuan'     => (string) ($booking->dropoff_location ?? ''),
-                        'tarif'      => (float) ($booking->price_per_seat ?? 0),
-                        'keterangan' => (string) ($booking->notes ?? ''),
-                    ];
-                }
-            } else {
+            $seats = (array) ($booking->selected_seats ?? []);
+
+            if (empty($seats)) {
+                // No seat info — use booking-level data as single row
                 $rows[] = [
+                    'kursi'      => '-',
                     'nama'       => (string) ($booking->passenger_name ?? ''),
                     'no_hp'      => (string) ($booking->passenger_phone ?? ''),
                     'jemput'     => (string) ($booking->pickup_location ?? ''),
@@ -191,12 +187,26 @@ class BookingPageController extends Controller
                     'tarif'      => (float) ($booking->price_per_seat ?? 0),
                     'keterangan' => (string) ($booking->notes ?? ''),
                 ];
+            } else {
+                foreach ($seats as $seatCode) {
+                    // Prefer per-seat passenger data; fall back to booking-level
+                    $pData = $passengerBySeat->get($seatCode);
+                    $rows[] = [
+                        'kursi'      => (string) $seatCode,
+                        'nama'       => $pData['nama'] ?? (string) ($booking->passenger_name ?? ''),
+                        'no_hp'      => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
+                        'jemput'     => (string) ($booking->pickup_location ?? ''),
+                        'tujuan'     => (string) ($booking->dropoff_location ?? ''),
+                        'tarif'      => (float) ($booking->price_per_seat ?? 0),
+                        'keterangan' => (string) ($booking->notes ?? ''),
+                    ];
+                }
             }
         }
 
         // Minimum 12 rows — pad with empty rows if needed
         while (count($rows) < 12) {
-            $rows[] = ['nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null, 'keterangan' => ''];
+            $rows[] = ['kursi' => '', 'nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null, 'keterangan' => ''];
         }
 
         $tanggal = $date !== '' ? \Carbon\Carbon::parse($date)->translatedFormat('d F Y') : '-';
