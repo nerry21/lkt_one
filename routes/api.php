@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\PassengerLktController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\KeberangkatanController;
@@ -65,6 +66,10 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::get('/stock/{stock}', [StockController::class, 'show'])->name('api.stock.show');
     Route::put('/stock/{stock}', [StockController::class, 'update'])->name('api.stock.update');
     Route::delete('/stock/{stock}', [StockController::class, 'destroy'])->name('api.stock.destroy');
+
+    Route::get('/passengers-lkt', [PassengerLktController::class, 'index'])->name('api.passengers-lkt.index');
+    Route::get('/passengers-lkt/count', [PassengerLktController::class, 'count'])->name('api.passengers-lkt.count');
+    Route::get('/passengers-lkt/loyalty-chart', [PassengerLktController::class, 'loyaltyChart'])->name('api.passengers-lkt.loyalty-chart');
 
     Route::get('/statistics/dashboard', [StatisticsController::class, 'dashboard'])->name('api.statistics.dashboard');
     Route::get('/statistics/revenue-chart', [StatisticsController::class, 'revenueChart'])->name('api.statistics.revenue-chart');

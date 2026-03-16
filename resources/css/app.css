@@ -7430,3 +7430,130 @@ button {
     font-size: 0.85rem;
     font-weight: 600;
 }
+
+/* ─── Data Penumpang LKT ─────────────────────────────────────────────────── */
+
+.plkt-page { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.plkt-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.plkt-page-copy h1 { font-size: 1.35rem; font-weight: 700; color: #111827; margin: 0; }
+.plkt-page-copy p  { font-size: 0.875rem; color: #6b7280; margin: 0.25rem 0 0; }
+
+.plkt-page-actions { display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; }
+
+.plkt-secondary-button {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600;
+    color: var(--transit-primary); background: transparent;
+    border: 1.5px solid var(--transit-primary); border-radius: 10px;
+    cursor: pointer; transition: background 0.15s;
+}
+.plkt-secondary-button:hover { background: rgba(16,185,129,0.08); }
+.plkt-button-icon svg { width: 16px; height: 16px; display: block; }
+
+/* Chart card */
+.plkt-chart-card {
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 16px; padding: 1.5rem;
+}
+.plkt-chart-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;
+}
+.plkt-chart-head h2 { font-size: 1rem; font-weight: 700; color: #111827; margin: 0; }
+.plkt-chart-head p  { font-size: 0.8rem; color: #6b7280; margin: 0.2rem 0 0; }
+.plkt-chart-limit-wrap { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.plkt-chart-limit-label { font-size: 0.8rem; color: #6b7280; }
+.plkt-chart-limit-select {
+    font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 8px;
+    border: 1px solid #d1d5db; background: #f9fafb; color: #374151; cursor: pointer;
+}
+.plkt-chart-wrap { position: relative; height: 260px; }
+.plkt-chart-empty { font-size: 0.875rem; color: #9ca3af; text-align: center; padding: 1rem 0; margin: 0; }
+
+/* Search */
+.plkt-search-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1rem 1.25rem;
+}
+.plkt-search-field {
+    display: flex; align-items: center; gap: 0.6rem;
+    background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 10px;
+    padding: 0.45rem 0.85rem;
+}
+.plkt-search-icon svg { width: 16px; height: 16px; color: #9ca3af; flex-shrink: 0; display: block; }
+.plkt-search-field input {
+    flex: 1; border: none; background: transparent; font-size: 0.875rem;
+    color: #111827; outline: none;
+}
+.plkt-search-field input::placeholder { color: #9ca3af; }
+
+/* Table card */
+.plkt-table-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
+    overflow: hidden;
+}
+.plkt-table-wrap { overflow-x: auto; }
+.plkt-table {
+    width: 100%; border-collapse: collapse; font-size: 0.875rem;
+}
+.plkt-table thead th {
+    padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem;
+    font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em;
+    background: #f9fafb; border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+}
+.plkt-col-index { width: 3rem; text-align: center; }
+.plkt-table tbody td {
+    padding: 0.75rem 1rem; border-bottom: 1px solid #f3f4f6;
+    color: #111827; vertical-align: middle;
+}
+.plkt-table tbody tr:last-child td { border-bottom: none; }
+.plkt-table tbody tr:hover td { background: #f9fafb; }
+
+.plkt-index-cell { text-align: center; color: #9ca3af; font-size: 0.78rem; }
+.plkt-user-cell  { display: flex; align-items: center; gap: 0.6rem; }
+.plkt-user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(16,185,129,0.12); display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; color: var(--transit-primary);
+}
+.plkt-user-avatar svg { width: 18px; height: 18px; display: block; }
+.plkt-user-cell div { display: flex; flex-direction: column; gap: 0.1rem; }
+.plkt-user-name { font-weight: 600; color: #111827; line-height: 1.2; }
+.plkt-user-seat { font-size: 0.72rem; color: #9ca3af; line-height: 1.2; }
+.plkt-phone-cell { color: #374151; white-space: nowrap; }
+.plkt-date-cell  { white-space: nowrap; color: #374151; }
+.plkt-time-cell  { white-space: nowrap; color: #374151; font-variant-numeric: tabular-nums; }
+.plkt-tarif-cell { font-weight: 600; color: #059669; white-space: nowrap; }
+
+.plkt-table-state { text-align: center; padding: 2.5rem 1rem !important; color: #9ca3af; }
+.plkt-loading-inline { display: inline-flex; align-items: center; gap: 0.5rem; }
+.plkt-loading-inline-spinner {
+    display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid #d1d5db; border-top-color: var(--transit-primary);
+    animation: spin 0.7s linear infinite;
+}
+.plkt-empty-copy { font-size: 0.875rem; }
+
+/* Pagination */
+.plkt-pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; padding: 0.875rem 1.25rem;
+    border-top: 1px solid #f3f4f6; flex-wrap: wrap;
+}
+.plkt-pagination-copy { font-size: 0.8rem; color: #6b7280; margin: 0; }
+.plkt-pagination-controls { display: flex; align-items: center; gap: 0.5rem; }
+.plkt-pagination-button {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e7eb;
+    background: #fff; color: #374151; cursor: pointer; transition: background 0.15s;
+}
+.plkt-pagination-button:hover:not(:disabled) { background: #f3f4f6; }
+.plkt-pagination-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.plkt-pagination-button svg { width: 16px; height: 16px; display: block; }
+.plkt-pagination-page { font-size: 0.8rem; color: #374151; min-width: 3.5rem; text-align: center; }

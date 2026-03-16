@@ -68,6 +68,14 @@
             'requires_admin' => true,
             'active_patterns' => ['scan-qr.*'],
         ],
+        [
+            'route' => 'passengers-lkt.index',
+            'label' => 'Data Penumpang LKT',
+            'testid' => 'nav-passengers-lkt',
+            'icon' => 'passengers',
+            'requires_admin' => true,
+            'active_patterns' => ['passengers-lkt.*'],
+        ],
     ];
 @endphp
 

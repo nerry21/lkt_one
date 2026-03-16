@@ -104,6 +104,14 @@
                                 <path d="M21 14v.01M14 21h.01M17 21h4M21 17v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                             </svg>
                             @break
+                        @case('passengers')
+                            <svg viewBox="0 0 24 24" fill="none" class="icon icon-passengers">
+                                <circle cx="9" cy="7" r="3.5" stroke="currentColor" stroke-width="1.8"/>
+                                <path d="M3 20C3 16.686 5.686 14 9 14s6 2.686 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                <circle cx="17" cy="8" r="2.5" stroke="currentColor" stroke-width="1.8"/>
+                                <path d="M21 20c0-2.485-1.567-4.614-3.75-5.424" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                            </svg>
+                            @break
                     @endswitch
                 </span>
                 <span class="sidebar-link-label">{{ $item['label'] }}</span>
