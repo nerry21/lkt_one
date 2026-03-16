@@ -61,6 +61,11 @@ class RegularBookingPageController extends Controller
             $drafts->fromValidated($validated, $fareAmount, $additionalFare),
         );
 
+        // Clear any previously persisted booking ID so the new booking attempt
+        // does not accidentally exclude an old Draft booking when computing
+        // occupied seats on the seat-selection step.
+        $request->session()->forget(RegularBookingDraftService::PERSISTED_BOOKING_ID_SESSION_KEY);
+
         return redirect()
             ->route('regular-bookings.seats')
             ->with('regular_booking_success', 'Informasi pemesanan berhasil disimpan. Silakan lanjut ke langkah pilih kursi.');
