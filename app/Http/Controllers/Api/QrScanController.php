@@ -31,29 +31,65 @@ class QrScanController extends Controller
 
         $loyaltyTarget     = 5;
         $previousScanCount = (int) ($booking->scan_count ?? 0);
-        $newScanCount      = $previousScanCount + 1;
+
+        // Cek apakah tiket ini sudah pernah di-scan sebelumnya (satu tiket hanya 1x untuk loyalty)
+        $alreadyScanned = $booking->last_scanned_at !== null;
+
+        if ($alreadyScanned) {
+            // Tampilkan info penumpang tapi TIDAK tambah loyalty
+            return response()->json([
+                'success'             => true,
+                'already_scanned'     => true,
+                'message'             => 'Tiket ini sudah pernah di-scan. Loyalty tidak ditambahkan.',
+                'scan_count'          => $previousScanCount,
+                'loyalty_count'       => $previousScanCount,
+                'loyalty_target'      => $loyaltyTarget,
+                'discount_eligible'   => (bool) $booking->discount_eligible,
+                'discount_percentage' => 50,
+                'is_newly_eligible'   => false,
+                'booking'             => [
+                    'id'              => $booking->id,
+                    'booking_code'    => $booking->booking_code,
+                    'nama_pemesanan'  => $booking->passenger_name,
+                    'phone'           => $booking->passenger_phone,
+                    'from_city'       => $booking->from_city,
+                    'to_city'         => $booking->to_city,
+                    'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
+                    'trip_time'       => substr((string) ($booking->trip_time ?? ''), 0, 5),
+                    'route_label'     => $booking->route_label
+                        ?? ($booking->from_city . ' – ' . $booking->to_city),
+                    'passenger_count' => (int) ($booking->passenger_count ?? 0),
+                    'selected_seats'  => implode(', ', (array) ($booking->selected_seats ?? [])),
+                    'category'        => $booking->category ?? '-',
+                ],
+            ]);
+        }
+
+        // Scan valid: hitung sebagai perjalanan baru
+        $newScanCount       = $previousScanCount + 1;
         $justCompletedCycle = $newScanCount >= $loyaltyTarget;
 
         if ($justCompletedCycle) {
             // Siklus selesai: beri diskon, reset untuk siklus berikutnya
-            // Gunakan DB::table() agar tidak di-override oleh saving hook model
             DB::table('bookings')->where('id', $booking->id)->update([
                 'scan_count'         => 0,
                 'loyalty_count'      => 0,
                 'loyalty_trip_count' => DB::raw('COALESCE(loyalty_trip_count, 0) + 1'),
                 'discount_eligible'  => true,
                 'eligible_discount'  => true,
+                'last_scanned_at'    => now(),
             ]);
 
-            $loyaltyCountDisplay = $loyaltyTarget; // tampilkan 5/5 di layar saat ini
+            $loyaltyCountDisplay = $loyaltyTarget; // tampilkan 5/5 saat siklus selesai
             $discountEligible    = true;
         } else {
-            // Scan normal: increment, reset eligible ke false (belum 5)
+            // Scan normal: increment dan tandai sudah di-scan hari ini
             DB::table('bookings')->where('id', $booking->id)->update([
                 'scan_count'        => $newScanCount,
                 'loyalty_count'     => $newScanCount,
                 'discount_eligible' => false,
                 'eligible_discount' => false,
+                'last_scanned_at'   => now(),
             ]);
 
             $loyaltyCountDisplay = $newScanCount;
@@ -66,6 +102,7 @@ class QrScanController extends Controller
 
         return response()->json([
             'success'             => true,
+            'already_scanned'     => false,
             'message'             => $isNewlyEligible
                 ? 'Selamat! Penumpang kini eligible diskon 50%'
                 : 'QR berhasil di-scan',

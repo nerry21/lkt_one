@@ -38,7 +38,9 @@ async function processScan(qrToken) {
         showResult(data);
         addHistory(data);
 
-        if (data.is_newly_eligible) {
+        if (data.already_scanned) {
+            toastError(data.message, 'Tiket Sudah Pernah Di-Scan');
+        } else if (data.is_newly_eligible) {
             toastSuccess(data.message, '🎉 Eligible Diskon!');
         } else {
             toastSuccess(data.message, 'Scan Berhasil');
@@ -64,9 +66,9 @@ function showResult(data) {
     const pct      = Math.min(Math.round((count / target) * 100), 100);
 
     // Header
-    const isOk = data.success;
-    $('qrscan-result-header').className = 'qrscan-result-header qrscan-result-header--' + (isOk ? 'success' : 'error');
-    $('qrscan-result-icon').innerHTML   = isOk ? iconCheck() : iconX();
+    const headerState = data.already_scanned ? 'warn' : (data.success ? 'success' : 'error');
+    $('qrscan-result-header').className = 'qrscan-result-header qrscan-result-header--' + headerState;
+    $('qrscan-result-icon').innerHTML   = data.already_scanned ? iconWarn() : (data.success ? iconCheck() : iconX());
     $('qrscan-result-title').textContent    = booking.booking_code;
     $('qrscan-result-subtitle').textContent = data.message;
 
@@ -214,6 +216,13 @@ function iconX() {
     return `<svg viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
         <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>`;
+}
+
+function iconWarn() {
+    return `<svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
     </svg>`;
 }
 

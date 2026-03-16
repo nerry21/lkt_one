@@ -7044,6 +7044,13 @@ button {
     border: 1px solid rgba(16,185,129,0.25);
 }
 
+.qrscan-result-header--warn {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.3);
+}
+
+.qrscan-result-header--warn .qrscan-result-icon { color: #d97706; }
+
 .qrscan-result-header--error {
     background: rgba(244,63,94,0.1);
     border: 1px solid rgba(244,63,94,0.25);
