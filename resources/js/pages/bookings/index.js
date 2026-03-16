@@ -714,6 +714,8 @@ function renderPassengerForms(seedPassengers = null) {
 async function fetchOccupiedSeats() {
     const tripDate = document.getElementById('booking-trip-date')?.value || '';
     const tripTime = document.getElementById('booking-trip-time')?.value || '';
+    const fromCity = document.getElementById('booking-from-city')?.value || '';
+    const toCity = document.getElementById('booking-to-city')?.value || '';
     const excludeId = state.editItem?.id || '';
     const armadaIndex = state.currentFormArmadaIndex || 1;
 
@@ -725,6 +727,8 @@ async function fetchOccupiedSeats() {
     try {
         const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime, armada_index: armadaIndex });
 
+        if (fromCity) params.set('from_city', fromCity);
+        if (toCity) params.set('to_city', toCity);
         if (excludeId) params.set('exclude_id', excludeId);
 
         const res = await apiRequest(`/bookings/occupied-seats?${params}`);
@@ -1181,9 +1185,15 @@ export default function initBookingsPage({ user } = {}) {
         fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
     });
 
-    // Pricing
-    document.getElementById('booking-from-city')?.addEventListener('change', updatePricing);
-    document.getElementById('booking-to-city')?.addEventListener('change', updatePricing);
+    // Pricing + re-fetch occupied seats when route changes
+    document.getElementById('booking-from-city')?.addEventListener('change', () => {
+        updatePricing();
+        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
+    });
+    document.getElementById('booking-to-city')?.addEventListener('change', () => {
+        updatePricing();
+        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
+    });
 
     // Payment method
     paymentMethodSelect?.addEventListener('change', updatePaymentFieldVisibility);

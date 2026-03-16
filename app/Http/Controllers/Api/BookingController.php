@@ -67,9 +67,11 @@ class BookingController extends Controller
 
     public function occupiedSeats(Request $request): JsonResponse
     {
-        $tripDate = trim((string) $request->query('trip_date', ''));
-        $tripTime = trim((string) $request->query('trip_time', ''));
+        $tripDate  = trim((string) $request->query('trip_date', ''));
+        $tripTime  = trim((string) $request->query('trip_time', ''));
         $excludeId = trim((string) $request->query('exclude_id', ''));
+        $fromCity  = trim((string) $request->query('from_city', ''));
+        $toCity    = trim((string) $request->query('to_city', ''));
         $armadaIndex = max(1, (int) $request->query('armada_index', 1));
 
         if ($tripDate === '' || $tripTime === '') {
@@ -81,7 +83,16 @@ class BookingController extends Controller
         $occupied = Booking::query()
             ->where('trip_date', $tripDate)
             ->where('trip_time', 'like', $timePrefix . '%')
-            ->where('armada_index', $armadaIndex)
+            // Treat NULL armada_index as armada 1 (backward-compat for records created before migration)
+            ->where(function ($q) use ($armadaIndex): void {
+                $q->where('armada_index', $armadaIndex);
+                if ($armadaIndex === 1) {
+                    $q->orWhereNull('armada_index');
+                }
+            })
+            // Filter by route direction so different physical routes don't share seat availability
+            ->when($fromCity !== '', fn ($q) => $q->where('from_city', $fromCity))
+            ->when($toCity !== '', fn ($q) => $q->where('to_city', $toCity))
             ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))

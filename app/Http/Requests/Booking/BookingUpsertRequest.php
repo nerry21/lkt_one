@@ -146,17 +146,26 @@ abstract class BookingUpsertRequest extends FormRequest
                     $validator->errors()->add('payment_status', 'Status pembayaran tidak sesuai dengan metode pembayaran yang dipilih.');
                 }
 
-                // Seat conflict check: same trip_date + trip_time + armada_index
+                // Seat conflict check: same trip_date + trip_time + armada_index + direction
                 $tripDate = (string) $this->input('trip_date');
                 $tripTime = (string) $this->input('trip_time');
                 $armadaIndex = max(1, (int) ($this->input('armada_index') ?? 1));
+                $fromCity = (string) ($this->input('from_city') ?? '');
+                $toCity = (string) ($this->input('to_city') ?? '');
                 $excludeId = $this->route('booking') ? (string) $this->route('booking') : null;
                 $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
                 $occupiedSeats = Booking::query()
                     ->where('trip_date', $tripDate)
                     ->where('trip_time', 'like', $timePrefix . '%')
-                    ->where('armada_index', $armadaIndex)
+                    ->where(function ($q) use ($armadaIndex): void {
+                        $q->where('armada_index', $armadaIndex);
+                        if ($armadaIndex === 1) {
+                            $q->orWhereNull('armada_index');
+                        }
+                    })
+                    ->when($fromCity !== '', fn ($q) => $q->where('from_city', $fromCity))
+                    ->when($toCity !== '', fn ($q) => $q->where('to_city', $toCity))
                     ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
                     ->get()
                     ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
