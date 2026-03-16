@@ -90,6 +90,42 @@ class BookingController extends Controller
         return response()->json(['occupied_seats' => $occupied]);
     }
 
+    public function validatePayment(Request $request, string $booking): JsonResponse
+    {
+        $user   = $this->actor($request);
+        $record = $this->findBooking($booking);
+
+        $action = trim((string) $request->input('action', ''));
+        $notes  = trim((string) $request->input('validation_notes', ''));
+
+        $allowed = ['lunas', 'belum_lunas', 'ditolak'];
+        if (! in_array($action, $allowed, true)) {
+            return response()->json(['message' => 'Aksi validasi tidak valid'], 422);
+        }
+
+        $updates = match ($action) {
+            'lunas'       => ['payment_status' => 'Lunas',     'booking_status' => 'Diproses', 'paid_at' => now()],
+            'belum_lunas' => ['payment_status' => 'Belum Bayar', 'booking_status' => 'Draft',  'paid_at' => null],
+            'ditolak'     => ['payment_status' => 'Ditolak',   'booking_status' => 'Draft',    'paid_at' => null],
+        };
+
+        $record->fill(array_merge($updates, [
+            'validated_by'     => $user->id,
+            'validated_at'     => now(),
+            'validation_notes' => $notes !== '' ? $notes : null,
+        ]))->save();
+
+        return response()->json([
+            'message' => match ($action) {
+                'lunas'       => 'Pembayaran dikonfirmasi lunas',
+                'belum_lunas' => 'Status dikembalikan ke belum bayar',
+                'ditolak'     => 'Pembayaran ditolak',
+            },
+            'payment_status' => $record->payment_status,
+            'booking_status' => $record->booking_status,
+        ]);
+    }
+
     public function updateDepartureStatus(Request $request, string $booking): JsonResponse
     {
         $this->actor($request);

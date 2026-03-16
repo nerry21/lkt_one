@@ -3895,6 +3895,11 @@ button {
     color: #047857;
 }
 
+.stock-value-badge-red {
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+}
+
 .stock-value-badge-yellow {
     background: rgba(251, 191, 36, 0.15);
     color: #f59e0b;
@@ -7215,4 +7220,182 @@ button {
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+/* ── Payment validation card ─────────────────────────────────────────────── */
+.pay-proof-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.pay-proof-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--transit-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.pay-proof-img {
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid var(--transit-border);
+    background: var(--transit-surface-2);
+}
+
+.pay-proof-link {
+    display: block;
+}
+
+.pay-validated-info {
+    background: rgba(16, 185, 129, 0.07);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 0.82rem;
+    color: #047857;
+    line-height: 1.5;
+}
+
+.pay-validated-info p {
+    margin: 0.2rem 0 0;
+    color: var(--transit-text-soft);
+}
+
+.pay-validate-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pay-validate-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.55rem 0.75rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+}
+
+.pay-validate-btn:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+.pay-validate-btn--lunas {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+    border: 1.5px solid rgba(16, 185, 129, 0.35);
+}
+
+.pay-validate-btn--belum {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border: 1.5px solid rgba(245, 158, 11, 0.3);
+}
+
+.pay-validate-btn--tolak {
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border: 1.5px solid rgba(239, 68, 68, 0.25);
+}
+
+.pay-validate-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    background: var(--transit-surface-2);
+    border-radius: 10px;
+    border: 1px solid var(--transit-border);
+}
+
+.pay-validate-confirm-text {
+    font-size: 0.88rem;
+    color: var(--transit-text);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.pay-validate-notes {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--transit-border);
+    border-radius: 8px;
+    background: var(--transit-surface);
+    color: var(--transit-text);
+    font-size: 0.84rem;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.pay-validate-notes:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.pay-validate-confirm-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.pay-validate-submit {
+    flex: 1;
+    padding: 0.55rem;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.pay-validate-submit:hover:not(:disabled) {
+    background: #4338ca;
+}
+
+.pay-validate-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.pay-validate-cancel {
+    flex: 1;
+    padding: 0.55rem;
+    background: transparent;
+    color: var(--transit-text-soft);
+    border: 1px solid var(--transit-border);
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.pay-validate-cancel:hover {
+    background: var(--transit-surface-2);
+}
+
+.pay-validate-success {
+    padding: 0.65rem 0.85rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 8px;
+    color: #047857;
+    font-size: 0.85rem;
+    font-weight: 600;
 }

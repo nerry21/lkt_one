@@ -233,6 +233,49 @@
             width: 50%;
         }
 
+        .qr-wrap {
+            text-align: center;
+            margin-bottom: 6px;
+            border: 1.5px solid #1a237e;
+            border-radius: 5px;
+            padding: 5px;
+            background: rgba(255,255,255,0.6);
+        }
+
+        .qr-wrap img {
+            width: 100px;
+            height: 100px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .qr-token {
+            font-size: 7px;
+            font-weight: 800;
+            color: #1a237e;
+            text-align: center;
+            letter-spacing: 0.04em;
+            margin-top: 3px;
+            word-break: break-all;
+        }
+
+        .qr-label {
+            font-size: 6px;
+            font-weight: 700;
+            color: #1a237e;
+            text-align: center;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+
+        .qr-empty {
+            font-size: 7px;
+            color: #888;
+            text-align: center;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
         .purchase-date {
             font-size: 8px;
             font-weight: 700;
@@ -476,9 +519,21 @@
                 </table>
             </td>
 
-            {{-- MIDDLE: Nomor Bangku --}}
+            {{-- MIDDLE: QR & Nomor Bangku --}}
             <td class="col-middle">
-                <div class="section-title">Nomor Bangku</div>
+                <div class="section-title">QR Loyalti &amp; Bangku</div>
+
+                {{-- QR Code --}}
+                @if (!empty($ticket['qr_png']))
+                    <div class="qr-wrap">
+                        <img src="{{ $ticket['qr_png'] }}" alt="QR Tiket">
+                        <div class="qr-token">{{ $ticket['qr_token'] }}</div>
+                        <div class="qr-label">Scan untuk loyalti</div>
+                    </div>
+                @else
+                    <div class="qr-empty">QR belum tersedia</div>
+                @endif
+
                 <table class="seat-table">
                     @foreach ($seatMap as $row)
                     <tr>

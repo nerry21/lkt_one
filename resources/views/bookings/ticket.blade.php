@@ -184,6 +184,54 @@
 
         .ticket-middle .ticket-section-title { width: 100%; text-align: center; }
 
+        /* ── QR Code ── */
+        .ticket-qr-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            border: 2px solid #1a237e;
+            border-radius: 6px;
+            padding: 6px;
+            background: rgba(255,255,255,0.6);
+            width: 100%;
+        }
+
+        .ticket-qr-wrap svg {
+            display: block;
+            width: 110px !important;
+            height: 110px !important;
+        }
+
+        .ticket-qr-token {
+            font-size: 0.55rem;
+            font-weight: 800;
+            color: #1a237e;
+            text-align: center;
+            letter-spacing: 0.04em;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .ticket-qr-label {
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: #1a237e;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+        }
+
+        .ticket-qr-no-qr {
+            width: 100%;
+            text-align: center;
+            font-size: 0.6rem;
+            color: #888;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
         .ticket-seat-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -414,9 +462,20 @@
             </div>
         </div>
 
-        {{-- MIDDLE: Nomor Bangku --}}
+        {{-- MIDDLE: QR & Nomor Bangku --}}
         <div class="ticket-middle">
-            <div class="ticket-section-title">Nomor Bangku</div>
+            <div class="ticket-section-title">QR Loyalti &amp; Bangku</div>
+
+            {{-- QR Code --}}
+            @if (!empty($ticket['qr_svg']))
+                <div class="ticket-qr-wrap">
+                    {!! $ticket['qr_svg'] !!}
+                    <div class="ticket-qr-token">{{ $ticket['qr_token'] }}</div>
+                    <div class="ticket-qr-label">Scan untuk loyalti</div>
+                </div>
+            @else
+                <div class="ticket-qr-no-qr">QR belum tersedia</div>
+            @endif
 
             <div class="ticket-seat-grid">
                 @foreach ($seatMap as $row)

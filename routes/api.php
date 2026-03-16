@@ -23,6 +23,7 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
         Route::get('/bookings/count', [BookingController::class, 'count'])->name('api.bookings.count');
         Route::get('/bookings/occupied-seats', [BookingController::class, 'occupiedSeats'])->name('api.bookings.occupied-seats');
         Route::patch('/bookings/slot-assign', [BookingController::class, 'slotAssign'])->name('api.bookings.slot-assign');
+        Route::patch('/bookings/{booking}/validate-payment', [BookingController::class, 'validatePayment'])->name('api.bookings.validate-payment');
         Route::patch('/bookings/{booking}/departure-status', [BookingController::class, 'updateDepartureStatus'])->name('api.bookings.departure-status');
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('api.bookings.show');
         Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('api.bookings.update');

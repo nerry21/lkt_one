@@ -8,6 +8,7 @@ use App\Models\Driver;
 use App\Models\Mobil;
 use App\Services\BookingManagementService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Contracts\View\View;
 
 class BookingPageController extends Controller
@@ -48,8 +49,22 @@ class BookingPageController extends Controller
         $selectedSeats = (array) ($booking->selected_seats ?? []);
         $passengers    = $booking->passengers->sortBy('seat_no')->values();
 
+        // Generate QR code SVG once for the booking
+        $qrSvg = null;
+        if (filled($booking->qr_token)) {
+            $qrValue = filled($booking->qr_code_value)
+                ? $booking->qr_code_value
+                : $booking->qr_token;
+
+            $qrSvg = (string) QrCode::format('svg')
+                ->size(110)
+                ->margin(1)
+                ->color(26, 35, 126)
+                ->generate($qrValue);
+        }
+
         // Build one ticket entry per passenger
-        $tickets = $passengers->map(function ($passenger) use ($booking) {
+        $tickets = $passengers->map(function ($passenger) use ($booking, $qrSvg) {
             $totalAmount    = (float) ($booking->total_amount ?? 0);
             $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
             $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
@@ -68,6 +83,8 @@ class BookingPageController extends Controller
                 'sisa'           => 'Rp 0',
                 'purchase_date'  => $booking->created_at?->translatedFormat('d F Y') ?? '-',
                 'all_seats'      => (array) ($booking->selected_seats ?? []),
+                'qr_token'       => (string) ($booking->qr_token ?? ''),
+                'qr_svg'         => $qrSvg,
             ];
         });
 
@@ -80,7 +97,18 @@ class BookingPageController extends Controller
 
         $passengers = $booking->passengers->sortBy('seat_no')->values();
 
-        $tickets = $passengers->map(function ($passenger) use ($booking) {
+        // For PDF (DomPDF), generate PNG base64
+        $qrPngBase64 = null;
+        if (filled($booking->qr_token)) {
+            $qrValue = filled($booking->qr_code_value)
+                ? $booking->qr_code_value
+                : $booking->qr_token;
+
+            $pngBytes      = (string) QrCode::format('png')->size(110)->margin(1)->generate($qrValue);
+            $qrPngBase64   = 'data:image/png;base64,' . base64_encode($pngBytes);
+        }
+
+        $tickets = $passengers->map(function ($passenger) use ($booking, $qrPngBase64) {
             $totalAmount    = (float) ($booking->total_amount ?? 0);
             $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
             $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
@@ -99,6 +127,8 @@ class BookingPageController extends Controller
                 'sisa'            => 'Rp 0',
                 'purchase_date'   => $booking->created_at?->translatedFormat('d F Y') ?? '-',
                 'all_seats'       => (array) ($booking->selected_seats ?? []),
+                'qr_token'        => (string) ($booking->qr_token ?? ''),
+                'qr_png'          => $qrPngBase64,
             ];
         });
 

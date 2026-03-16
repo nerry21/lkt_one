@@ -10,8 +10,8 @@
 
             <div class="admin-users-page-actions">
                 <span class="stock-value-badge stock-value-badge-blue">{{ $detail['booking_code'] }}</span>
-                <span class="{{ $detail['booking_status_badge_class'] }}">{{ $detail['booking_status'] }}</span>
-                <span class="{{ $detail['payment_status_badge_class'] }}">{{ $detail['payment_status'] }}</span>
+                <span id="bkg-status-badge" class="{{ $detail['booking_status_badge_class'] }}">{{ $detail['booking_status'] }}</span>
+                <span id="pay-status-badge" class="{{ $detail['payment_status_badge_class'] }}">{{ $detail['payment_status'] }}</span>
             </div>
         </section>
 
@@ -215,6 +215,58 @@
                 <article class="dashboard-panel-card bookings-show-card">
                     <div class="dashboard-panel-head">
                         <div>
+                            <h3>Validasi Pembayaran</h3>
+                            <p>Konfirmasi, kembalikan, atau tolak pembayaran untuk booking ini.</p>
+                        </div>
+                    </div>
+
+                    @if ($detail['payment_proof_url'])
+                        <div class="pay-proof-wrap">
+                            <span class="pay-proof-label">Bukti Pembayaran</span>
+                            <a href="{{ $detail['payment_proof_url'] }}" target="_blank" class="pay-proof-link">
+                                <img src="{{ $detail['payment_proof_url'] }}" alt="Bukti Pembayaran" class="pay-proof-img">
+                            </a>
+                        </div>
+                    @endif
+
+                    @if ($detail['validated_at_label'])
+                        <div class="pay-validated-info">
+                            <span>Tervalidasi pada {{ $detail['validated_at_label'] }}</span>
+                            @if ($detail['validation_notes'] !== '')
+                                <p>{{ $detail['validation_notes'] }}</p>
+                            @endif
+                        </div>
+                    @endif
+
+                    <div id="pay-validate-form" data-booking-id="{{ $detail['id'] }}">
+                        <div id="pay-validate-actions" class="pay-validate-actions">
+                            <button type="button" class="pay-validate-btn pay-validate-btn--lunas" data-action="lunas">
+                                Lunas
+                            </button>
+                            <button type="button" class="pay-validate-btn pay-validate-btn--belum" data-action="belum_lunas">
+                                Belum Lunas
+                            </button>
+                            <button type="button" class="pay-validate-btn pay-validate-btn--tolak" data-action="ditolak">
+                                Tolak
+                            </button>
+                        </div>
+
+                        <div id="pay-validate-confirm" class="pay-validate-confirm" style="display:none;">
+                            <p id="pay-validate-confirm-text" class="pay-validate-confirm-text"></p>
+                            <textarea id="pay-validate-notes" class="pay-validate-notes" placeholder="Catatan validasi (opsional)..." rows="3"></textarea>
+                            <div class="pay-validate-confirm-actions">
+                                <button type="button" id="pay-validate-submit" class="pay-validate-submit">Konfirmasi</button>
+                                <button type="button" id="pay-validate-cancel" class="pay-validate-cancel">Batal</button>
+                            </div>
+                        </div>
+
+                        <div id="pay-validate-result" style="display:none;"></div>
+                    </div>
+                </article>
+
+                <article class="dashboard-panel-card bookings-show-card">
+                    <div class="dashboard-panel-head">
+                        <div>
                             <h3>Aksi Cepat</h3>
                             <p>Kembali ke halaman manajemen pemesanan untuk melanjutkan proses admin.</p>
                         </div>
@@ -227,4 +279,112 @@
             </aside>
         </div>
     </section>
+
+    <script>
+    (function () {
+        var form      = document.getElementById('pay-validate-form');
+        if (! form) return;
+
+        var bookingId = form.dataset.bookingId;
+        var token     = localStorage.getItem('transit_token') || '';
+
+        var actionsEl  = document.getElementById('pay-validate-actions');
+        var confirmEl  = document.getElementById('pay-validate-confirm');
+        var confirmTxt = document.getElementById('pay-validate-confirm-text');
+        var notesEl    = document.getElementById('pay-validate-notes');
+        var submitBtn  = document.getElementById('pay-validate-submit');
+        var cancelBtn  = document.getElementById('pay-validate-cancel');
+        var resultEl   = document.getElementById('pay-validate-result');
+
+        var pendingAction = null;
+
+        var actionLabels = {
+            lunas:       'Konfirmasi pembayaran sebagai <strong>Lunas</strong>?',
+            belum_lunas: 'Kembalikan status ke <strong>Belum Bayar</strong>?',
+            ditolak:     'Tolak pembayaran ini? Status akan menjadi <strong>Ditolak</strong>.'
+        };
+
+        var badgeClassMap = {
+            'Lunas':     'stock-value-badge stock-value-badge-emerald',
+            'Ditolak':   'stock-value-badge stock-value-badge-red',
+            'Diproses':  'stock-value-badge stock-value-badge-emerald',
+            'Draft':     'stock-value-badge stock-value-badge-blue',
+            'Belum Bayar': 'stock-value-badge stock-value-badge-blue'
+        };
+
+        document.querySelectorAll('.pay-validate-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                pendingAction = btn.dataset.action;
+                confirmTxt.innerHTML = actionLabels[pendingAction] || pendingAction;
+                notesEl.value = '';
+                actionsEl.style.display = 'none';
+                confirmEl.style.display = 'block';
+                resultEl.style.display  = 'none';
+            });
+        });
+
+        cancelBtn.addEventListener('click', function () {
+            pendingAction = null;
+            confirmEl.style.display = 'none';
+            actionsEl.style.display = 'flex';
+        });
+
+        submitBtn.addEventListener('click', async function () {
+            if (! pendingAction) return;
+
+            var notes = notesEl.value.trim();
+            submitBtn.disabled    = true;
+            submitBtn.textContent = 'Memproses...';
+
+            try {
+                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                var res = await fetch('/api/bookings/' + bookingId + '/validate-payment', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token,
+                        'X-CSRF-TOKEN': csrfMeta ? csrfMeta.content : ''
+                    },
+                    body: JSON.stringify({ action: pendingAction, validation_notes: notes })
+                });
+
+                var data = await res.json();
+
+                if (res.ok) {
+                    var payBadge = document.getElementById('pay-status-badge');
+                    var bkgBadge = document.getElementById('bkg-status-badge');
+
+                    if (payBadge) {
+                        payBadge.textContent = data.payment_status;
+                        payBadge.className   = badgeClassMap[data.payment_status] || 'stock-value-badge stock-value-badge-blue';
+                    }
+                    if (bkgBadge) {
+                        bkgBadge.textContent = data.booking_status;
+                        bkgBadge.className   = badgeClassMap[data.booking_status] || 'stock-value-badge stock-value-badge-blue';
+                    }
+
+                    confirmEl.style.display = 'none';
+                    resultEl.innerHTML      = '<div class="pay-validate-success">' + data.message + '</div>';
+                    resultEl.style.display  = 'block';
+
+                    setTimeout(function () {
+                        resultEl.style.display  = 'none';
+                        actionsEl.style.display = 'flex';
+                    }, 3000);
+                } else {
+                    alert(data.message || 'Terjadi kesalahan');
+                    submitBtn.disabled    = false;
+                    submitBtn.textContent = 'Konfirmasi';
+                }
+            } catch (e) {
+                alert('Gagal terhubung ke server');
+                submitBtn.disabled    = false;
+                submitBtn.textContent = 'Konfirmasi';
+            }
+
+            pendingAction = null;
+        });
+    })();
+    </script>
 @endsection

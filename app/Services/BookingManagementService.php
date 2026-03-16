@@ -73,6 +73,8 @@ class BookingManagementService
             ['value' => 'Menunggu Verifikasi', 'label' => 'Menunggu Verifikasi'],
             ['value' => 'Dibayar', 'label' => 'Dibayar'],
             ['value' => 'Dibayar Tunai', 'label' => 'Dibayar Tunai'],
+            ['value' => 'Lunas', 'label' => 'Lunas'],
+            ['value' => 'Ditolak', 'label' => 'Ditolak'],
         ];
     }
 
@@ -261,6 +263,9 @@ class BookingManagementService
             'ticket_status' => $ticketState['ticket_status'],
             'loyalty_scan_label' => $ticketState['scan_count'] . ' / ' . $ticketState['loyalty_target'],
             'discount_status_label' => $ticketState['discount_status_label'],
+            'payment_proof_url' => $booking->payment_proof_url,
+            'validation_notes' => (string) ($booking->validation_notes ?? ''),
+            'validated_at_label' => $booking->validated_at?->format('d M Y H:i') ?? null,
         ]);
     }
 
@@ -402,20 +407,15 @@ class BookingManagementService
             'notes' => trim((string) ($validated['notes'] ?? $booking->notes ?? '')),
         ]);
 
-        if ($requiresDocuments) {
-            $booking->qr_token = $booking->qr_token ?: $this->generateUniqueCode('qr_token', 'QRT', 6);
-            $booking->qr_code_value = json_encode([
-                'type' => 'regular_booking_ticket',
-                'booking_code' => $booking->booking_code,
-                'ticket_number' => $booking->ticket_number,
-                'qr_token' => $booking->qr_token,
-                'loyalty_target' => 5,
-                'discount_percentage' => 50,
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: null;
-        } else {
-            $booking->qr_token = null;
-            $booking->qr_code_value = null;
-        }
+        $booking->qr_token = $booking->qr_token ?: $this->generateUniqueCode('qr_token', 'QRT', 6);
+        $booking->qr_code_value = json_encode([
+            'type' => 'regular_booking_ticket',
+            'booking_code' => $booking->booking_code,
+            'ticket_number' => $booking->ticket_number,
+            'qr_token' => $booking->qr_token,
+            'loyalty_target' => 5,
+            'discount_percentage' => 50,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: null;
 
         $booking->loyalty_trip_count = max((int) ($booking->loyalty_trip_count ?? 0), 0);
         $booking->scan_count = max((int) ($booking->scan_count ?? 0), 0);
@@ -449,7 +449,11 @@ class BookingManagementService
 
     private function statusBadgeClass(string $status): string
     {
-        return in_array($status, ['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit'], true)
+        if (in_array($status, ['Ditolak'], true)) {
+            return 'stock-value-badge stock-value-badge-red';
+        }
+
+        return in_array($status, ['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit', 'Lunas'], true)
             ? 'stock-value-badge stock-value-badge-emerald'
             : 'stock-value-badge stock-value-badge-blue';
     }

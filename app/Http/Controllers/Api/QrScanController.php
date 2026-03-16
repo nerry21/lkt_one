@@ -28,10 +28,6 @@ class QrScanController extends Controller
             throw new HttpException(422, 'Pemesanan ini belum memiliki QR code aktif');
         }
 
-        if ($booking->payment_status !== 'Lunas') {
-            throw new HttpException(422, 'Pembayaran belum lunas, scan tidak dapat diproses');
-        }
-
         $previousScanCount = (int) ($booking->scan_count ?? 0);
         $booking->scan_count = $previousScanCount + 1;
         $booking->save();
