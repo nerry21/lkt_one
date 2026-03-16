@@ -452,9 +452,24 @@ async function fetchAndRender() {
             page: 1,
         });
 
-        const bookings = await apiRequest(`/bookings?${params}`);
+        const [bookings, armadaExtras] = await Promise.all([
+            apiRequest(`/bookings?${params}`),
+            apiRequest(`/bookings/armada-extras?date=${state.date}`).catch(() => ({})),
+        ]);
 
         state.bookings = Array.isArray(bookings) ? bookings : [];
+
+        // Seed slotExtraArmadas from persisted backend data so extra armada
+        // cards survive page reloads.
+        if (armadaExtras && typeof armadaExtras === 'object') {
+            Object.entries(armadaExtras).forEach(([tripTime, maxIdx]) => {
+                const slotKey = `${tripTime}__${state.direction}`;
+                state.slotExtraArmadas[slotKey] = Math.max(
+                    state.slotExtraArmadas[slotKey] || 1,
+                    Number(maxIdx) || 1,
+                );
+            });
+        }
     } catch (error) {
         state.bookings = [];
 
@@ -1068,11 +1083,21 @@ export default function initBookingsPage({ user } = {}) {
                 const newArmadaIndex = currentArmadaIndex + 1;
                 const slotKey = `${tripTime}__${state.direction}`;
 
-                // Record that this slot now shows an extra armada
+                // Record that this slot now shows an extra armada (client-side)
                 state.slotExtraArmadas[slotKey] = Math.max(
                     state.slotExtraArmadas[slotKey] || 1,
                     newArmadaIndex,
                 );
+
+                // Persist the extra armada to the backend so it survives page reloads
+                apiRequest('/bookings/armada-extras', {
+                    method: 'POST',
+                    body: {
+                        trip_date: state.date,
+                        trip_time: tripTime,
+                        armada_index: newArmadaIndex,
+                    },
+                }).catch(() => {});
 
                 // Re-render slots to show new armada card
                 renderSlots();

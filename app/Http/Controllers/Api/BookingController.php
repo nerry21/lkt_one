@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Requests\Booking\UpdateBookingRequest;
 use App\Models\Booking;
+use App\Models\BookingArmadaExtra;
 use App\Models\User;
 use App\Services\BookingManagementService;
 use Illuminate\Http\JsonResponse;
@@ -191,6 +192,47 @@ class BookingController extends Controller
         ]);
 
         return response()->json(['message' => 'Driver berhasil diperbarui pada slot keberangkatan']);
+    }
+
+    public function armadaExtras(Request $request): JsonResponse
+    {
+        $date = trim((string) $request->query('date', ''));
+
+        if ($date === '') {
+            return response()->json([]);
+        }
+
+        $extras = BookingArmadaExtra::query()
+            ->where('trip_date', $date)
+            ->get()
+            ->mapWithKeys(fn (BookingArmadaExtra $e) => [
+                $e->trip_time => $e->max_armada_index,
+            ]);
+
+        return response()->json($extras);
+    }
+
+    public function upsertArmadaExtra(Request $request): JsonResponse
+    {
+        $this->actor($request);
+
+        $tripDate  = trim((string) $request->input('trip_date', ''));
+        $tripTime  = trim((string) $request->input('trip_time', ''));
+        $armadaIndex = max(1, (int) $request->input('armada_index', 1));
+
+        if ($tripDate === '' || $tripTime === '') {
+            return response()->json(['message' => 'trip_date dan trip_time wajib diisi'], 422);
+        }
+
+        $extra = BookingArmadaExtra::query()
+            ->firstOrNew(['trip_date' => $tripDate, 'trip_time' => $tripTime]);
+
+        if ($armadaIndex > ($extra->max_armada_index ?? 0)) {
+            $extra->max_armada_index = $armadaIndex;
+            $extra->save();
+        }
+
+        return response()->json(['max_armada_index' => $extra->max_armada_index]);
     }
 
     public function destroy(Request $request, string $booking, BookingManagementService $service): JsonResponse
