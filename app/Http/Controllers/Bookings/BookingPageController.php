@@ -244,10 +244,8 @@ class BookingPageController extends Controller
                 ? (string) ($notes['item_name'] ?? $booking->passenger_name ?? '')
                 : (string) ($booking->passenger_name ?? '');
 
-            $target = &($isPackage ? $packageRows : $passengerRows);
-
             if (empty($seats)) {
-                $target[] = [
+                $row = [
                     'kursi' => '-',
                     'nama'  => $namaDisplay,
                     'no_hp' => (string) ($booking->passenger_phone ?? ''),
@@ -255,10 +253,15 @@ class BookingPageController extends Controller
                     'tujuan'=> (string) ($booking->dropoff_location ?? ''),
                     'tarif' => $tarifFinal,
                 ];
+                if ($isPackage) {
+                    $packageRows[] = $row;
+                } else {
+                    $passengerRows[] = $row;
+                }
             } else {
                 foreach ($seats as $seatCode) {
                     $pData = $passengerBySeat->get($seatCode);
-                    $target[] = [
+                    $row = [
                         'kursi' => (string) $seatCode,
                         'nama'  => $isPackage ? $namaDisplay : ($pData['nama'] ?? (string) ($booking->passenger_name ?? '')),
                         'no_hp' => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
@@ -266,6 +269,11 @@ class BookingPageController extends Controller
                         'tujuan'=> (string) ($booking->dropoff_location ?? ''),
                         'tarif' => $tarifFinal,
                     ];
+                    if ($isPackage) {
+                        $packageRows[] = $row;
+                    } else {
+                        $passengerRows[] = $row;
+                    }
                 }
             }
         }
