@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\TicketBackupController;
 use App\Http\Controllers\Api\PassengerLktController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
@@ -19,6 +21,17 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::post('/scan-qr', [QrScanController::class, 'scan'])->name('api.scan-qr');
 
     Route::middleware('admin.role:admin')->group(function () {
+        // ── Customers ──────────────────────────────────────────────────────────
+        // PERHATIAN: route statis (/search, /duplicates) harus dideklarasikan
+        // SEBELUM route dengan parameter ({customer}) agar tidak bertabrakan.
+        Route::get('/customers/search', [CustomerController::class, 'search'])->name('api.customers.search');
+        Route::get('/customers/duplicates', [CustomerController::class, 'duplicates'])->name('api.customers.duplicates');
+        Route::get('/customers', [CustomerController::class, 'index'])->name('api.customers.index');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('api.customers.show');
+        Route::get('/customers/{customer}/merge-preview', [CustomerController::class, 'mergePreview'])->name('api.customers.merge-preview');
+        Route::post('/customers/{customer}/merge', [CustomerController::class, 'merge'])->name('api.customers.merge');
+
+        // ── Bookings ───────────────────────────────────────────────────────────
         Route::get('/bookings', [BookingController::class, 'index'])->name('api.bookings.index');
         Route::post('/bookings', [BookingController::class, 'store'])->name('api.bookings.store');
         Route::get('/bookings/count', [BookingController::class, 'count'])->name('api.bookings.count');
@@ -33,6 +46,14 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('api.bookings.show');
         Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('api.bookings.update');
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('api.bookings.destroy');
+
+        // ── Ticket Backups ─────────────────────────────────────────────────────
+        // PERHATIAN: route statis (latest/download) harus sebelum route {backup}
+        Route::get('/bookings/{booking}/ticket-backups', [TicketBackupController::class, 'index'])->name('api.ticket-backups.index');
+        Route::post('/bookings/{booking}/ticket-backups', [TicketBackupController::class, 'store'])->name('api.ticket-backups.store');
+        Route::get('/bookings/{booking}/ticket-backups/latest/download', [TicketBackupController::class, 'downloadLatest'])->name('api.ticket-backups.latest.download');
+        Route::get('/bookings/{booking}/ticket-backups/{backup}/download', [TicketBackupController::class, 'download'])->name('api.ticket-backups.download');
+        Route::get('/bookings/{booking}/ticket-backups/{backup}/verify', [TicketBackupController::class, 'verify'])->name('api.ticket-backups.verify');
         Route::get('/admin-users', [AdminUserController::class, 'index'])->name('api.admin-users.index');
         Route::post('/admin-users', [AdminUserController::class, 'store'])->name('api.admin-users.store');
         Route::get('/admin-users/count', [AdminUserController::class, 'count'])->name('api.admin-users.count');

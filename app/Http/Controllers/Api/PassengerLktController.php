@@ -33,11 +33,23 @@ class PassengerLktController extends Controller
                 'b.passenger_count',
                 'b.booking_code',
                 'b.created_at',
-                // Jumlah pemesanan berdasarkan nama+HP yang sama
-                DB::raw('(SELECT COUNT(*) FROM booking_passengers bp2
-                          WHERE UPPER(TRIM(bp2.name)) = UPPER(TRIM(bp.name))
-                            AND TRIM(COALESCE(bp2.phone,\'\')) = TRIM(COALESCE(bp.phone,\'\'))
-                            AND bp2.qr_token IS NOT NULL) as booking_count'),
+                // Jumlah perjalanan valid berdasarkan customer_id (jika tersedia),
+                // fallback ke nama+HP untuk data lama yang belum di-backfill.
+                DB::raw('(
+                    CASE
+                      WHEN bp.customer_id IS NOT NULL THEN (
+                        SELECT COUNT(*) FROM bookings b2
+                        WHERE b2.customer_id = bp.customer_id
+                          AND b2.booking_status NOT IN (\'Draft\',\'Batal\',\'Cancelled\')
+                      )
+                      ELSE (
+                        SELECT COUNT(*) FROM booking_passengers bp2
+                        WHERE UPPER(TRIM(bp2.name)) = UPPER(TRIM(bp.name))
+                          AND TRIM(COALESCE(bp2.phone,\'\')) = TRIM(COALESCE(bp.phone,\'\'))
+                          AND bp2.qr_token IS NOT NULL
+                      )
+                    END
+                ) as booking_count'),
             ])
             ->orderBy('b.trip_date', 'desc')
             ->orderBy('b.created_at', 'desc');
@@ -156,26 +168,67 @@ class PassengerLktController extends Controller
     {
         $limit = max(5, min(50, (int) $request->input('limit', 10)));
 
-        $rows = DB::table('booking_passengers as bp')
+        // ── Pelanggan dengan customer_id (data modern) ──────────────────────
+        // Group by customer_id → hitung booking valid dari tabel bookings
+        $withCustomer = DB::table('customers as c')
+            ->select([
+                'c.id as customer_id',
+                'c.display_name as passenger_name',
+                'c.phone_normalized as phone',
+                DB::raw('(
+                    SELECT COUNT(*) FROM bookings b2
+                    WHERE b2.customer_id = c.id
+                      AND b2.booking_status NOT IN (\'Draft\',\'Batal\',\'Cancelled\')
+                ) as booking_count'),
+            ])
+            ->where('c.status', 'active')
+            ->whereNull('c.merged_into_id')
+            ->whereNull('c.deleted_at')
+            ->having('booking_count', '>', 0)
+            ->orderByDesc('booking_count')
+            ->orderBy('c.display_name')
+            ->limit($limit)
+            ->get();
+
+        if ($withCustomer->count() >= $limit) {
+            // Cukup data dari tabel customers — gunakan langsung
+            return response()->json($withCustomer->map(fn ($r) => [
+                'passenger_name' => $r->passenger_name,
+                'phone'          => $r->phone ?? '-',
+                'booking_count'  => (int) $r->booking_count,
+            ])->values());
+        }
+
+        // ── Fallback: data lama tanpa customer_id (legacy) ─────────────────
+        // Masih pakai name-based grouping untuk booking_passengers
+        // yang belum di-backfill. Digabung dengan hasil customer di atas.
+        $legacy = DB::table('booking_passengers as bp')
             ->join('bookings as b', 'b.id', '=', 'bp.booking_id')
             ->select([
                 DB::raw('UPPER(TRIM(bp.name)) as passenger_name'),
                 DB::raw('TRIM(bp.phone) as phone'),
                 DB::raw('COUNT(*) as booking_count'),
             ])
+            ->whereNull('bp.customer_id')
             ->whereNotNull('bp.qr_token')
             ->whereNotNull('bp.name')
             ->where('bp.name', '!=', '')
             ->groupBy(DB::raw('UPPER(TRIM(bp.name))'), DB::raw('TRIM(bp.phone)'))
             ->orderByDesc('booking_count')
-            ->orderBy(DB::raw('UPPER(TRIM(bp.name))'))
             ->limit($limit)
             ->get();
 
-        return response()->json($rows->map(fn ($r) => [
+        // Merge: customer-based rows dulu, lalu legacy — buang duplikat nama
+        $merged = $withCustomer->map(fn ($r) => [
             'passenger_name' => $r->passenger_name,
             'phone'          => $r->phone ?? '-',
             'booking_count'  => (int) $r->booking_count,
-        ])->values());
+        ])->concat($legacy->map(fn ($r) => [
+            'passenger_name' => $r->passenger_name,
+            'phone'          => $r->phone ?? '-',
+            'booking_count'  => (int) $r->booking_count,
+        ]))->sortByDesc('booking_count')->unique('passenger_name')->values()->take($limit);
+
+        return response()->json($merged);
     }
 }

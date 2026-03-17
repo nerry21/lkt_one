@@ -8,12 +8,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\CustomerLoyaltyService;
+use App\Services\CustomerResolverService;
 
 class BookingManagementService
 {
     public function __construct(
         protected RegularBookingService $regularBookingService,
         protected RegularBookingPaymentService $paymentService,
+        protected CustomerResolverService $customerResolver,
+        protected CustomerLoyaltyService $loyaltyService,
     ) {
     }
 
@@ -426,7 +430,34 @@ class BookingManagementService
         $booking->loyalty_trip_count = max((int) ($booking->loyalty_trip_count ?? 0), 0);
         $booking->scan_count = max((int) ($booking->scan_count ?? 0), 0);
         $booking->discount_eligible = max((int) $booking->loyalty_trip_count, (int) $booking->scan_count) >= 5;
+
+        // Resolve atau buat customer record berdasarkan data penumpang utama.
+        // Jika customer belum ada, dibuat otomatis. customer_id disimpan ke booking.
+        $primaryPassengerName  = trim((string) ($firstPassenger['name'] ?? ''));
+        $primaryPassengerPhone = trim((string) ($firstPassenger['phone'] ?? ''));
+        $customer = $this->customerResolver->resolve(
+            $primaryPassengerPhone,
+            $primaryPassengerName,
+            // source_booking_id diisi setelah save (pakai id yang sudah ada jika update)
+            $booking->exists ? (int) $booking->getKey() : null,
+        );
+        if ($customer !== null) {
+            $booking->customer_id = $customer->id;
+        }
+
         $booking->save();
+
+        // Hitung ulang loyalty counter customer utama setelah booking disimpan.
+        // Dijalankan di luar DB::transaction agar error loyalty tidak rollback booking.
+        // CATATAN: Ini dipanggil setelah save() tapi masih di dalam transaction di
+        // createBooking()/updateBooking() — jadikan fire-and-forget via try/catch.
+        if ($customer !== null) {
+            try {
+                $this->loyaltyService->recalculateForCustomer($customer);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         // Preserve QR + loyalty data for existing passengers (keyed by seat_no)
         $existingByseat = $booking->passengers->keyBy('seat_no');
@@ -445,10 +476,20 @@ class BookingManagementService
                     // qr_code_value = raw token (QR encodes the token directly, no JSON)
                     $passengerQrValue = $passengerQrToken;
 
+                    // Resolve customer untuk setiap penumpang secara individual
+                    $passengerName  = $passenger['name'] !== '' ? $passenger['name'] : $firstPassenger['name'];
+                    $passengerPhone = $passenger['phone'] !== '' ? $passenger['phone'] : $firstPassenger['phone'];
+                    $passengerCustomer = $this->customerResolver->resolve(
+                        $passengerPhone,
+                        $passengerName,
+                        $booking->exists ? (int) $booking->getKey() : null,
+                    );
+
                     return [
                         'seat_no'           => $seatNo,
-                        'name'              => $passenger['name'] !== '' ? $passenger['name'] : $firstPassenger['name'],
-                        'phone'             => $passenger['phone'] !== '' ? $passenger['phone'] : $firstPassenger['phone'],
+                        'customer_id'       => $passengerCustomer?->id,
+                        'name'              => $passengerName,
+                        'phone'             => $passengerPhone,
                         'ticket_status'     => $ticketStatus,
                         'qr_token'          => $passengerQrToken,
                         'qr_code_value'     => $passengerQrValue,

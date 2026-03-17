@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingPassenger;
+use App\Models\Customer;
+use App\Services\CustomerLoyaltyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +13,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class QrScanController extends Controller
 {
+    public function __construct(
+        private readonly CustomerLoyaltyService $loyaltyService,
+    ) {}
+
     public function scan(Request $request): JsonResponse
     {
         $qrToken = trim((string) $request->input('qr_token', ''));
@@ -88,6 +94,9 @@ class QrScanController extends Controller
 
         $passenger->refresh();
 
+        // Perbarui lifetime_scan_count + total_trip_count customer jika ada
+        $this->applyCustomerLoyalty($passenger);
+
         return response()->json([
             'success'             => true,
             'already_scanned'     => false,
@@ -103,6 +112,31 @@ class QrScanController extends Controller
             'passenger'           => $this->passengerPayload($passenger, $booking),
             'booking'             => $this->bookingPayload($booking),
         ]);
+    }
+
+    /**
+     * Perbarui customer loyalty setelah scan berhasil.
+     * - Tambah lifetime_scan_count
+     * - Hitung ulang total_trip_count (booking-based, bukan scan-based)
+     *
+     * Error diabaikan dengan silent log — scan tidak boleh gagal karena ini.
+     */
+    private function applyCustomerLoyalty(BookingPassenger $passenger): void
+    {
+        if (! $passenger->customer_id) {
+            return;
+        }
+
+        try {
+            $customer = Customer::query()->find($passenger->customer_id);
+
+            if ($customer instanceof Customer) {
+                $this->loyaltyService->applyScanToCustomer($customer);
+                $this->loyaltyService->recalculateForCustomer($customer);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function passengerPayload(BookingPassenger $passenger, $booking): array

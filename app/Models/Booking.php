@@ -7,12 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class Booking extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'customer_id',
         'booking_code',
         'invoice_number',
         'ticket_number',
@@ -59,6 +61,9 @@ class Booking extends Model
         'booking_status',
         'departure_status',
         'armada_index',
+        'ticket_pdf_path',
+        'ticket_pdf_disk',
+        'ticket_pdf_generated_at',
         'notes',
     ];
 
@@ -72,9 +77,10 @@ class Booking extends Model
         'validated_at' => 'datetime',
         'ticket_issued_at' => 'datetime',
         'last_scanned_at' => 'datetime',
-        'loyalty_count' => 'integer',
-        'discount_eligible' => 'boolean',
-        'eligible_discount' => 'boolean',
+        'loyalty_count'            => 'integer',
+        'discount_eligible'        => 'boolean',
+        'eligible_discount'        => 'boolean',
+        'ticket_pdf_generated_at'  => 'datetime',
     ];
 
     protected static function booted(): void
@@ -103,9 +109,31 @@ class Booking extends Model
         });
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function passengers(): HasMany
     {
         return $this->hasMany(BookingPassenger::class);
+    }
+
+    public function ticketBackups(): HasMany
+    {
+        return $this->hasMany(TicketBackup::class);
+    }
+
+    /** Backup tiket level booking (bukan per penumpang) */
+    public function bookingLevelBackups(): HasMany
+    {
+        return $this->hasMany(TicketBackup::class)->where('backup_type', 'booking');
+    }
+
+    /** Backup tiket terbaru */
+    public function latestTicketBackup(): HasMany
+    {
+        return $this->hasMany(TicketBackup::class)->latestOfMany('backed_up_at');
     }
 
     public function driver(): BelongsTo
@@ -190,5 +218,27 @@ class Booking extends Model
     public function getNamaDriverAttribute(): ?string
     {
         return $this->driver_name;
+    }
+
+    public function getTicketPdfUrlAttribute(): ?string
+    {
+        if (! $this->ticket_pdf_path) {
+            return null;
+        }
+
+        $disk = $this->ticket_pdf_disk ?? 'local';
+
+        return Storage::disk($disk)->url($this->ticket_pdf_path);
+    }
+
+    public function hasTicketPdf(): bool
+    {
+        if (! filled($this->ticket_pdf_path)) {
+            return false;
+        }
+
+        $disk = $this->ticket_pdf_disk ?? 'local';
+
+        return Storage::disk($disk)->exists($this->ticket_pdf_path);
     }
 }

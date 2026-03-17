@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class RegularBookingPersistenceService
 {
+    public function __construct(
+        private readonly CustomerResolverService $customerResolver,
+    ) {}
+
     public function currentDraftBooking(Session $session, RegularBookingDraftService $drafts): ?Booking
     {
         $bookingId = $drafts->getPersistedBookingId($session);
@@ -77,15 +81,35 @@ class RegularBookingPersistenceService
 
             $booking->save();
 
+            // Resolve customer dari penumpang utama dan set ke booking
+            $primaryPassenger = $reviewState['passengers'][0] ?? [];
+            $primaryCustomer = $this->customerResolver->resolve(
+                $primaryPassenger['phone'] ?? null,
+                $primaryPassenger['name'] ?? '',
+                (int) $booking->getKey(),
+            );
+            if ($primaryCustomer !== null) {
+                $booking->customer_id = $primaryCustomer->id;
+                $booking->saveQuietly();
+            }
+
             $booking->passengers()->delete();
             $booking->passengers()->createMany(
                 collect($reviewState['passengers'])
-                    ->map(fn (array $passenger): array => [
-                        'seat_no' => $passenger['seat_no'],
-                        'name' => $passenger['name'],
-                        'phone' => $passenger['phone'],
-                        'ticket_status' => 'Draft',
-                    ])
+                    ->map(function (array $passenger) use ($booking): array {
+                        $customer = $this->customerResolver->resolve(
+                            $passenger['phone'] ?? null,
+                            $passenger['name'] ?? '',
+                            (int) $booking->getKey(),
+                        );
+                        return [
+                            'seat_no'      => $passenger['seat_no'],
+                            'name'         => $passenger['name'],
+                            'phone'        => $passenger['phone'],
+                            'ticket_status'=> 'Draft',
+                            'customer_id'  => $customer?->id,
+                        ];
+                    })
                     ->all(),
             );
 

@@ -10,6 +10,7 @@ use App\Models\Mobil;
 use App\Services\BookingManagementService;
 use App\Services\PackageBookingService;
 use App\Services\RegularBookingPaymentService;
+use App\Services\TicketBackupService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -95,9 +96,21 @@ class BookingPageController extends Controller
         return view('bookings.ticket', compact('tickets', 'booking'));
     }
 
-    public function downloadTicket(Booking $booking): \Symfony\Component\HttpFoundation\Response
+    public function downloadTicket(Booking $booking, TicketBackupService $backupService): \Symfony\Component\HttpFoundation\Response
     {
         $booking->loadMissing('passengers');
+
+        // Simpan arsip permanen secara background — tidak memblokir response ke user.
+        // Jika backup gagal (mis. disk penuh), error dicatat di log tapi user tetap dapat PDF.
+        try {
+            $actor = auth()->user();
+            $backupService->backupBookingTicket(
+                $booking,
+                $actor instanceof \App\Models\User ? $actor : null,
+            );
+        } catch (\Throwable $e) {
+            report($e); // Catat ke log, jangan throw — user harus tetap dapat download
+        }
 
         $passengers = $booking->passengers->sortBy('seat_no')->values();
 
