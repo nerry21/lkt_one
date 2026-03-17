@@ -111,12 +111,21 @@
                 </div>
                 <div class="admin-users-dialog-actions">
                     <button class="admin-users-secondary-button" type="button" data-modal-close="bpg-detail-modal">Tutup</button>
+                    {{-- Cetak Tiket (penumpang) --}}
                     <a class="admin-users-secondary-button" id="bpg-detail-ticket-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:6px;">
                         <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;">
                             <path d="M6 2H18C19.1046 2 20 2.89543 20 4V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V4C4 2.89543 4.89543 2 6 2Z" stroke="currentColor" stroke-width="1.8"/>
                             <path d="M9 7H15M9 11H15M9 15H12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                         </svg>
                         Cetak Tiket
+                    </a>
+                    {{-- Cetak Surat (paket) — hidden by default, shown by JS when booking.category === 'Paket' --}}
+                    <a class="admin-users-secondary-button" id="bpg-detail-surat-link" href="#" target="_blank" hidden style="display:inline-flex;align-items:center;gap:6px;">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;">
+                            <path d="M12 3v13M7 11l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                        Cetak Surat
                     </a>
                     <a class="admin-users-primary-button" id="bpg-detail-full-link" href="#" target="_blank" style="color:#000;">
                         <svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;margin-right:6px;">
@@ -575,6 +584,20 @@
                                         <option value="Besar">Besar — Barang besar (gunakan 1 kursi)</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div class="admin-users-form-group" id="pkg-seat-group" hidden>
+                                <label for="pkg-seat-code">Kursi yang Digunakan</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-seat-code" name="seat_code">
+                                        <option value="">Pilih kursi</option>
+                                        @foreach ($seatOptions as $seat)
+                                            @if (!($seat['is_optional'] ?? false))
+                                                <option value="{{ $seat['code'] }}">{{ $seat['label'] }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <p style="font-size:.78rem;color:#64748b;margin-top:4px;">Paket besar menempati 1 kursi penumpang.</p>
                             </div>
                             <div class="admin-users-form-group">
                                 <label for="pkg-fare-amount">Ongkos Tarif (Rp)</label>

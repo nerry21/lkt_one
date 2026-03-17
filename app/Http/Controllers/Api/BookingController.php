@@ -287,7 +287,9 @@ class BookingController extends Controller
             'passenger_count'      => $itemQty,
             'pickup_location'      => trim((string) $v['sender_address']),
             'dropoff_location'     => trim((string) $v['recipient_address']),
-            'selected_seats'       => [],
+            'selected_seats'       => (trim((string) ($v['package_size'] ?? '')) === 'Besar' && trim((string) ($v['seat_code'] ?? '')) !== '')
+                ? [trim((string) $v['seat_code'])]
+                : [],
             'price_per_seat'       => $fareAmount,
             'total_amount'         => $totalAmount,
             'nominal_payment'      => $requiresDocs ? $totalAmount : null,

@@ -35,6 +35,7 @@ class StoreQuickPackageBookingRequest extends FormRequest
             'item_name'       => ['required', 'string', 'max:100'],
             'item_qty'        => ['required', 'integer', 'min:1', 'max:100'],
             'package_size'    => ['required', 'string', Rule::in(['Kecil', 'Sedang', 'Besar'])],
+            'seat_code'       => ['nullable', 'string', 'max:10'],
             'fare_amount'     => ['required', 'integer', 'min:0'],
             'additional_fare' => ['nullable', 'integer', 'min:0'],
             'payment_method'  => ['nullable', 'string', Rule::in($bookingService->paymentMethodValues())],

@@ -184,6 +184,7 @@ class BookingManagementService
             'trip_time' => $booking->time ?? '-',
             'selected_seats_label' => $this->regularBookingService->selectedSeatLabels((array) ($booking->selected_seats ?? [])),
             'passenger_count' => (int) ($booking->passenger_count ?? 0),
+            'category' => trim((string) ($booking->category ?? '')) !== '' ? (string) $booking->category : 'Reguler',
             'service_type' => trim((string) ($booking->category ?? '')) !== '' ? (string) $booking->category : 'Belum ditentukan',
             'total_amount' => (float) ($booking->total_amount ?? 0),
             'total_amount_formatted' => $this->regularBookingService->formatCurrency((float) ($booking->total_amount ?? 0)),

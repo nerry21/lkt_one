@@ -502,7 +502,19 @@ function openDetailModal(booking) {
     document.getElementById('bpg-detail-title').textContent = booking.nama_pemesanan || '-';
     document.getElementById('bpg-detail-subtitle').textContent = `${booking.booking_code || '-'} · ${booking.booking_status || '-'}`;
     document.getElementById('bpg-detail-full-link').href = `/dashboard/bookings/${booking.id}`;
-    document.getElementById('bpg-detail-ticket-link').href = `/dashboard/bookings/${booking.id}/ticket`;
+
+    const isPackageBooking = booking.category === 'Paket';
+    const ticketLink = document.getElementById('bpg-detail-ticket-link');
+    const suratLink  = document.getElementById('bpg-detail-surat-link');
+    if (isPackageBooking) {
+        ticketLink.hidden = true;
+        suratLink.hidden  = false;
+        suratLink.href    = `/dashboard/bookings/${booking.id}/surat-bukti`;
+    } else {
+        ticketLink.hidden = false;
+        ticketLink.href   = `/dashboard/bookings/${booking.id}/ticket`;
+        suratLink.hidden  = true;
+    }
 
     const body = document.getElementById('bpg-detail-body');
 
@@ -1234,6 +1246,8 @@ export default function initBookingsPage({ user } = {}) {
         if (timeSelect && tripTime) timeSelect.value = tripTime;
         const bankGroup = document.getElementById('pkg-bank-account-group');
         if (bankGroup) bankGroup.hidden = true;
+        const seatGroup = document.getElementById('pkg-seat-group');
+        if (seatGroup) seatGroup.hidden = true;
         const banner = document.getElementById('package-form-success-banner');
         if (banner) banner.hidden = true;
         updatePackageTotal();
@@ -1257,6 +1271,13 @@ export default function initBookingsPage({ user } = {}) {
     document.getElementById('pkg-payment-method')?.addEventListener('change', (e) => {
         const bankGroup = document.getElementById('pkg-bank-account-group');
         if (bankGroup) bankGroup.hidden = e.target.value !== 'transfer';
+    });
+
+    document.getElementById('pkg-package-size')?.addEventListener('change', (e) => {
+        const seatGroup = document.getElementById('pkg-seat-group');
+        if (seatGroup) seatGroup.hidden = e.target.value !== 'Besar';
+        const seatSelect = document.getElementById('pkg-seat-code');
+        if (seatSelect && e.target.value !== 'Besar') seatSelect.value = '';
     });
 
     document.getElementById('package-form')?.addEventListener('submit', async (e) => {
@@ -1284,6 +1305,9 @@ export default function initBookingsPage({ user } = {}) {
                 item_name: document.getElementById('pkg-item-name')?.value.trim() || '',
                 item_qty: qty,
                 package_size: document.getElementById('pkg-package-size')?.value || '',
+                seat_code: document.getElementById('pkg-package-size')?.value === 'Besar'
+                    ? (document.getElementById('pkg-seat-code')?.value || '')
+                    : '',
                 fare_amount: fare,
                 additional_fare: extra,
                 payment_method: paymentMethod || null,
