@@ -112,6 +112,13 @@
                                 <path d="M21 20c0-2.485-1.567-4.614-3.75-5.424" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                             </svg>
                             @break
+                        @case('customer')
+                            <svg viewBox="0 0 24 24" fill="none" class="icon icon-customer">
+                                <path d="M20 21C20 17.6863 16.4183 15 12 15C7.58172 15 4 17.6863 4 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/>
+                                <path d="M18 3L18.9 5.4L21.5 5.4L19.4 6.9L20.2 9.3L18 7.8L15.8 9.3L16.6 6.9L14.5 5.4L17.1 5.4L18 3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                            </svg>
+                            @break
                         @case('survey')
                             <svg viewBox="0 0 24 24" fill="none" class="icon icon-survey">
                                 <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>

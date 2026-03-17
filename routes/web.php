@@ -3,6 +3,7 @@
 use App\Http\Controllers\BuildAssetController;
 use App\Http\Controllers\AdminUsers\AdminUserPageController;
 use App\Http\Controllers\Bookings\BookingPageController;
+use App\Http\Controllers\Customers\CustomerPageController;
 use App\Http\Controllers\Passengers\PassengerLktPageController;
 use App\Http\Controllers\QrScan\QrScanPageController;
 use App\Http\Controllers\Dashboard\DashboardPageController;
@@ -68,6 +69,7 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/stock', [StockPageController::class, 'index'])->name('stock.index');
     Route::get('/scan-qr', [QrScanPageController::class, 'index'])->name('scan-qr.index');
     Route::get('/passengers-lkt', [PassengerLktPageController::class, 'index'])->name('passengers-lkt.index');
+    Route::get('/customers', [CustomerPageController::class, 'index'])->name('customers.index');
     Route::get('/customer-surveys', [CustomerSurveyDashboardController::class, 'index'])->name('customer-surveys.index');
     Route::get('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'show'])->name('customer-surveys.show');
     Route::patch('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'update'])->name('customer-surveys.update');

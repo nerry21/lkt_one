@@ -84,6 +84,14 @@
             'active_patterns' => ['passengers-lkt.*'],
         ],
         [
+            'route' => 'customers.index',
+            'label' => 'Data Pelanggan',
+            'testid' => 'nav-customers',
+            'icon' => 'customer',
+            'requires_admin' => true,
+            'active_patterns' => ['customers.*'],
+        ],
+        [
             'route' => 'customer-surveys.index',
             'label' => 'Survei Pelanggan',
             'testid' => 'nav-customer-surveys',
