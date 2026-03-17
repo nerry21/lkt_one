@@ -223,7 +223,9 @@ class BookingPageController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        $rows = [];
+        $passengerRows = [];
+        $packageRows   = [];
+
         foreach ($bookings as $booking) {
             // Build a seat→passenger map from BookingPassenger records (if any)
             $passengerBySeat = $booking->passengers
@@ -242,9 +244,10 @@ class BookingPageController extends Controller
                 ? (string) ($notes['item_name'] ?? $booking->passenger_name ?? '')
                 : (string) ($booking->passenger_name ?? '');
 
+            $target = &($isPackage ? $packageRows : $passengerRows);
+
             if (empty($seats)) {
-                // No seat info — use booking-level data as single row
-                $rows[] = [
+                $target[] = [
                     'kursi' => '-',
                     'nama'  => $namaDisplay,
                     'no_hp' => (string) ($booking->passenger_phone ?? ''),
@@ -255,7 +258,7 @@ class BookingPageController extends Controller
             } else {
                 foreach ($seats as $seatCode) {
                     $pData = $passengerBySeat->get($seatCode);
-                    $rows[] = [
+                    $target[] = [
                         'kursi' => (string) $seatCode,
                         'nama'  => $isPackage ? $namaDisplay : ($pData['nama'] ?? (string) ($booking->passenger_name ?? '')),
                         'no_hp' => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
@@ -266,6 +269,9 @@ class BookingPageController extends Controller
                 }
             }
         }
+
+        // Passengers first, then packages
+        $rows = array_merge($passengerRows, $packageRows);
 
         // Minimum 12 rows — pad with empty rows if needed
         while (count($rows) < 12) {
