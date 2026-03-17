@@ -26,6 +26,13 @@
         </div>
     </section>
 
+    {{-- Flash message --}}
+    @if (session('success'))
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 18px;margin-bottom:16px;color:#166534;font-size:.875rem;font-weight:500;">
+            {{ session('success') }}
+        </div>
+    @endif
+
     {{-- Stats bar --}}
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 22px;display:flex;flex-direction:column;gap:4px;min-width:140px;">
@@ -55,6 +62,8 @@
                         <tr>
                             <th>No</th>
                             <th>Nama</th>
+                            <th>Driver</th>
+                            <th>Kode Mobil</th>
                             <th>Rating Q1–Q8</th>
                             <th>Waktu Pengisian</th>
                             <th>Aksi</th>
@@ -77,6 +86,20 @@
                                     <strong>{{ $survey->name }}</strong>
                                 </td>
                                 <td>
+                                    @if ($survey->driver)
+                                        {{ $survey->driver->nama }}
+                                    @else
+                                        <span style="color:#94a3b8;font-size:.8rem;">—</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($survey->kode_mobil)
+                                        <span class="stock-value-badge">{{ $survey->kode_mobil }}</span>
+                                    @else
+                                        <span style="color:#94a3b8;font-size:.8rem;">—</span>
+                                    @endif
+                                </td>
+                                <td>
                                     @php
                                         $badgeMap = [
                                             'Sangat Baik'   => 'stock-value-badge-emerald',
@@ -94,17 +117,46 @@
                                 </td>
                                 <td>{{ $survey->created_at->translatedFormat('d M Y, H:i') }}</td>
                                 <td>
-                                    <a
-                                        href="{{ route('customer-surveys.show', $survey) }}"
-                                        class="admin-users-secondary-button"
-                                        style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:6px 14px;text-decoration:none;"
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none" style="width:14px;height:14px;">
-                                            <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/>
-                                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
-                                        </svg>
-                                        Detail
-                                    </a>
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        {{-- Detail --}}
+                                        <a
+                                            href="{{ route('customer-surveys.show', $survey) }}"
+                                            class="admin-users-secondary-button"
+                                            style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:6px 12px;text-decoration:none;"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;">
+                                                <path d="M2.5 12C4.4 8.2 8 6 12 6C16 6 19.6 8.2 21.5 12C19.6 15.8 16 18 12 18C8 18 4.4 15.8 2.5 12Z" stroke="currentColor" stroke-width="1.8"/>
+                                                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+                                            </svg>
+                                            Detail
+                                        </a>
+
+                                        {{-- Edit --}}
+                                        <button
+                                            type="button"
+                                            class="admin-users-secondary-button"
+                                            style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:6px 12px;cursor:pointer;border:none;background:none;"
+                                            onclick="openEditModal({{ $survey->id }}, '{{ addslashes($survey->driver_id ?? '') }}', '{{ addslashes($survey->kode_mobil ?? '') }}')"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;">
+                                                <path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 19V12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                                <path d="M18.5 2.5C19.3284 1.67157 20.6716 1.67157 21.5 2.5C22.3284 3.32843 22.3284 4.67157 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            Edit
+                                        </button>
+
+                                        {{-- Delete --}}
+                                        <button
+                                            type="button"
+                                            style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:6px 12px;cursor:pointer;border:1px solid #fecaca;border-radius:8px;background:#fff5f5;color:#dc2626;"
+                                            onclick="openDeleteModal({{ $survey->id }}, '{{ addslashes($survey->name) }}')"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" style="width:13px;height:13px;">
+                                                <path d="M3 6H21M8 6V4H16V6M19 6L18.1 19.1C18.0 20.2 17.1 21 16 21H8C6.9 21 6.0 20.2 5.9 19.1L5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            Hapus
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -122,4 +174,110 @@
     </div>
 
 </section>
+
+{{-- ===== Edit Modal ===== --}}
+<div id="editModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 32px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <h2 style="margin:0 0 4px;font-size:1.1rem;color:#022c22;">Edit Data Survei</h2>
+        <p style="margin:0 0 20px;font-size:.85rem;color:#64748b;">Perbarui driver dan kode mobil untuk survei ini.</p>
+
+        <form id="editForm" method="POST">
+            @csrf
+            @method('PATCH')
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:6px;">Driver</label>
+                <select name="driver_id" id="editDriverId" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.875rem;color:#0f172a;background:#fff;outline:none;">
+                    <option value="">— Pilih Driver —</option>
+                    @foreach ($drivers as $driver)
+                        <option value="{{ $driver->id }}">{{ $driver->nama }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:6px;">Kode Mobil</label>
+                <select name="kode_mobil" id="editKodeMobil" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.875rem;color:#0f172a;background:#fff;outline:none;">
+                    <option value="">— Pilih Kode Mobil —</option>
+                    @foreach ($mobils as $mobil)
+                        <option value="{{ $mobil->kode_mobil }}">{{ $mobil->kode_mobil }} ({{ $mobil->jenis_mobil }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeEditModal()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:.875rem;color:#374151;cursor:pointer;">
+                    Batal
+                </button>
+                <button type="submit" class="admin-users-primary-button" style="padding:9px 20px;font-size:.875rem;">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ===== Delete Modal ===== --}}
+<div id="deleteModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <h2 style="margin:0 0 4px;font-size:1.1rem;color:#dc2626;">Hapus Survei</h2>
+        <p style="margin:0 0 20px;font-size:.875rem;color:#374151;">
+            Yakin ingin menghapus survei dari <strong id="deleteModalName"></strong>? Tindakan ini tidak dapat dibatalkan.
+        </p>
+
+        <form id="deleteForm" method="POST">
+            @csrf
+            @method('DELETE')
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeDeleteModal()" style="padding:9px 18px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:.875rem;color:#374151;cursor:pointer;">
+                    Batal
+                </button>
+                <button type="submit" style="padding:9px 20px;border:none;border-radius:8px;background:#dc2626;color:#fff;font-size:.875rem;font-weight:600;cursor:pointer;">
+                    Ya, Hapus
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var baseUrl = '{{ url('/dashboard/customer-surveys') }}';
+
+    window.openEditModal = function (id, driverId, kodeMobil) {
+        document.getElementById('editForm').action = baseUrl + '/' + id;
+        var driverSel = document.getElementById('editDriverId');
+        var mobilSel  = document.getElementById('editKodeMobil');
+        for (var i = 0; i < driverSel.options.length; i++) {
+            driverSel.options[i].selected = (driverSel.options[i].value === driverId);
+        }
+        for (var j = 0; j < mobilSel.options.length; j++) {
+            mobilSel.options[j].selected = (mobilSel.options[j].value === kodeMobil);
+        }
+        document.getElementById('editModal').style.display = 'flex';
+    };
+
+    window.closeEditModal = function () {
+        document.getElementById('editModal').style.display = 'none';
+    };
+
+    window.openDeleteModal = function (id, name) {
+        document.getElementById('deleteForm').action = baseUrl + '/' + id;
+        document.getElementById('deleteModalName').textContent = name;
+        document.getElementById('deleteModal').style.display = 'flex';
+    };
+
+    window.closeDeleteModal = function () {
+        document.getElementById('deleteModal').style.display = 'none';
+    };
+
+    // Close modals on backdrop click
+    document.getElementById('editModal').addEventListener('click', function (e) {
+        if (e.target === this) closeEditModal();
+    });
+    document.getElementById('deleteModal').addEventListener('click', function (e) {
+        if (e.target === this) closeDeleteModal();
+    });
+})();
+</script>
 @endsection

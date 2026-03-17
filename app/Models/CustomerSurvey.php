@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomerSurvey extends Model
 {
     protected $fillable = [
         'name',
+        'driver_id',
+        'kode_mobil',
         'q1_answer', 'q1_suggestion',
         'q2_answer', 'q2_suggestion',
         'q3_answer', 'q3_suggestion',
@@ -19,6 +22,16 @@ class CustomerSurvey extends Model
         'q9_answer', 'q9_suggestion',
         'q10_answer', 'q10_suggestion',
     ];
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Driver::class, 'driver_id');
+    }
+
+    public function mobil(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Mobil::class, 'kode_mobil', 'kode_mobil');
+    }
 
     /**
      * Pilihan rating untuk Q1–Q8.

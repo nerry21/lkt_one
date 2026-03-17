@@ -70,4 +70,6 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/passengers-lkt', [PassengerLktPageController::class, 'index'])->name('passengers-lkt.index');
     Route::get('/customer-surveys', [CustomerSurveyDashboardController::class, 'index'])->name('customer-surveys.index');
     Route::get('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'show'])->name('customer-surveys.show');
+    Route::patch('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'update'])->name('customer-surveys.update');
+    Route::delete('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'destroy'])->name('customer-surveys.destroy');
 });

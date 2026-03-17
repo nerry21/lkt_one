@@ -44,6 +44,14 @@
                     <span>Waktu Pengisian</span>
                     <strong>{{ $survey->created_at->translatedFormat('d F Y, H:i') }} WIB</strong>
                 </div>
+                <div class="regular-booking-summary-item">
+                    <span>Driver</span>
+                    <strong>{{ $survey->driver?->nama ?? '—' }}</strong>
+                </div>
+                <div class="regular-booking-summary-item">
+                    <span>Kode Mobil</span>
+                    <strong>{{ $survey->kode_mobil ?? '—' }}</strong>
+                </div>
             </div>
         </div>
     </div>
