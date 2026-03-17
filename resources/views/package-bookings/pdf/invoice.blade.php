@@ -327,10 +327,8 @@
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td width="80" valign="middle">
-                    <div style="width:68px; height:68px; border-radius:50%; border:3px solid #fff; background:#fff; text-align:center; padding:6px;">
-                        <div style="font-size:6.5px; font-weight:900; color:#0ea5e9; line-height:1.3;">
-                            PT. LANCANG<br>KUNING<br>TRAVELINDO
-                        </div>
+                    <div style="width:68px; height:68px; border-radius:50%; border:3px solid #fff; background:#fff; overflow:hidden; text-align:center; line-height:68px;">
+                        <img src="{{ public_path('images/lk_travel.png') }}" style="width:64px; height:64px; object-fit:contain; vertical-align:middle; border-radius:50%;" alt="LKT Logo">
                     </div>
                 </td>
                 <td valign="middle" style="text-align:center; padding:0 10px;">
@@ -348,8 +346,8 @@
                     </div>
                 </td>
                 <td width="75" valign="middle" style="text-align:right;">
-                    <div style="width:65px; height:65px; border-radius:50%; border:3px solid #fff; background:#fff; display:inline-block; text-align:center; line-height:59px; font-weight:900; font-size:18px; color:#0ea5e9;">
-                        dp
+                    <div style="width:65px; height:65px; border-radius:50%; border:3px solid #fff; background:#fff; display:inline-block; overflow:hidden; text-align:center; line-height:65px;">
+                        <img src="{{ public_path('images/logo_jasaraharja.png') }}" style="width:61px; height:61px; object-fit:contain; vertical-align:middle; border-radius:50%;" alt="Jasa Raharja Logo">
                     </div>
                 </td>
             </tr>
