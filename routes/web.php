@@ -12,7 +12,13 @@ use App\Http\Controllers\Mobil\MobilPageController;
 use App\Http\Controllers\PackageBookings\PackageBookingPageController;
 use App\Http\Controllers\RegularBookings\RegularBookingPageController;
 use App\Http\Controllers\Stock\StockPageController;
+use App\Http\Controllers\Survey\PublicSurveyController;
+use App\Http\Controllers\Survey\CustomerSurveyDashboardController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'show'])->name('survey.show');
+Route::post('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'store'])->name('survey.store');
+Route::get('/survey/kepuasan-pelanggan/thank-you', [PublicSurveyController::class, 'thankYou'])->name('survey.thank-you');
 
 Route::redirect('/', '/dashboard');
 Route::get('/build/assets/{asset}', [BuildAssetController::class, 'show'])
@@ -62,4 +68,6 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/stock', [StockPageController::class, 'index'])->name('stock.index');
     Route::get('/scan-qr', [QrScanPageController::class, 'index'])->name('scan-qr.index');
     Route::get('/passengers-lkt', [PassengerLktPageController::class, 'index'])->name('passengers-lkt.index');
+    Route::get('/customer-surveys', [CustomerSurveyDashboardController::class, 'index'])->name('customer-surveys.index');
+    Route::get('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'show'])->name('customer-surveys.show');
 });

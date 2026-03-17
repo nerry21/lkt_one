@@ -83,6 +83,13 @@
             'requires_admin' => true,
             'active_patterns' => ['passengers-lkt.*'],
         ],
+        [
+            'route' => 'customer-surveys.index',
+            'label' => 'Survei Pelanggan',
+            'testid' => 'nav-customer-surveys',
+            'icon' => 'survey',
+            'active_patterns' => ['customer-surveys.*'],
+        ],
     ];
 @endphp
 
