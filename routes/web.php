@@ -9,6 +9,7 @@ use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
 use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
 use App\Http\Controllers\Mobil\MobilPageController;
+use App\Http\Controllers\PackageBookings\PackageBookingPageController;
 use App\Http\Controllers\RegularBookings\RegularBookingPageController;
 use App\Http\Controllers\Stock\StockPageController;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,16 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/regular-bookings/invoice/download', [RegularBookingPageController::class, 'downloadInvoice'])->name('regular-bookings.invoice.download');
     Route::get('/regular-bookings/e-ticket', [RegularBookingPageController::class, 'ticket'])->name('regular-bookings.ticket');
     Route::get('/regular-bookings/e-ticket/download', [RegularBookingPageController::class, 'downloadTicket'])->name('regular-bookings.ticket.download');
+    Route::get('/package-bookings', [PackageBookingPageController::class, 'index'])->name('package-bookings.index');
+    Route::post('/package-bookings/information', [PackageBookingPageController::class, 'storeInformation'])->name('package-bookings.information.store');
+    Route::get('/package-bookings/package', [PackageBookingPageController::class, 'package'])->name('package-bookings.package');
+    Route::post('/package-bookings/package', [PackageBookingPageController::class, 'storePackage'])->name('package-bookings.package.store');
+    Route::get('/package-bookings/review', [PackageBookingPageController::class, 'review'])->name('package-bookings.review');
+    Route::post('/package-bookings/review', [PackageBookingPageController::class, 'storeReview'])->name('package-bookings.review.store');
+    Route::get('/package-bookings/payment', [PackageBookingPageController::class, 'payment'])->name('package-bookings.payment');
+    Route::post('/package-bookings/payment', [PackageBookingPageController::class, 'storePayment'])->name('package-bookings.payment.store');
+    Route::get('/package-bookings/invoice', [PackageBookingPageController::class, 'invoice'])->name('package-bookings.invoice');
+    Route::get('/package-bookings/invoice/download', [PackageBookingPageController::class, 'downloadInvoice'])->name('package-bookings.invoice.download');
     Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/surat-jalan', [BookingPageController::class, 'suratJalan'])->name('bookings.surat-jalan');
     Route::middleware(['jwt.auth', 'admin.role:admin'])->group(function () {

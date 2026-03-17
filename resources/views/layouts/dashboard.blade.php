@@ -17,6 +17,13 @@
             'active_patterns' => ['regular-bookings.*'],
         ],
         [
+            'route' => 'package-bookings.index',
+            'label' => 'Pengantaran Paket',
+            'testid' => 'nav-package-bookings',
+            'icon' => 'package',
+            'active_patterns' => ['package-bookings.*'],
+        ],
+        [
             'route' => 'bookings.index',
             'label' => 'Data Pemesanan',
             'testid' => 'nav-bookings',
