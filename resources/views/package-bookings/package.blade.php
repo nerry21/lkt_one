@@ -1,30 +1,36 @@
 @extends('layouts.dashboard')
 
+@php
+    $currentPackageSize = $packageSelectionState['package_size'] ?? '';
+    $currentSelectedSeats = $packageSelectionState['selected_seats'] ?? [];
+@endphp
+
 @section('content')
     <section
         class="regular-booking-page animate-fade-in"
-        data-package-size-page
         x-data="{
-            packageSize: '{{ $packageSelectionState['package_size'] }}',
-            requiresSeat: {{ $packageSelectionState['requires_seat'] ? 'true' : 'false' }},
-            selectedSeats: {{ json_encode($packageSelectionState['selected_seats']) }},
+            packageSize: '{{ $currentPackageSize }}',
+            requiresSeat: {{ ($currentPackageSize === 'Besar') ? 'true' : 'false' }},
+            selectedSeats: {{ json_encode($currentSelectedSeats) }},
+            init() {
+                this.requiresSeat = this.packageSize === 'Besar';
+            },
             selectPackage(size, requiresSeat) {
                 this.packageSize = size;
                 this.requiresSeat = requiresSeat;
                 if (!requiresSeat) {
                     this.selectedSeats = [];
+                    document.querySelectorAll('input[name=\'seat_codes[]\']').forEach(cb => cb.checked = false);
                 }
             },
             toggleSeat(code, occupied) {
                 if (occupied) return;
-                if (this.selectedSeats.includes(code)) {
-                    this.selectedSeats = this.selectedSeats.filter(s => s !== code);
+                const idx = this.selectedSeats.indexOf(code);
+                if (idx > -1) {
+                    this.selectedSeats.splice(idx, 1);
                 } else if (this.selectedSeats.length < 1) {
                     this.selectedSeats = [code];
                 }
-            },
-            isSeatSelected(code) {
-                return this.selectedSeats.includes(code);
             },
             canContinue() {
                 if (!this.packageSize) return false;
@@ -74,14 +80,8 @@
         @endif
 
         <div class="regular-booking-layout">
-            <form method="POST" action="{{ route('package-bookings.package.store') }}" class="regular-booking-form-card" x-ref="packageForm">
+            <form method="POST" action="{{ route('package-bookings.package.store') }}" class="regular-booking-form-card">
                 @csrf
-
-                {{-- Hidden fields --}}
-                <input type="hidden" name="package_size" :value="packageSize">
-                <template x-for="seat in selectedSeats" :key="seat">
-                    <input type="hidden" name="seat_codes[]" :value="seat">
-                </template>
 
                 {{-- Package Size Selection --}}
                 <section class="regular-booking-section">
@@ -97,12 +97,13 @@
                                 :class="{ 'is-selected': packageSize === '{{ $size['value'] }}' }"
                                 @click="selectPackage('{{ $size['value'] }}', {{ $size['requires_seat'] ? 'true' : 'false' }})"
                             >
+                                {{-- Real radio button that submits package_size --}}
                                 <input
                                     type="radio"
-                                    name="_package_size_display"
+                                    name="package_size"
                                     value="{{ $size['value'] }}"
-                                    x-bind:checked="packageSize === '{{ $size['value'] }}'"
-                                    style="display:none"
+                                    @checked($currentPackageSize === $size['value'])
+                                    x-on:change="selectPackage('{{ $size['value'] }}', {{ $size['requires_seat'] ? 'true' : 'false' }})"
                                 >
                                 <span class="regular-booking-radio-marker" aria-hidden="true"></span>
                                 <span class="regular-booking-radio-copy">
@@ -119,10 +120,10 @@
                 </section>
 
                 {{-- Seat Selection (only for Paket Besar) --}}
-                <section class="regular-booking-section" x-show="requiresSeat" x-transition>
+                <section class="regular-booking-section" x-show="requiresSeat" x-transition x-cloak>
                     <div class="regular-booking-section-head">
                         <h2>Pilih Tempat Duduk untuk Paket Besar</h2>
-                        <p>Pilih 1 kursi yang akan ditempati oleh paket besar Anda di kendaraan.</p>
+                        <p>Pilih 1 kursi yang akan ditempati oleh paket besar di kendaraan.</p>
                     </div>
 
                     <div class="regular-booking-seat-legend" aria-label="Status kursi">
@@ -158,24 +159,34 @@
                                                 </svg>
                                             </span>
                                             <div class="regular-booking-driver-wheel" aria-hidden="true">
-                                                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 5V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 13H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 13H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                                                <svg viewBox="0 0 24 24" fill="none">
+                                                    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8"/>
+                                                    <circle cx="12" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"/>
+                                                    <path d="M12 5V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                                    <path d="M6 13H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                                    <path d="M15 13H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                                </svg>
                                             </div>
                                             <span class="regular-booking-driver-label">{{ $seat['label'] }}</span>
                                         </article>
                                     @elseif ($seat['is_visible'] ?? true)
-                                        @php
-                                            $isOccupied = $seat['is_occupied'] ?? false;
-                                        @endphp
+                                        @php $isOccupied = $seat['is_occupied'] ?? false; @endphp
                                         <label
                                             class="regular-booking-seat-card"
                                             :class="{
-                                                'is-selected': isSeatSelected('{{ $seat['code'] }}'),
+                                                'is-selected': selectedSeats.includes('{{ $seat['code'] }}'),
                                                 'is-occupied': {{ $isOccupied ? 'true' : 'false' }}
                                             }"
                                             data-seat-area="{{ $seat['area'] }}"
-                                            @click.prevent="toggleSeat('{{ $seat['code'] }}', {{ $isOccupied ? 'true' : 'false' }})"
-                                            style="cursor: {{ $isOccupied ? 'not-allowed' : 'pointer' }}"
                                         >
+                                            <input
+                                                type="checkbox"
+                                                name="seat_codes[]"
+                                                value="{{ $seat['code'] }}"
+                                                @checked(in_array($seat['code'], $currentSelectedSeats))
+                                                @disabled($isOccupied)
+                                                x-on:change="toggleSeat('{{ $seat['code'] }}', {{ $isOccupied ? 'true' : 'false' }})"
+                                            >
                                             <span class="regular-booking-seat-card-shell" aria-hidden="true">
                                                 <svg viewBox="0 0 80 90" fill="none">
                                                     <path d="M24 18C24 12.4772 28.4772 8 34 8H46C51.5228 8 56 12.4772 56 18V27H58C63.5228 27 68 31.4772 68 37V58C68 69.0457 59.0457 78 48 78H32C20.9543 78 12 69.0457 12 58V37C12 31.4772 16.4772 27 22 27H24V18Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
@@ -195,7 +206,7 @@
                     <div class="regular-booking-seat-feedback" aria-live="polite">
                         <div class="regular-booking-seat-feedback-copy">
                             <strong x-text="selectedSeats.length === 1 ? 'Kursi terpilih: ' + selectedSeats.join(', ') : 'Pilih 1 kursi untuk paket besar'"></strong>
-                            <p>Paket besar memerlukan 1 kursi di kendaraan.</p>
+                            <p>Paket Besar memerlukan 1 kursi di kendaraan.</p>
                         </div>
                     </div>
 
@@ -210,7 +221,6 @@
                         class="dashboard-primary-button"
                         type="submit"
                         :disabled="!canContinue()"
-                        x-bind:class="{ 'opacity-50 cursor-not-allowed': !canContinue() }"
                     >
                         Lanjut ke Review
                     </button>
@@ -245,7 +255,7 @@
                             <span>Ukuran Paket</span>
                             <strong x-text="packageSize ? packageSize : 'Belum dipilih'"></strong>
                         </div>
-                        <div class="regular-booking-summary-item">
+                        <div class="regular-booking-summary-item" x-show="requiresSeat">
                             <span>Kursi Terpilih</span>
                             <strong x-text="selectedSeats.length > 0 ? selectedSeats.join(', ') : '-'"></strong>
                         </div>
