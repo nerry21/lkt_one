@@ -41,6 +41,7 @@ const state = {
     slotDriverMap: {},
     slotMobilMap: {},
     occupiedSeatsForForm: [],
+    occupiedSeatsForPackageForm: [],
     // Extra armadas added client-side per slot key (persists across renders until page reload)
     // { 'HH:MM__direction': maxArmadaIndex }
     slotExtraArmadas: {},
@@ -786,6 +787,52 @@ async function fetchOccupiedSeats() {
     }
 }
 
+async function fetchOccupiedSeatsForPackage() {
+    const tripDate    = document.getElementById('pkg-trip-date')?.value || '';
+    const tripTime    = document.getElementById('pkg-trip-time')?.value || '';
+    const fromCity    = document.getElementById('pkg-from-city')?.value || '';
+    const toCity      = document.getElementById('pkg-to-city')?.value || '';
+    const armadaIndex = parseInt(document.getElementById('package-armada-index')?.value || '1', 10);
+
+    if (!tripDate || !tripTime) {
+        state.occupiedSeatsForPackageForm = [];
+        renderPackageSeatOptions();
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime, armada_index: armadaIndex });
+        if (fromCity) params.set('from_city', fromCity);
+        if (toCity)   params.set('to_city', toCity);
+
+        const res = await apiRequest(`/bookings/occupied-seats?${params}`);
+        state.occupiedSeatsForPackageForm = Array.isArray(res?.occupied_seats) ? res.occupied_seats : [];
+    } catch {
+        state.occupiedSeatsForPackageForm = [];
+    }
+
+    renderPackageSeatOptions();
+}
+
+function renderPackageSeatOptions() {
+    const seatSelect = document.getElementById('pkg-seat-code');
+    if (!seatSelect) return;
+
+    const allSeats  = (state.formOptions?.seat_options || []).filter((s) => !s.is_optional);
+    const occupied  = state.occupiedSeatsForPackageForm || [];
+    const prevValue = seatSelect.value;
+
+    seatSelect.innerHTML = '<option value="">Pilih kursi</option>' +
+        allSeats.map((seat) => {
+            const isOccupied = occupied.includes(seat.code);
+            return `<option value="${escapeHtml(seat.code)}"${isOccupied ? ' disabled' : ''}>${escapeHtml(seat.label)}${isOccupied ? ' — Sudah dipesan' : ''}</option>`;
+        }).join('');
+
+    if (prevValue && !occupied.includes(prevValue)) {
+        seatSelect.value = prevValue;
+    }
+}
+
 function renderSeatButtons() {
     const seatButtons = document.querySelectorAll('[data-seat-code]');
     const currentPassengerCount = passengerCount();
@@ -1251,6 +1298,7 @@ export default function initBookingsPage({ user } = {}) {
         const banner = document.getElementById('package-form-success-banner');
         if (banner) banner.hidden = true;
         updatePackageTotal();
+        fetchOccupiedSeatsForPackage();
     }
 
     function updatePackageTotal() {
@@ -1279,6 +1327,11 @@ export default function initBookingsPage({ user } = {}) {
         const seatSelect = document.getElementById('pkg-seat-code');
         if (seatSelect && e.target.value !== 'Besar') seatSelect.value = '';
     });
+
+    document.getElementById('pkg-trip-date')?.addEventListener('change', () => { fetchOccupiedSeatsForPackage(); });
+    document.getElementById('pkg-trip-time')?.addEventListener('change', () => { fetchOccupiedSeatsForPackage(); });
+    document.getElementById('pkg-from-city')?.addEventListener('change', () => { fetchOccupiedSeatsForPackage(); });
+    document.getElementById('pkg-to-city')?.addEventListener('change',   () => { fetchOccupiedSeatsForPackage(); });
 
     document.getElementById('package-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
