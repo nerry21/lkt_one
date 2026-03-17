@@ -180,11 +180,17 @@ class BookingPageController extends Controller
             $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
             $tarifFinal     = round((float) ($booking->total_amount ?? 0) / $passengerCount);
 
+            $isPackage = ($booking->category ?? '') === 'Paket';
+            $notes     = $isPackage ? (array) json_decode((string) ($booking->notes ?? ''), true) : [];
+            $namaDisplay = $isPackage
+                ? (string) ($notes['item_name'] ?? $booking->passenger_name ?? '')
+                : (string) ($booking->passenger_name ?? '');
+
             if (empty($seats)) {
                 // No seat info — use booking-level data as single row
                 $rows[] = [
                     'kursi' => '-',
-                    'nama'  => (string) ($booking->passenger_name ?? ''),
+                    'nama'  => $namaDisplay,
                     'no_hp' => (string) ($booking->passenger_phone ?? ''),
                     'jemput'=> (string) ($booking->pickup_location ?? ''),
                     'tujuan'=> (string) ($booking->dropoff_location ?? ''),
@@ -195,7 +201,7 @@ class BookingPageController extends Controller
                     $pData = $passengerBySeat->get($seatCode);
                     $rows[] = [
                         'kursi' => (string) $seatCode,
-                        'nama'  => $pData['nama'] ?? (string) ($booking->passenger_name ?? ''),
+                        'nama'  => $isPackage ? $namaDisplay : ($pData['nama'] ?? (string) ($booking->passenger_name ?? '')),
                         'no_hp' => $pData['no_hp'] ?? (string) ($booking->passenger_phone ?? ''),
                         'jemput'=> (string) ($booking->pickup_location ?? ''),
                         'tujuan'=> (string) ($booking->dropoff_location ?? ''),
