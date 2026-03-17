@@ -18,6 +18,7 @@ import initRegularBookingsPage from './pages/regular-bookings/index';
 import initRegularBookingSeatsPage from './pages/regular-bookings/seats';
 import initQrScanPage from './pages/qr-scan/index';
 import initPassengerLktPage from './pages/passengers-lkt/index';
+import initCustomersPage from './pages/customers/index';
 
 const pageModules = {
     'admin-users/index': initAdminUsersPage,
@@ -32,6 +33,7 @@ const pageModules = {
     'stock/index': initStockPage,
     'qr-scan/index': initQrScanPage,
     'passengers-lkt/index': initPassengerLktPage,
+    'customers/index': initCustomersPage,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {

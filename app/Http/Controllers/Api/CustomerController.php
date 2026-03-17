@@ -53,11 +53,16 @@ class CustomerController extends Controller
         $page       = max(1, (int) $request->query('page', 1));
         $limit      = max(1, min(100, (int) $request->query('limit', 20)));
 
+        $discountEligible = $request->query('discount_eligible', '');
+        $hasPhone         = $request->query('has_phone', '');
+
         $query = Customer::query()
             ->withCount(['bookings as bookings_count'])
             ->when($search !== '', fn ($q) => $q->search($search))
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($confidence !== '', fn ($q) => $q->where('identity_confidence', $confidence))
+            ->when($discountEligible === '1', fn ($q) => $q->where('discount_eligible', true))
+            ->when($hasPhone === '1', fn ($q) => $q->withPhone())
             ->orderByDesc('total_trip_count')
             ->orderByDesc('created_at');
 
