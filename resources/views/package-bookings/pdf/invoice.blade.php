@@ -429,19 +429,19 @@
                         </td>
                     </tr>
                     <tr>
-                        <td height="38" style="border-bottom:1px solid #94a3b8;"></td>
-                        <td height="38" style="border-bottom:1px solid #94a3b8;"></td>
-                        <td height="38" style="border-bottom:1px solid #94a3b8;"></td>
+                        <td height="38"></td>
+                        <td height="38"></td>
+                        <td height="38"></td>
                     </tr>
                     <tr>
-                        <td style="text-align:center; font-size:9.5px; color:#64748b; padding-top:4px;">
-                            (....................)
+                        <td style="text-align:center; font-size:10px; font-weight:600; color:#1e293b; padding-top:4px;">
+                            ( {{ $invoiceState['recipient_name'] }} )
                         </td>
-                        <td style="text-align:center; font-size:9.5px; color:#64748b; padding-top:4px;">
-                            (....................)
+                        <td style="text-align:center; font-size:10px; font-weight:600; color:#1e293b; padding-top:4px;">
+                            ( Zizi )
                         </td>
-                        <td style="text-align:center; font-size:9.5px; color:#64748b; padding-top:4px;">
-                            (....................)
+                        <td style="text-align:center; font-size:10px; font-weight:600; color:#1e293b; padding-top:4px;">
+                            ( {{ $invoiceState['sender_name'] }} )
                         </td>
                     </tr>
                 </table>
@@ -492,7 +492,7 @@
                 <div style="margin-bottom:6px;">
                     <div style="display:inline-block; background:#facc15; color:#1e293b; font-size:9px; font-weight:800; padding:2px 8px; border-radius:3px; margin-bottom:3px;">PEKANBARU</div><br>
                     <div style="background:#0ea5e9; color:#fff; font-size:13px; font-weight:900; padding:4px 10px; border-radius:4px; display:inline-block;">
-                        &#128222; 0823-6421-0642
+                        0823-6421-0642
                     </div>
                 </div>
 
@@ -500,7 +500,7 @@
                 <div style="margin-bottom:10px;">
                     <div style="display:inline-block; background:#facc15; color:#1e293b; font-size:9px; font-weight:800; padding:2px 8px; border-radius:3px; margin-bottom:3px;">ROHUL</div><br>
                     <div style="background:#0ea5e9; color:#fff; font-size:13px; font-weight:900; padding:4px 10px; border-radius:4px; display:inline-block;">
-                        &#128222; 0823-1320-5885
+                        0823-1320-5885
                     </div>
                 </div>
 
