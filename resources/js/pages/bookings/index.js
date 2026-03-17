@@ -46,6 +46,9 @@ const state = {
     slotExtraArmadas: {},
     // Context for the currently open booking form
     currentFormArmadaIndex: 1,
+    // Pending choice for type-choice modal
+    _pendingChoiceArmada: 1,
+    _pendingChoiceTime: '',
 };
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
@@ -1097,7 +1100,7 @@ export default function initBookingsPage({ user } = {}) {
                 return;
             }
 
-            // "Tambah Armada" button: expand extra armada for this slot and open form
+            // "Tambah Armada" button: expand extra armada for this slot and show choice modal
             if (addArmadaBtn) {
                 const tripTime = addArmadaBtn.dataset.addArmada;
                 const currentArmadaIndex = parseInt(addArmadaBtn.dataset.armadaIndex || '1');
@@ -1123,20 +1126,22 @@ export default function initBookingsPage({ user } = {}) {
                 // Re-render slots to show new armada card
                 renderSlots();
 
-                // Open booking form pre-filled with new armada context
-                resetForm(newArmadaIndex, tripTime);
-                openModal('booking-form-modal');
+                // Show choice modal
+                state._pendingChoiceArmada = newArmadaIndex;
+                state._pendingChoiceTime = tripTime;
+                openModal('booking-type-choice-modal');
 
                 return;
             }
 
-            // Per-armada "Tambah Pemesanan" button within a card
+            // Per-armada "Tambah Pemesanan" button within a card — show choice modal
             if (slotBookBtn) {
                 const tripTime = slotBookBtn.dataset.slotBook;
                 const armadaIndex = parseInt(slotBookBtn.dataset.slotArmada || '1');
 
-                resetForm(armadaIndex, tripTime);
-                openModal('booking-form-modal');
+                state._pendingChoiceArmada = armadaIndex;
+                state._pendingChoiceTime = tripTime;
+                openModal('booking-type-choice-modal');
 
                 return;
             }
@@ -1216,10 +1221,117 @@ export default function initBookingsPage({ user } = {}) {
         }
     });
 
+    // ─── Package booking form logic ───────────────────────────────────────────
+
+    function resetPackageForm(armadaIndex = 1, tripTime = '') {
+        const form = document.getElementById('package-form');
+        if (form) form.reset();
+        const armadaInput = document.getElementById('package-armada-index');
+        if (armadaInput) armadaInput.value = String(armadaIndex);
+        const dateInput = document.getElementById('pkg-trip-date');
+        if (dateInput) dateInput.value = state.date;
+        const timeSelect = document.getElementById('pkg-trip-time');
+        if (timeSelect && tripTime) timeSelect.value = tripTime;
+        const bankGroup = document.getElementById('pkg-bank-account-group');
+        if (bankGroup) bankGroup.hidden = true;
+        const banner = document.getElementById('package-form-success-banner');
+        if (banner) banner.hidden = true;
+        updatePackageTotal();
+    }
+
+    function updatePackageTotal() {
+        const fare = parseInt(document.getElementById('pkg-fare-amount')?.value || '0', 10) || 0;
+        const extra = parseInt(document.getElementById('pkg-additional-fare')?.value || '0', 10) || 0;
+        const qty = parseInt(document.getElementById('pkg-item-qty')?.value || '1', 10) || 1;
+        const total = (fare + extra) * qty;
+        const display = document.getElementById('pkg-total-display');
+        if (display) {
+            display.value = total > 0 ? 'Rp ' + total.toLocaleString('id-ID') : '';
+        }
+    }
+
+    document.getElementById('pkg-fare-amount')?.addEventListener('input', updatePackageTotal);
+    document.getElementById('pkg-additional-fare')?.addEventListener('input', updatePackageTotal);
+    document.getElementById('pkg-item-qty')?.addEventListener('input', updatePackageTotal);
+
+    document.getElementById('pkg-payment-method')?.addEventListener('change', (e) => {
+        const bankGroup = document.getElementById('pkg-bank-account-group');
+        if (bankGroup) bankGroup.hidden = e.target.value !== 'transfer';
+    });
+
+    document.getElementById('package-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('package-submit-btn');
+        setButtonBusy(submitBtn, true, 'Menyimpan...');
+
+        try {
+            const fare = parseInt(document.getElementById('pkg-fare-amount')?.value || '0', 10) || 0;
+            const extra = parseInt(document.getElementById('pkg-additional-fare')?.value || '0', 10) || 0;
+            const qty = parseInt(document.getElementById('pkg-item-qty')?.value || '1', 10) || 1;
+            const paymentMethod = document.getElementById('pkg-payment-method')?.value || '';
+            const payload = {
+                armada_index: parseInt(document.getElementById('package-armada-index')?.value || '1', 10),
+                trip_date: document.getElementById('pkg-trip-date')?.value || '',
+                trip_time: document.getElementById('pkg-trip-time')?.value || '',
+                from_city: document.getElementById('pkg-from-city')?.value || '',
+                to_city: document.getElementById('pkg-to-city')?.value || '',
+                sender_name: document.getElementById('pkg-sender-name')?.value.trim() || '',
+                sender_phone: document.getElementById('pkg-sender-phone')?.value.trim() || '',
+                sender_address: document.getElementById('pkg-sender-address')?.value.trim() || '',
+                recipient_name: document.getElementById('pkg-recipient-name')?.value.trim() || '',
+                recipient_phone: document.getElementById('pkg-recipient-phone')?.value.trim() || '',
+                recipient_address: document.getElementById('pkg-recipient-address')?.value.trim() || '',
+                item_name: document.getElementById('pkg-item-name')?.value.trim() || '',
+                item_qty: qty,
+                package_size: document.getElementById('pkg-package-size')?.value || '',
+                fare_amount: fare,
+                additional_fare: extra,
+                payment_method: paymentMethod || null,
+                payment_status: document.getElementById('pkg-payment-status')?.value || 'Belum Bayar',
+                bank_account_code: paymentMethod === 'transfer'
+                    ? (document.getElementById('pkg-bank-account-code')?.value || '')
+                    : '',
+            };
+
+            const res = await apiRequest('/bookings/quick-package', { method: 'POST', body: payload });
+
+            // Show success banner with download link
+            const banner = document.getElementById('package-form-success-banner');
+            const codeEl = document.getElementById('package-form-booking-code');
+            const link = document.getElementById('package-form-download-link');
+            if (banner) banner.hidden = false;
+            if (codeEl) codeEl.textContent = 'Kode Booking: ' + res.booking_code + (res.invoice_number && res.invoice_number !== '-' ? ' | No. Surat: ' + res.invoice_number : '');
+            if (link) link.href = res.invoice_download_url;
+
+            toastSuccess('Paket berhasil disimpan: ' + res.booking_code);
+            await fetchAndRender();
+        } catch (error) {
+            toastError(error.message || 'Silakan periksa kembali data yang diinput', 'Gagal menyimpan paket');
+        } finally {
+            setButtonBusy(submitBtn, false, 'Menyimpan...');
+        }
+    });
+
+    // Choice modal buttons
+    document.getElementById('choice-passenger-btn')?.addEventListener('click', () => {
+        closeModal('booking-type-choice-modal');
+        resetForm(state._pendingChoiceArmada || 1, state._pendingChoiceTime || '');
+        openModal('booking-form-modal');
+    });
+
+    document.getElementById('choice-package-btn')?.addEventListener('click', () => {
+        closeModal('booking-type-choice-modal');
+        resetPackageForm(state._pendingChoiceArmada || 1, state._pendingChoiceTime || '');
+        openModal('package-form-modal');
+    });
+
+    // ─── End package booking form logic ───────────────────────────────────────
+
     // Add booking button (top-level, defaults to armada 1)
     addButton?.addEventListener('click', () => {
-        resetForm(1);
-        openModal('booking-form-modal');
+        state._pendingChoiceArmada = 1;
+        state._pendingChoiceTime = '';
+        openModal('booking-type-choice-modal');
     });
 
     // Booking form: seat grid clicks

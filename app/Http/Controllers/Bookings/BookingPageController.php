@@ -8,6 +8,8 @@ use App\Models\BookingPassenger;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Services\BookingManagementService;
+use App\Services\PackageBookingService;
+use App\Services\RegularBookingPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -139,6 +141,60 @@ class BookingPageController extends Controller
             'tickets' => $tickets,
             'booking' => $booking,
         ])->setPaper('a4')->download($fileName);
+    }
+
+    public function downloadSuratBukti(
+        Booking $booking,
+        PackageBookingService $packageService,
+        RegularBookingPaymentService $payments,
+    ): \Symfony\Component\HttpFoundation\Response {
+        $notes = [];
+        if ($booking->notes) {
+            $decoded = json_decode($booking->notes, true);
+            if (is_array($decoded)) {
+                $notes = $decoded;
+            }
+        }
+
+        $transactionDate = $booking->paid_at ?? $booking->updated_at ?? $booking->created_at;
+
+        $invoiceState = [
+            'booking_code'            => $booking->booking_code,
+            'invoice_number'          => $booking->invoice_number ?: '-',
+            'payment_reference'       => $booking->payment_reference ?: '-',
+            'payment_method'          => $payments->paymentMethodLabel($booking->payment_method),
+            'payment_status'          => (string) $booking->payment_status,
+            'booking_status'          => (string) $booking->booking_status,
+            'from_city'               => (string) $booking->from_city,
+            'to_city'                 => (string) $booking->to_city,
+            'route_label'             => (string) $booking->route_label,
+            'trip_date'               => $booking->trip_date?->format('d M Y') ?? '-',
+            'trip_time'               => $booking->time ?? '-',
+            'sender_name'             => (string) $booking->passenger_name,
+            'sender_phone'            => (string) $booking->passenger_phone,
+            'sender_address'          => (string) $booking->pickup_location,
+            'recipient_name'          => (string) ($notes['recipient_name'] ?? '-'),
+            'recipient_phone'         => (string) ($notes['recipient_phone'] ?? '-'),
+            'recipient_address'       => (string) $booking->dropoff_location,
+            'item_name'               => (string) ($notes['item_name'] ?? '-'),
+            'item_qty'                => (int) ($notes['item_qty'] ?? $booking->passenger_count ?? 1),
+            'package_size'            => (string) ($notes['package_size'] ?? $booking->booking_for ?? '-'),
+            'package_size_label'      => $packageService->packageSizeLabel((string) ($notes['package_size'] ?? $booking->booking_for ?? '')),
+            'selected_seats_label'    => $packageService->selectedSeatLabels((array) ($booking->selected_seats ?? [])),
+            'fare_amount_formatted'   => $packageService->formatCurrency((int) ($booking->price_per_seat ?? 0)),
+            'total_amount_formatted'  => $packageService->formatCurrency((int) ($booking->total_amount ?? 0)),
+            'nominal_payment_formatted' => $packageService->formatCurrency((int) round((float) ($booking->nominal_payment ?? 0))),
+            'payment_account_label'   => $booking->payment_account_bank && $booking->payment_account_number
+                ? $booking->payment_account_bank . ' - ' . $booking->payment_account_number
+                : 'Tidak diperlukan',
+            'transaction_date_label'  => $transactionDate?->format('d M Y H:i') ?? '-',
+        ];
+
+        $fileName = ($invoiceState['invoice_number'] !== '-' ? $invoiceState['invoice_number'] : $booking->booking_code) . '.pdf';
+
+        return Pdf::loadView('package-bookings.pdf.invoice', [
+            'invoiceState' => $invoiceState,
+        ])->setPaper('a4', 'landscape')->download($fileName);
     }
 
     public function suratJalan(Request $request): \Symfony\Component\HttpFoundation\Response

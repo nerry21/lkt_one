@@ -397,6 +397,260 @@
             </div>
         </div>
 
+        {{-- Choice Modal: Penumpang vs Paket --}}
+        <div class="modal-shell" id="booking-type-choice-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="booking-type-choice-modal"></div>
+            <div class="modal-card admin-users-dialog-card" style="max-width:420px;">
+                <div class="admin-users-dialog-head">
+                    <div>
+                        <h3>Tambah Pemesanan</h3>
+                        <p>Pilih jenis pemesanan yang ingin ditambahkan.</p>
+                    </div>
+                    <button type="button" class="admin-users-dialog-close" data-modal-close="booking-type-choice-modal" aria-label="Tutup">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0 8px;">
+                    <button class="admin-users-primary-button" type="button" id="choice-passenger-btn" style="justify-content:flex-start;gap:12px;padding:14px 18px;">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px;flex-shrink:0;"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20C4 17.2386 7.58172 15 12 15C16.4183 15 20 17.2386 20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        <span>
+                            <strong style="display:block;">Pemesanan Penumpang</strong>
+                            <small style="font-weight:400;opacity:.8;">Form reguler kursi &amp; penumpang</small>
+                        </span>
+                    </button>
+                    <button class="admin-users-secondary-button" type="button" id="choice-package-btn" style="justify-content:flex-start;gap:12px;padding:14px 18px;">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:20px;height:20px;flex-shrink:0;"><rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M9 8V6a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 13h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        <span>
+                            <strong style="display:block;">Pengirim Paket</strong>
+                            <small style="font-weight:400;opacity:.8;">Surat Bukti Pengiriman Barang</small>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{-- Package Booking Modal --}}
+        <div class="modal-shell" id="package-form-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="package-form-modal"></div>
+            <div class="modal-card admin-users-dialog-card bookings-form-dialog-card">
+                <div class="admin-users-dialog-head">
+                    <div>
+                        <h3>Pengirim Paket</h3>
+                        <p id="package-form-description">Lengkapi data pengiriman paket. Surat Bukti Pengiriman tersedia setelah disimpan.</p>
+                    </div>
+                    <button type="button" class="admin-users-dialog-close" data-modal-close="package-form-modal" aria-label="Tutup">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 6L18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+
+                <div id="package-form-success-banner" hidden style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:14px 16px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px;">
+                    <strong style="color:#065f46;">Paket berhasil disimpan!</strong>
+                    <p id="package-form-booking-code" style="color:#065f46;margin:0;font-size:0.875rem;"></p>
+                    <a id="package-form-download-link" href="#" target="_blank" class="admin-users-secondary-button" style="display:inline-flex;align-items:center;gap:6px;width:fit-content;">
+                        <svg viewBox="0 0 24 24" fill="none" style="width:15px;height:15px;"><path d="M12 3v13M7 11l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                        Download Surat Bukti Pengiriman
+                    </a>
+                </div>
+
+                <form id="package-form" class="admin-users-form bookings-form">
+                    <input type="hidden" id="package-armada-index" name="armada_index" value="1">
+
+                    <div class="bookings-form-section">
+                        <div class="bookings-form-section-head">
+                            <h4>Informasi Pengiriman</h4>
+                        </div>
+                        <div class="admin-users-form-grid">
+                            <div class="admin-users-form-group">
+                                <label for="pkg-trip-date">Tanggal Keberangkatan</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-trip-date" name="trip_date" type="date" required>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-trip-time">Jam Keberangkatan</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-trip-time" name="trip_time" required>
+                                        <option value="">Pilih jam keberangkatan</option>
+                                        @foreach ($departureTimeOptions as $option)
+                                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-from-city">Kota Asal</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-from-city" name="from_city" required>
+                                        <option value="">Pilih kota asal</option>
+                                        @foreach ($locationOptions as $location)
+                                            <option value="{{ $location }}">{{ $location }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-to-city">Kota Tujuan</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-to-city" name="to_city" required>
+                                        <option value="">Pilih kota tujuan</option>
+                                        @foreach ($locationOptions as $location)
+                                            <option value="{{ $location }}">{{ $location }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bookings-form-section">
+                        <div class="bookings-form-section-head">
+                            <h4>Data Pengirim</h4>
+                        </div>
+                        <div class="admin-users-form-grid">
+                            <div class="admin-users-form-group">
+                                <label for="pkg-sender-name">Nama Pengirim</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-sender-name" name="sender_name" type="text" required placeholder="Nama lengkap pengirim">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-sender-phone">No. HP Pengirim</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-sender-phone" name="sender_phone" type="text" placeholder="08xxxxxxxxxx">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group admin-users-form-group--full">
+                                <label for="pkg-sender-address">Alamat Pengirim</label>
+                                <div class="admin-users-input-shell">
+                                    <textarea id="pkg-sender-address" name="sender_address" rows="2" required placeholder="Alamat lengkap pengirim"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bookings-form-section">
+                        <div class="bookings-form-section-head">
+                            <h4>Data Penerima</h4>
+                        </div>
+                        <div class="admin-users-form-grid">
+                            <div class="admin-users-form-group">
+                                <label for="pkg-recipient-name">Nama Penerima</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-recipient-name" name="recipient_name" type="text" required placeholder="Nama lengkap penerima">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-recipient-phone">No. HP Penerima</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-recipient-phone" name="recipient_phone" type="text" placeholder="08xxxxxxxxxx">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group admin-users-form-group--full">
+                                <label for="pkg-recipient-address">Alamat Penerima</label>
+                                <div class="admin-users-input-shell">
+                                    <textarea id="pkg-recipient-address" name="recipient_address" rows="2" required placeholder="Alamat lengkap penerima"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bookings-form-section">
+                        <div class="bookings-form-section-head">
+                            <h4>Detail Barang &amp; Ongkos</h4>
+                        </div>
+                        <div class="admin-users-form-grid">
+                            <div class="admin-users-form-group">
+                                <label for="pkg-item-name">Nama Barang</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-item-name" name="item_name" type="text" required placeholder="Contoh: Beras, Pakaian, dll">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-item-qty">Jumlah</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-item-qty" name="item_qty" type="number" min="1" value="1" required>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-package-size">Ukuran Paket</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-package-size" name="package_size" required>
+                                        <option value="">Pilih ukuran</option>
+                                        <option value="Kecil">Kecil — Dokumen, makanan, barang kecil</option>
+                                        <option value="Sedang">Sedang — Tas, koper kecil, barang sedang</option>
+                                        <option value="Besar">Besar — Barang besar (gunakan 1 kursi)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-fare-amount">Ongkos Tarif (Rp)</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-fare-amount" name="fare_amount" type="number" min="0" step="1000" value="0" required placeholder="0">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-additional-fare">Ongkos Tambahan (Rp)</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-additional-fare" name="additional_fare" type="number" min="0" step="1000" value="0" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label>Total Ongkos</label>
+                                <div class="admin-users-input-shell">
+                                    <input id="pkg-total-display" type="text" readonly placeholder="Dihitung otomatis">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bookings-form-section">
+                        <div class="bookings-form-section-head">
+                            <h4>Pembayaran</h4>
+                        </div>
+                        <div class="admin-users-form-grid">
+                            <div class="admin-users-form-group">
+                                <label for="pkg-payment-method">Metode Pembayaran</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-payment-method" name="payment_method">
+                                        <option value="">Belum dipilih</option>
+                                        @foreach ($paymentMethodOptions as $option)
+                                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group" id="pkg-bank-account-group" hidden>
+                                <label for="pkg-bank-account-code">Rekening Transfer</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-bank-account-code" name="bank_account_code">
+                                        <option value="">Pilih rekening</option>
+                                        @foreach ($transferBankAccountOptions as $option)
+                                            <option value="{{ $option['code'] }}">{{ $option['bank_name'] }} - {{ $option['account_number'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="admin-users-form-group">
+                                <label for="pkg-payment-status">Status Pembayaran</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-payment-status" name="payment_status" required>
+                                        @foreach ($paymentStatusOptions as $option)
+                                            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-users-dialog-actions">
+                        <button class="admin-users-secondary-button" type="button" data-modal-close="package-form-modal">Batal</button>
+                        <button class="admin-users-primary-button" type="submit" id="package-submit-btn">Simpan Paket</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         {{-- Delete Booking Modal --}}
         <div class="modal-shell" id="booking-delete-modal" hidden>
             <div class="modal-backdrop" data-modal-close="booking-delete-modal"></div>

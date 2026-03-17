@@ -49,6 +49,7 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/package-bookings/invoice/download', [PackageBookingPageController::class, 'downloadInvoice'])->name('package-bookings.invoice.download');
     Route::get('/bookings', [BookingPageController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/surat-jalan', [BookingPageController::class, 'suratJalan'])->name('bookings.surat-jalan');
+    Route::get('/bookings/{booking}/surat-bukti', [BookingPageController::class, 'downloadSuratBukti'])->name('bookings.surat-bukti');
     Route::middleware(['jwt.auth', 'admin.role:admin'])->group(function () {
         Route::get('/bookings/{booking}', [BookingPageController::class, 'show'])->name('bookings.show');
     });

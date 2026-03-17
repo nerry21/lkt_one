@@ -4,13 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Http\Requests\Booking\StoreQuickPackageBookingRequest;
 use App\Http\Requests\Booking\UpdateBookingRequest;
 use App\Models\Booking;
 use App\Models\BookingArmadaExtra;
 use App\Models\User;
 use App\Services\BookingManagementService;
+use App\Services\PackageBookingService;
+use App\Services\RegularBookingPaymentService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class BookingController extends Controller
@@ -233,6 +239,150 @@ class BookingController extends Controller
         }
 
         return response()->json(['max_armada_index' => $extra->max_armada_index]);
+    }
+
+    public function quickPackageStore(
+        StoreQuickPackageBookingRequest $request,
+        PackageBookingService $packageService,
+        RegularBookingPaymentService $payments,
+    ): JsonResponse {
+        $this->actor($request);
+        $v = $request->validated();
+
+        $fareAmount     = (int) $v['fare_amount'];
+        $additionalFare = (int) ($v['additional_fare'] ?? 0);
+        $itemQty        = (int) ($v['item_qty'] ?? 1);
+        $totalAmount    = ($fareAmount + $additionalFare) * $itemQty;
+        $paymentMethod  = (string) ($v['payment_method'] ?? '');
+        $paymentStatus  = (string) $v['payment_status'];
+        $paidStatuses   = ['Dibayar', 'Dibayar Tunai'];
+        $isPaid         = in_array($paymentStatus, $paidStatuses, true);
+
+        $bankAccount = $paymentMethod === 'transfer'
+            ? $payments->bankAccountByCode($v['bank_account_code'] ?? null)
+            : null;
+
+        $notes = json_encode([
+            'recipient_name'  => trim((string) ($v['recipient_name'] ?? '')),
+            'recipient_phone' => trim((string) ($v['recipient_phone'] ?? '')),
+            'item_name'       => trim((string) ($v['item_name'] ?? '')),
+            'item_qty'        => $itemQty,
+            'package_size'    => trim((string) ($v['package_size'] ?? '')),
+        ], JSON_UNESCAPED_UNICODE);
+
+        $bookingCode = $this->generateUniquePackageCode('booking_code', 'PKT');
+        $requiresDocs = $paymentMethod !== '' || $paymentStatus !== 'Belum Bayar';
+
+        $booking = new Booking();
+        $booking->booking_code = $bookingCode;
+        $booking->fill([
+            'category'             => 'Paket',
+            'from_city'            => trim((string) $v['from_city']),
+            'to_city'              => trim((string) $v['to_city']),
+            'trip_date'            => $v['trip_date'],
+            'trip_time'            => $this->normalizeTripTime((string) $v['trip_time']),
+            'booking_for'          => trim((string) $v['package_size']),
+            'passenger_name'       => trim((string) $v['sender_name']),
+            'passenger_phone'      => trim((string) ($v['sender_phone'] ?? '')),
+            'passenger_count'      => $itemQty,
+            'pickup_location'      => trim((string) $v['sender_address']),
+            'dropoff_location'     => trim((string) $v['recipient_address']),
+            'selected_seats'       => [],
+            'price_per_seat'       => $fareAmount,
+            'total_amount'         => $totalAmount,
+            'nominal_payment'      => $requiresDocs ? $totalAmount : null,
+            'route_label'          => trim((string) $v['from_city']) . ' - ' . trim((string) $v['to_city']),
+            'armada_index'         => max(1, (int) ($v['armada_index'] ?? 1)),
+            'payment_method'       => $paymentMethod !== '' ? $paymentMethod : null,
+            'payment_account_bank'   => $bankAccount['bank_name'] ?? null,
+            'payment_account_name'   => $bankAccount['account_holder'] ?? null,
+            'payment_account_number' => $bankAccount['account_number'] ?? null,
+            'payment_status'       => $paymentStatus,
+            'booking_status'       => $isPaid ? 'Diproses' : 'Draft',
+            'ticket_status'        => $isPaid ? 'Aktif' : 'Draft',
+            'paid_at'              => $isPaid ? now() : null,
+            'invoice_number'       => $requiresDocs ? $this->generateUniquePackageCode('invoice_number', 'SBB') : null,
+            'notes'                => $notes,
+        ]);
+        $booking->save();
+
+        return response()->json([
+            'id'                   => $booking->getKey(),
+            'booking_code'         => $booking->booking_code,
+            'invoice_number'       => $booking->invoice_number ?? '-',
+            'invoice_download_url' => '/dashboard/bookings/' . $booking->getKey() . '/surat-bukti',
+        ], 201);
+    }
+
+    public function downloadPackageInvoiceById(
+        Request $request,
+        string $booking,
+        PackageBookingService $packageService,
+        RegularBookingPaymentService $payments,
+    ): Response {
+        $record = $this->findBooking($booking);
+
+        $notes = [];
+        if ($record->notes) {
+            $decoded = json_decode($record->notes, true);
+            if (is_array($decoded)) {
+                $notes = $decoded;
+            }
+        }
+
+        $transactionDate = $record->paid_at ?? $record->updated_at ?? $record->created_at;
+
+        $invoiceState = [
+            'booking_code'            => $record->booking_code,
+            'invoice_number'          => $record->invoice_number ?: '-',
+            'payment_reference'       => $record->payment_reference ?: '-',
+            'payment_method'          => $payments->paymentMethodLabel($record->payment_method),
+            'payment_status'          => (string) $record->payment_status,
+            'booking_status'          => (string) $record->booking_status,
+            'from_city'               => (string) $record->from_city,
+            'to_city'                 => (string) $record->to_city,
+            'route_label'             => (string) $record->route_label,
+            'trip_date'               => $record->trip_date?->format('d M Y') ?? '-',
+            'trip_time'               => $record->time ?? '-',
+            'sender_name'             => (string) $record->passenger_name,
+            'sender_phone'            => (string) $record->passenger_phone,
+            'sender_address'          => (string) $record->pickup_location,
+            'recipient_name'          => (string) ($notes['recipient_name'] ?? '-'),
+            'recipient_phone'         => (string) ($notes['recipient_phone'] ?? '-'),
+            'recipient_address'       => (string) $record->dropoff_location,
+            'item_name'               => (string) ($notes['item_name'] ?? '-'),
+            'item_qty'                => (int) ($notes['item_qty'] ?? $record->passenger_count ?? 1),
+            'package_size'            => (string) ($notes['package_size'] ?? $record->booking_for ?? '-'),
+            'package_size_label'      => $packageService->packageSizeLabel((string) ($notes['package_size'] ?? $record->booking_for ?? '')),
+            'selected_seats_label'    => $packageService->selectedSeatLabels((array) ($record->selected_seats ?? [])),
+            'fare_amount_formatted'   => $packageService->formatCurrency((int) ($record->price_per_seat ?? 0)),
+            'total_amount_formatted'  => $packageService->formatCurrency((int) ($record->total_amount ?? 0)),
+            'nominal_payment_formatted' => $packageService->formatCurrency((int) round((float) ($record->nominal_payment ?? 0))),
+            'payment_account_label'   => $record->payment_account_bank && $record->payment_account_number
+                ? $record->payment_account_bank . ' - ' . $record->payment_account_number
+                : 'Tidak diperlukan',
+            'transaction_date_label'  => $transactionDate?->format('d M Y H:i') ?? '-',
+        ];
+
+        $fileName = ($invoiceState['invoice_number'] !== '-' ? $invoiceState['invoice_number'] : $record->booking_code) . '.pdf';
+
+        return Pdf::loadView('package-bookings.pdf.invoice', [
+            'invoiceState' => $invoiceState,
+        ])->setPaper('a4', 'landscape')->download($fileName);
+    }
+
+    private function generateUniquePackageCode(string $column, string $prefix): string
+    {
+        do {
+            $code = $prefix . '-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
+        } while (Booking::query()->where($column, $code)->exists());
+
+        return $code;
+    }
+
+    private function normalizeTripTime(string $value): string
+    {
+        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
     public function destroy(Request $request, string $booking, BookingManagementService $service): JsonResponse

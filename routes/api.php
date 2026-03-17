@@ -26,8 +26,10 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
         Route::get('/bookings/armada-extras', [BookingController::class, 'armadaExtras'])->name('api.bookings.armada-extras');
         Route::post('/bookings/armada-extras', [BookingController::class, 'upsertArmadaExtra'])->name('api.bookings.armada-extras.upsert');
         Route::patch('/bookings/slot-assign', [BookingController::class, 'slotAssign'])->name('api.bookings.slot-assign');
+        Route::post('/bookings/quick-package', [BookingController::class, 'quickPackageStore'])->name('api.bookings.quick-package');
         Route::patch('/bookings/{booking}/validate-payment', [BookingController::class, 'validatePayment'])->name('api.bookings.validate-payment');
         Route::patch('/bookings/{booking}/departure-status', [BookingController::class, 'updateDepartureStatus'])->name('api.bookings.departure-status');
+        Route::get('/bookings/{booking}/surat-bukti', [BookingController::class, 'downloadPackageInvoiceById'])->name('api.bookings.surat-bukti');
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('api.bookings.show');
         Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('api.bookings.update');
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('api.bookings.destroy');
