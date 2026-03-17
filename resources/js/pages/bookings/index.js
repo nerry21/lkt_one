@@ -28,7 +28,7 @@ const TOTAL_PASSENGER_SEATS = SEAT_ROWS.flat().filter((s) => !s.isDriver).length
 const state = {
     currentUser: null,
     date: todayString(),
-    direction: 'to_pkb',
+    direction: 'from_pkb',
     bookings: [],
     loading: false,
     drivers: [],
@@ -962,7 +962,7 @@ export default function initBookingsPage({ user } = {}) {
         return;
     }
 
-    if (routeTabs) { routeTabs.hidden = false; }
+    // Tab bar stays hidden — only from_pkb direction is used
     if (slotsShell) { slotsShell.hidden = false; }
     const accessNote = document.getElementById('bookings-access-note');
     if (accessNote) { accessNote.hidden = true; }
