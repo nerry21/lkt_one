@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\Customer;
+use App\Services\CustomerLoyaltyService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,6 +13,7 @@ class RegularBookingPersistenceService
 {
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
+        private readonly CustomerLoyaltyService  $loyaltyService,
     ) {}
 
     public function currentDraftBooking(Session $session, RegularBookingDraftService $drafts): ?Booking
@@ -171,6 +174,10 @@ class RegularBookingPersistenceService
 
         $booking->save();
 
+        // Hitung ulang loyalty customer saat pembayaran dikonfirmasi.
+        // booking_status berubah ke Diproses / Menunggu Verifikasi → trip count berubah.
+        $this->recalculateCustomerLoyalty($booking);
+
         return $booking->fresh('passengers');
     }
 
@@ -206,6 +213,26 @@ class RegularBookingPersistenceService
         }
 
         return $booking->fresh('passengers');
+    }
+
+    /**
+     * Hitung ulang loyalty customer yang terkait dengan booking ini.
+     * Dijalankan fire-and-forget — error tidak memblokir alur booking.
+     */
+    private function recalculateCustomerLoyalty(Booking $booking): void
+    {
+        if (! $booking->customer_id) {
+            return;
+        }
+
+        try {
+            $customer = Customer::find($booking->customer_id);
+            if ($customer instanceof Customer) {
+                $this->loyaltyService->recalculateForCustomer($customer);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function generateBookingCode(): string

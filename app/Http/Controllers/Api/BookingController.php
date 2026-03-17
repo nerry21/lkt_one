@@ -10,6 +10,8 @@ use App\Models\Booking;
 use App\Models\BookingArmadaExtra;
 use App\Models\User;
 use App\Services\BookingManagementService;
+use App\Services\CustomerLoyaltyService;
+use App\Services\CustomerResolverService;
 use App\Services\PackageBookingService;
 use App\Services\RegularBookingPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -134,6 +136,40 @@ class BookingController extends Controller
             'validated_at'     => now(),
             'validation_notes' => $notes !== '' ? $notes : null,
         ]))->save();
+
+        // Saat pembayaran dikonfirmasi lunas → pastikan customer record ada dan
+        // hitung ulang loyalty (total_trip_count) agar Data Pelanggan langsung update.
+        if ($action === 'lunas') {
+            try {
+                $resolver = app(CustomerResolverService::class);
+                $loyalty  = app(CustomerLoyaltyService::class);
+
+                // Pastikan customer_id sudah terisi — resolve jika belum ada
+                if (! $record->customer_id) {
+                    $customer = $resolver->resolve(
+                        $record->passenger_phone,
+                        (string) ($record->passenger_name ?? ''),
+                        (int) $record->id,
+                    );
+                    if ($customer) {
+                        $record->customer_id = $customer->id;
+                        $record->saveQuietly();
+                    }
+                }
+
+                if ($record->customer_id) {
+                    $customer = $record->customer_id instanceof \App\Models\Customer
+                        ? $record->customer_id
+                        : \App\Models\Customer::find($record->customer_id);
+
+                    if ($customer) {
+                        $loyalty->recalculateForCustomer($customer);
+                    }
+                }
+            } catch (\Throwable $e) {
+                report($e); // Jangan block response ke frontend
+            }
+        }
 
         return response()->json([
             'message' => match ($action) {
