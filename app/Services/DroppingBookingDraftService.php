@@ -43,18 +43,18 @@ class DroppingBookingDraftService
         return is_numeric($bookingId) ? (int) $bookingId : null;
     }
 
-    public function fromValidated(array $validated, int $fareAmount, int $additionalFarePerPassenger = 0): array
+    public function fromValidated(array $validated, int $fareAmount, int $additionalFare = 0): array
     {
         return $this->normalizeDraft([
-            'trip_date'                    => $validated['trip_date'],
-            'booking_type'                 => $validated['booking_type'],
-            'pickup_location'              => $validated['pickup_location'],
-            'destination_location'         => $validated['destination_location'],
-            'departure_time'               => $validated['departure_time'],
-            'fare_amount'                  => $fareAmount,
-            'additional_fare_per_passenger'=> $additionalFarePerPassenger,
-            'pickup_address'               => $validated['pickup_address'],
-            'dropoff_address'              => $validated['dropoff_address'],
+            'trip_date'        => $validated['trip_date'],
+            'booking_type'     => $validated['booking_type'],
+            'pickup_location'  => $validated['pickup_location'],
+            'destination_location' => $validated['destination_location'],
+            'departure_time'   => $validated['departure_time'],
+            'fare_amount'      => $fareAmount,
+            'additional_fare'  => $additionalFare,
+            'pickup_address'   => $validated['pickup_address'],
+            'dropoff_address'  => $validated['dropoff_address'],
         ]);
     }
 
@@ -76,49 +76,45 @@ class DroppingBookingDraftService
 
     public function buildFormState(Request $request, array $draft, DroppingBookingService $service): array
     {
-        $fareAmount = (int) $request->old('fare_amount', $draft['fare_amount'] ?? 0);
-        $additionalFare = max((int) $request->old('additional_fare_per_passenger', $draft['additional_fare_per_passenger'] ?? 0), 0);
-        $total = ($fareAmount + $additionalFare) * 6;
+        $fareAmount     = (int) $request->old('fare_amount', $draft['fare_amount'] ?? 0);
+        $additionalFare = max((int) $request->old('additional_fare', $draft['additional_fare'] ?? 0), 0);
+        $total          = $fareAmount + $additionalFare;
 
         return [
-            'trip_date'                    => (string) $request->old('trip_date', $draft['trip_date'] ?? now()->toDateString()),
-            'booking_type'                 => (string) $request->old('booking_type', $draft['booking_type'] ?? 'self'),
-            'pickup_location'              => (string) $request->old('pickup_location', $draft['pickup_location'] ?? ''),
-            'destination_location'         => (string) $request->old('destination_location', $draft['destination_location'] ?? ''),
-            'departure_time'               => (string) $request->old('departure_time', $draft['departure_time'] ?? ''),
-            'fare_amount'                  => $fareAmount,
-            'fare_amount_formatted'        => $fareAmount > 0 ? $service->formatCurrency($fareAmount) : '',
-            'additional_fare_per_passenger'=> $additionalFare,
-            'estimated_total_formatted'    => $total > 0 ? $service->formatCurrency($total) : '',
-            'pickup_address'               => (string) $request->old('pickup_address', $draft['pickup_address'] ?? ''),
-            'dropoff_address'              => (string) $request->old('dropoff_address', $draft['dropoff_address'] ?? ''),
+            'trip_date'             => (string) $request->old('trip_date', $draft['trip_date'] ?? now()->toDateString()),
+            'booking_type'          => (string) $request->old('booking_type', $draft['booking_type'] ?? 'self'),
+            'pickup_location'       => (string) $request->old('pickup_location', $draft['pickup_location'] ?? ''),
+            'destination_location'  => (string) $request->old('destination_location', $draft['destination_location'] ?? ''),
+            'departure_time'        => (string) $request->old('departure_time', $draft['departure_time'] ?? ''),
+            'fare_amount'           => $fareAmount,
+            'fare_amount_formatted' => $fareAmount > 0 ? $service->formatCurrency($fareAmount) : '',
+            'additional_fare'       => $additionalFare,
+            'estimated_total_formatted' => $total > 0 ? $service->formatCurrency($total) : '',
+            'pickup_address'        => (string) $request->old('pickup_address', $draft['pickup_address'] ?? ''),
+            'dropoff_address'       => (string) $request->old('dropoff_address', $draft['dropoff_address'] ?? ''),
         ];
     }
 
     public function buildSummary(array $draft, DroppingBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $fareAmount = $normalizedDraft['fare_amount'];
-        $additionalFarePerPassenger = $normalizedDraft['additional_fare_per_passenger'];
-        $estimatedTotal = ($fareAmount + $additionalFarePerPassenger) * 6;
+        $fareAmount      = $normalizedDraft['fare_amount'];
+        $additionalFare  = $normalizedDraft['additional_fare'];
+        $estimatedTotal  = $fareAmount + $additionalFare;
 
         return [
-            'booking_type'                  => $service->bookingTypeLabel($normalizedDraft['booking_type']),
-            'route'                         => $normalizedDraft['pickup_location'] !== '' && $normalizedDraft['destination_location'] !== ''
+            'booking_type'   => $service->bookingTypeLabel($normalizedDraft['booking_type']),
+            'route'          => $normalizedDraft['pickup_location'] !== '' && $normalizedDraft['destination_location'] !== ''
                 ? $normalizedDraft['pickup_location'] . ' → ' . $normalizedDraft['destination_location']
                 : 'Belum diisi',
-            'departure_time'                => $normalizedDraft['departure_time'] !== ''
+            'departure_time' => $normalizedDraft['departure_time'] !== ''
                 ? $normalizedDraft['departure_time'] . ' WIB'
                 : 'Belum diisi',
-            'passenger_count'               => '6 Penumpang (Semua Kursi)',
-            'fare_amount'                   => $fareAmount > 0 ? $service->formatCurrency($fareAmount) : 'Belum diisi',
-            'additional_fare_per_passenger' => $additionalFarePerPassenger > 0
-                ? $service->formatCurrency($additionalFarePerPassenger)
-                : 'Tidak ada',
-            'selected_seats'                => $service->selectedDroppingSeatLabels(),
-            'estimated_total'               => $estimatedTotal > 0
-                ? $service->formatCurrency($estimatedTotal)
-                : 'Belum tersedia',
+            'passenger_count'   => '6 Penumpang (Semua Kursi)',
+            'fare_amount'       => $fareAmount > 0 ? $service->formatCurrency($fareAmount) : 'Belum diisi',
+            'additional_fare'   => $additionalFare > 0 ? $service->formatCurrency($additionalFare) : 'Tidak ada',
+            'selected_seats'    => $service->selectedDroppingSeatLabels(),
+            'estimated_total'   => $estimatedTotal > 0 ? $service->formatCurrency($estimatedTotal) : 'Belum tersedia',
         ];
     }
 
@@ -141,34 +137,34 @@ class DroppingBookingDraftService
     public function buildReviewState(array $draft, DroppingBookingService $service): array
     {
         $normalizedDraft = $this->normalizeDraft($draft);
-        $allSeatCodes = $service->allSeatCodes();
-        $passengers = $this->normalizePassengers($normalizedDraft['passengers'], $allSeatCodes, $service);
-        $fareAmount = $normalizedDraft['fare_amount'];
-        $additionalFarePerPassenger = $normalizedDraft['additional_fare_per_passenger'];
-        $totalAmount = ($fareAmount + $additionalFarePerPassenger) * 6;
+        $allSeatCodes    = $service->allSeatCodes();
+        $passengers      = $this->normalizePassengers($normalizedDraft['passengers'], $allSeatCodes, $service);
+        $fareAmount      = $normalizedDraft['fare_amount'];
+        $additionalFare  = $normalizedDraft['additional_fare'];
+        $totalAmount     = $fareAmount + $additionalFare;
 
         return [
-            'trip_date'                              => $normalizedDraft['trip_date'],
-            'booking_type'                           => $service->bookingTypeLabel($normalizedDraft['booking_type']),
-            'pickup_location'                        => $normalizedDraft['pickup_location'],
-            'destination_location'                   => $normalizedDraft['destination_location'],
-            'departure_time'                         => $normalizedDraft['departure_time'] . ' WIB',
-            'departure_time_value'                   => $normalizedDraft['departure_time'],
-            'passenger_count'                        => 6,
-            'passenger_count_label'                  => $service->droppingPassengerCountLabel(),
-            'pickup_address'                         => $normalizedDraft['pickup_address'],
-            'dropoff_address'                        => $normalizedDraft['dropoff_address'],
-            'fare_amount'                            => $fareAmount,
-            'fare_amount_formatted'                  => $service->formatCurrency($fareAmount),
-            'additional_fare_per_passenger'          => $additionalFarePerPassenger,
-            'additional_fare_per_passenger_formatted'=> $additionalFarePerPassenger > 0 ? $service->formatCurrency($additionalFarePerPassenger) : null,
-            'total_amount'                           => $totalAmount,
-            'total_amount_formatted'                 => $service->formatCurrency($totalAmount),
-            'route_label'                            => $normalizedDraft['pickup_location'] . ' - ' . $normalizedDraft['destination_location'],
-            'selected_seats'                         => $allSeatCodes,
-            'selected_seats_label'                   => $service->selectedDroppingSeatLabels(),
-            'passengers'                             => $passengers,
-            'armada_index'                           => $normalizedDraft['armada_index'],
+            'trip_date'              => $normalizedDraft['trip_date'],
+            'booking_type'           => $service->bookingTypeLabel($normalizedDraft['booking_type']),
+            'pickup_location'        => $normalizedDraft['pickup_location'],
+            'destination_location'   => $normalizedDraft['destination_location'],
+            'departure_time'         => $normalizedDraft['departure_time'] . ' WIB',
+            'departure_time_value'   => $normalizedDraft['departure_time'],
+            'passenger_count'        => 6,
+            'passenger_count_label'  => $service->droppingPassengerCountLabel(),
+            'pickup_address'         => $normalizedDraft['pickup_address'],
+            'dropoff_address'        => $normalizedDraft['dropoff_address'],
+            'fare_amount'            => $fareAmount,
+            'fare_amount_formatted'  => $service->formatCurrency($fareAmount),
+            'additional_fare'        => $additionalFare,
+            'additional_fare_formatted' => $additionalFare > 0 ? $service->formatCurrency($additionalFare) : null,
+            'total_amount'           => $totalAmount,
+            'total_amount_formatted' => $service->formatCurrency($totalAmount),
+            'route_label'            => $normalizedDraft['pickup_location'] . ' - ' . $normalizedDraft['destination_location'],
+            'selected_seats'         => $allSeatCodes,
+            'selected_seats_label'   => $service->selectedDroppingSeatLabels(),
+            'passengers'             => $passengers,
+            'armada_index'           => $normalizedDraft['armada_index'],
         ];
     }
 
@@ -201,8 +197,8 @@ class DroppingBookingDraftService
             'pickup_location'              => trim((string) ($draft['pickup_location'] ?? '')),
             'destination_location'         => trim((string) ($draft['destination_location'] ?? '')),
             'departure_time'               => trim((string) ($draft['departure_time'] ?? '')),
-            'fare_amount'                  => max((int) ($draft['fare_amount'] ?? 0), 0),
-            'additional_fare_per_passenger'=> max((int) ($draft['additional_fare_per_passenger'] ?? 0), 0),
+            'fare_amount'     => max((int) ($draft['fare_amount'] ?? 0), 0),
+            'additional_fare' => max((int) ($draft['additional_fare'] ?? 0), 0),
             'pickup_address'               => trim((string) ($draft['pickup_address'] ?? '')),
             'dropoff_address'              => trim((string) ($draft['dropoff_address'] ?? '')),
             'armada_index'                 => max(1, (int) ($draft['armada_index'] ?? 1)),

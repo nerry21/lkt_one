@@ -47,8 +47,8 @@ class DroppingBookingPageController extends Controller
         DroppingBookingDraftService $drafts,
     ): RedirectResponse {
         $validated = $request->validated();
-        $fareAmount = (int) ($validated['fare_amount'] ?? 0);
-        $additionalFare = (int) ($validated['additional_fare_per_passenger'] ?? 0);
+        $fareAmount     = (int) ($validated['fare_amount'] ?? 0);
+        $additionalFare = (int) ($validated['additional_fare'] ?? 0);
 
         $drafts->store(
             $request->session(),

@@ -123,7 +123,7 @@
                         </div>
 
                         <div class="regular-booking-field">
-                            <label for="dropping-fare-amount">Tarif per Penumpang (Rp)</label>
+                            <label for="dropping-fare-amount">Tarif Final (Rp)</label>
                             <div class="regular-booking-input-shell">
                                 <span class="regular-booking-input-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none">
@@ -136,21 +136,21 @@
                                     type="number"
                                     name="fare_amount"
                                     value="{{ $formState['fare_amount'] > 0 ? $formState['fare_amount'] : '' }}"
-                                    placeholder="Masukkan tarif per penumpang"
+                                    placeholder="Masukkan tarif final dropping"
                                     min="0"
                                     step="1000"
                                     data-fare-input
                                     required
                                 >
                             </div>
-                            <p class="regular-booking-field-note">Tarif diisi secara manual sesuai kesepakatan. Total = (tarif + ongkos tambahan) × 6 penumpang.</p>
+                            <p class="regular-booking-field-note">Tarif final diisi sesuai kesepakatan untuk seluruh perjalanan dropping.</p>
                             @error('fare_amount')
                                 <p class="regular-booking-field-error">{{ $message }}</p>
                             @enderror
                         </div>
 
                         <div class="regular-booking-field">
-                            <label for="dropping-additional-fare">Ongkos Tambahan per Penumpang</label>
+                            <label for="dropping-additional-fare">Tambahan Ongkos</label>
                             <div class="regular-booking-input-shell">
                                 <span class="regular-booking-input-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none">
@@ -161,16 +161,16 @@
                                 <input
                                     id="dropping-additional-fare"
                                     type="number"
-                                    name="additional_fare_per_passenger"
-                                    value="{{ $formState['additional_fare_per_passenger'] > 0 ? $formState['additional_fare_per_passenger'] : '' }}"
+                                    name="additional_fare"
+                                    value="{{ $formState['additional_fare'] > 0 ? $formState['additional_fare'] : '' }}"
                                     placeholder="0"
                                     min="0"
                                     step="1000"
                                     data-additional-fare-input
                                 >
                             </div>
-                            <p class="regular-booking-field-note">Kosongkan jika tidak ada ongkos tambahan.</p>
-                            @error('additional_fare_per_passenger')
+                            <p class="regular-booking-field-note">Kosongkan jika tidak ada tambahan ongkos.</p>
+                            @error('additional_fare')
                                 <p class="regular-booking-field-error">{{ $message }}</p>
                             @enderror
                         </div>
@@ -240,7 +240,7 @@
                                     data-estimated-total-input
                                 >
                             </div>
-                            <p class="regular-booking-field-note">Estimasi total = (tarif + ongkos tambahan) per penumpang × 6 penumpang.</p>
+                            <p class="regular-booking-field-note">Total = tarif final + tambahan ongkos.</p>
                         </div>
                     </div>
                 </section>
@@ -335,12 +335,12 @@
                             <strong>{{ $draftSummary['selected_seats'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
-                            <span>Tarif per Penumpang</span>
+                            <span>Tarif Final</span>
                             <strong data-summary-fare>{{ $draftSummary['fare_amount'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item">
-                            <span>Ongkos Tambahan/Penumpang</span>
-                            <strong data-summary-additional-fare>{{ $draftSummary['additional_fare_per_passenger'] }}</strong>
+                            <span>Tambahan Ongkos</span>
+                            <strong data-summary-additional-fare>{{ $draftSummary['additional_fare'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
                             <span>Estimasi Total</span>

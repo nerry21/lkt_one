@@ -24,8 +24,8 @@ class StoreDroppingBookingInformationRequest extends FormRequest
             'pickup_location'              => ['required', 'string', 'min:2', 'max:255'],
             'destination_location'         => ['required', 'string', 'min:2', 'max:255'],
             'departure_time'               => ['required', 'date_format:H:i'],
-            'fare_amount'                  => ['required', 'integer', 'min:0'],
-            'additional_fare_per_passenger'=> ['nullable', 'integer', 'min:0'],
+            'fare_amount'     => ['required', 'integer', 'min:0'],
+            'additional_fare' => ['nullable', 'integer', 'min:0'],
             'pickup_address'               => ['required', 'string', 'min:10', 'max:255'],
             'dropoff_address'              => ['required', 'string', 'min:10', 'max:255'],
         ];
@@ -39,8 +39,8 @@ class StoreDroppingBookingInformationRequest extends FormRequest
             'pickup_location'              => 'asal penjemputan',
             'destination_location'         => 'tujuan',
             'departure_time'               => 'jam keberangkatan',
-            'fare_amount'                  => 'tarif per penumpang',
-            'additional_fare_per_passenger'=> 'ongkos tambahan per penumpang',
+            'fare_amount'     => 'tarif final',
+            'additional_fare' => 'tambahan ongkos',
             'pickup_address'               => 'alamat penjemputan',
             'dropoff_address'              => 'alamat pengantaran',
         ];
@@ -81,8 +81,8 @@ class StoreDroppingBookingInformationRequest extends FormRequest
             'pickup_location'              => trim((string) $this->input('pickup_location')),
             'destination_location'         => trim((string) $this->input('destination_location')),
             'departure_time'               => trim((string) $this->input('departure_time')),
-            'fare_amount'                  => max((int) $this->input('fare_amount', 0), 0),
-            'additional_fare_per_passenger'=> max((int) $this->input('additional_fare_per_passenger', 0), 0),
+            'fare_amount'     => max((int) $this->input('fare_amount', 0), 0),
+            'additional_fare' => max((int) $this->input('additional_fare', 0), 0),
             'pickup_address'               => trim((string) $this->input('pickup_address')),
             'dropoff_address'              => trim((string) $this->input('dropoff_address')),
         ]);

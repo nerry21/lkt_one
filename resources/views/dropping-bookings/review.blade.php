@@ -105,13 +105,13 @@
                             <strong>{{ $reviewState['selected_seats_label'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item">
-                            <span>Tarif per Kursi</span>
+                            <span>Tarif Final</span>
                             <strong>{{ $reviewState['fare_amount_formatted'] }}</strong>
                         </div>
-                        @if ($reviewState['additional_fare_per_passenger'] > 0)
+                        @if ($reviewState['additional_fare'] > 0)
                             <div class="regular-booking-summary-item">
-                                <span>Ongkos Tambahan per Penumpang</span>
-                                <strong>{{ $reviewState['additional_fare_per_passenger_formatted'] }}</strong>
+                                <span>Tambahan Ongkos</span>
+                                <strong>{{ $reviewState['additional_fare_formatted'] }}</strong>
                             </div>
                         @endif
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">

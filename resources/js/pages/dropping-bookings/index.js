@@ -10,12 +10,6 @@ function formatCurrency(amount) {
     return 'Rp ' + Math.floor(amount).toLocaleString('id-ID');
 }
 
-function syncRadioCards(container) {
-    container.querySelectorAll('.regular-booking-radio').forEach((label) => {
-        const input = label.querySelector('input[type="radio"]');
-        label.classList.toggle('is-selected', input?.checked ?? false);
-    });
-}
 
 export default function initDroppingBookingsPage() {
     const fareInput          = document.querySelector('[data-fare-input]');
@@ -25,7 +19,7 @@ export default function initDroppingBookingsPage() {
     function updateTotal() {
         const fare       = parseInt(fareInput?.value || '0', 10) || 0;
         const additional = parseInt(additionalFareInput?.value || '0', 10) || 0;
-        const total      = (fare + additional) * 6;
+        const total      = fare + additional;
 
         if (estimatedTotalInput) {
             estimatedTotalInput.value = formatCurrency(total);

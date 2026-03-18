@@ -150,7 +150,7 @@
                             <strong>{{ $draftSummary['departure_time'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item">
-                            <span>Tarif per Penumpang</span>
+                            <span>Tarif Final</span>
                             <strong>{{ $draftSummary['fare_amount'] }}</strong>
                         </div>
                         <div class="regular-booking-summary-item regular-booking-summary-item--highlight">
