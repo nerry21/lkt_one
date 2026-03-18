@@ -17,7 +17,13 @@ use App\Http\Controllers\Stock\StockPageController;
 use App\Http\Controllers\Survey\PublicSurveyController;
 use App\Http\Controllers\Survey\CustomerSurveyDashboardController;
 use App\Http\Controllers\DroppingData\DroppingBookingDataPageController;
+use App\Http\Controllers\PublicDownloadController;
 use Illuminate\Support\Facades\Route;
+
+// ── Public PDF Downloads (no auth, use booking_code) ──────────────────────
+Route::get('/unduh/sj/{code}', [PublicDownloadController::class, 'suratJalan'])->name('dl.surat-jalan');
+Route::get('/unduh/tiket/{code}', [PublicDownloadController::class, 'tiketDropping'])->name('dl.tiket-dropping');
+Route::get('/unduh/tiket-reguler/{code}', [PublicDownloadController::class, 'tiketReguler'])->name('dl.tiket-reguler');
 
 Route::get('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'show'])->name('survey.show');
 Route::post('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'store'])->name('survey.store');

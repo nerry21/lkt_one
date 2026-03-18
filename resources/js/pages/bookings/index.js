@@ -513,7 +513,7 @@ function openDetailModal(booking) {
         suratLink.href    = `/dashboard/bookings/${booking.id}/surat-bukti`;
     } else {
         ticketLink.hidden = false;
-        ticketLink.href   = `/dashboard/bookings/${booking.id}/ticket`;
+        ticketLink.href   = `/unduh/tiket-reguler/${booking.booking_code}`;
         suratLink.hidden  = true;
     }
 

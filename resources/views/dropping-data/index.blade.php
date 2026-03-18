@@ -186,10 +186,10 @@
                                     <button type="button" class="ddrop-action-btn ddrop-action-btn--edit" title="Edit" data-action="edit">
                                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 2.5C19.3284 1.67157 20.6716 1.67157 21.5 2.5C22.3284 3.32843 22.3284 4.67157 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
                                     </button>
-                                    <a href="{{ route('dropping-data.ticket.download', $booking) }}" class="ddrop-action-btn ddrop-action-btn--ticket" title="Download E-Tiket">
+                                    <a href="{{ route('dl.tiket-dropping', $booking->booking_code) }}" class="ddrop-action-btn ddrop-action-btn--ticket" title="Download E-Tiket">
                                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M12 3V15M12 15L8 11M12 15L16 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 17V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                                     </a>
-                                    <a href="{{ route('dropping-data.surat-jalan', $booking) }}" class="ddrop-action-btn ddrop-action-btn--sj" title="Download E-Surat Jalan">
+                                    <a href="{{ route('dl.surat-jalan', $booking->booking_code) }}" class="ddrop-action-btn ddrop-action-btn--sj" title="Download Surat Jalan">
                                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M14 2H6C5.44772 2 5 2.44772 5 3V21C5 21.5523 5.44772 22 6 22H18C18.5523 22 19 21.5523 19 21V7L14 2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2V7H19" stroke="currentColor" stroke-width="1.8"/><path d="M9 12H15M9 16H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                                     </a>
                                     <button type="button" class="ddrop-action-btn ddrop-action-btn--delete" title="Hapus" data-action="delete">
