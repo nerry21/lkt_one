@@ -287,19 +287,16 @@
 
 <div class="page-actions">
     <a class="btn-back" href="{{ route('dropping-bookings.invoice') }}">← Kembali ke Invoice</a>
-    <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak Semua Tiket Dropping</button>
+    <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak Tiket Dropping</button>
 </div>
 
 @php
-    $ts = $ticketState;
-    $totalAmount    = (float) ($ts['total_amount'] ?? 0);
-    $passengerCount = max(1, (int) ($ts['passenger_count'] ?? 6));
-    $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
-
-    $seatMap = [['1A','SOPIR'],['2A','3A'],['4A','5A']];
+    $ts        = $ticketState;
+    $totalAmount = (float) ($ts['total_amount'] ?? 0);
+    $passenger   = $ts['passengers'][0] ?? ['name' => '-', 'seat_no' => '-', 'phone' => '-'];
+    $seatMap     = [['1A','SOPIR'],['2A','3A'],['4A','5A']];
 @endphp
 
-@foreach ($ts['passengers'] as $passenger)
 <div class="ticket-wrapper">
 <div class="ticket">
 
@@ -373,14 +370,14 @@
                 <span class="ticket-field-value">{{ $ts['trip_time'] }} WIB</span>
             </div>
             <div class="ticket-field">
-                <span class="ticket-field-label">Tarif</span>
+                <span class="ticket-field-label">Total Tarif</span>
                 <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">Rp {{ number_format($tarifFinal, 0, ',', '.') }}</span>
+                <span class="ticket-field-value">Rp {{ number_format($totalAmount, 0, ',', '.') }}</span>
             </div>
             <div class="ticket-field">
                 <span class="ticket-field-label">Kursi</span>
                 <span class="ticket-field-colon">:</span>
-                <span class="ticket-field-value">{{ $passenger['seat_no'] }}</span>
+                <span class="ticket-field-value">1A, 2A, 2B, 3A, 4A, 5A</span>
             </div>
         </div>
 
@@ -428,7 +425,6 @@
     </div>{{-- /ticket-body --}}
 </div>{{-- /ticket --}}
 </div>{{-- /ticket-wrapper --}}
-@endforeach
 
 </body>
 </html>

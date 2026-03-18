@@ -123,19 +123,21 @@
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
                         <h2>Data Penumpang</h2>
-                        <p>Daftar seluruh penumpang dropping yang terhubung dengan booking aktif.</p>
+                        <p>Data pemesan yang berlaku untuk seluruh 6 kursi dropping.</p>
                     </div>
 
-                    <div class="regular-booking-passenger-list">
-                        @foreach ($invoiceState['passengers'] as $passenger)
+                    @php $passenger = $invoiceState['passengers'][0] ?? null; @endphp
+
+                    @if ($passenger)
+                        <div class="regular-booking-passenger-list">
                             <article class="regular-booking-passenger-card">
                                 <div class="regular-booking-passenger-card-head">
                                     <div>
                                         <h3>{{ $passenger['name'] }}</h3>
-                                        <p>Kursi {{ $passenger['seat_no'] }}</p>
+                                        <p>Berlaku untuk semua kursi (1A, 2A, 2B, 3A, 4A, 5A)</p>
                                     </div>
 
-                                    <span class="stock-value-badge stock-value-badge-blue">{{ $passenger['seat_no'] }}</span>
+                                    <span class="stock-value-badge stock-value-badge-blue">Semua Kursi</span>
                                 </div>
 
                                 <div class="regular-booking-review-grid">
@@ -145,8 +147,8 @@
                                     </div>
                                 </div>
                             </article>
-                        @endforeach
-                    </div>
+                        </div>
+                    @endif
                 </section>
 
                 <div class="regular-booking-form-actions">
