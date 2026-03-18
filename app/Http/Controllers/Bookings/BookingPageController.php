@@ -100,8 +100,6 @@ class BookingPageController extends Controller
     {
         $booking->loadMissing('passengers');
 
-        // Simpan arsip permanen secara background — tidak memblokir response ke user.
-        // Jika backup gagal (mis. disk penuh), error dicatat di log tapi user tetap dapat PDF.
         try {
             $actor = auth()->user();
             $backupService->backupBookingTicket(
@@ -109,27 +107,58 @@ class BookingPageController extends Controller
                 $actor instanceof \App\Models\User ? $actor : null,
             );
         } catch (\Throwable $e) {
-            report($e); // Catat ke log, jangan throw — user harus tetap dapat download
+            report($e);
         }
 
-        $passengers = $booking->passengers->sortBy('seat_no')->values();
+        $passengers     = $booking->passengers->sortBy('seat_no')->values();
+        $totalAmount    = (float) ($booking->total_amount ?? 0);
+        $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
+        $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
 
-        $tickets = $passengers->map(function ($passenger) use ($booking) {
-            $totalAmount    = (float) ($booking->total_amount ?? 0);
-            $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
-            $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
+        // Single passenger → return plain PDF (no zip needed)
+        if ($passengers->count() <= 1) {
+            $passenger        = $passengers->first();
+            $passengerQrToken = $passenger ? $this->ensurePassengerQrToken($passenger, $booking) : '';
+            $qrPngBase64      = filled($passengerQrToken)
+                ? 'data:image/png;base64,' . base64_encode((string) QrCode::format('png')->size(110)->margin(1)->generate($passengerQrToken))
+                : null;
 
-            // Ensure passenger has a QR token (generate+save if missing)
+            $ticket = [
+                'booking_code'    => (string) $booking->booking_code,
+                'passenger_name'  => $passenger ? (string) $passenger->name : '',
+                'passenger_phone' => $passenger ? (string) $passenger->phone : '',
+                'seat_no'         => $passenger ? (string) $passenger->seat_no : '',
+                'from_city'       => (string) $booking->from_city,
+                'to_city'         => (string) $booking->to_city,
+                'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
+                'trip_time'       => (string) ($booking->trip_time ?? '-'),
+                'tarif'           => 'Rp ' . number_format($tarifFinal, 0, ',', '.'),
+                'uang_muka'       => 'Rp 0',
+                'sisa'            => 'Rp 0',
+                'purchase_date'   => $booking->created_at?->translatedFormat('d F Y') ?? '-',
+                'all_seats'       => (array) ($booking->selected_seats ?? []),
+                'qr_token'        => $passengerQrToken,
+                'qr_png'          => $qrPngBase64,
+            ];
+
+            return Pdf::loadView('bookings.pdf.ticket', [
+                'tickets' => collect([$ticket]),
+                'booking' => $booking,
+            ])->setPaper('a4')->download($booking->booking_code . '.pdf');
+        }
+
+        // Multiple passengers → generate one PDF per passenger, zip them all
+        $tmpZip  = tempnam(sys_get_temp_dir(), 'tiket_') . '.zip';
+        $zip     = new \ZipArchive();
+        $zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+        foreach ($passengers as $passenger) {
             $passengerQrToken = $this->ensurePassengerQrToken($passenger, $booking);
+            $qrPngBase64      = filled($passengerQrToken)
+                ? 'data:image/png;base64,' . base64_encode((string) QrCode::format('png')->size(110)->margin(1)->generate($passengerQrToken))
+                : null;
 
-            // For PDF (DomPDF), generate per-passenger PNG base64 — encode raw token only
-            $qrPngBase64 = null;
-            if (filled($passengerQrToken)) {
-                $pngBytes    = (string) QrCode::format('png')->size(110)->margin(1)->generate($passengerQrToken);
-                $qrPngBase64 = 'data:image/png;base64,' . base64_encode($pngBytes);
-            }
-
-            return [
+            $ticket = [
                 'booking_code'    => (string) $booking->booking_code,
                 'passenger_name'  => (string) $passenger->name,
                 'passenger_phone' => (string) $passenger->phone,
@@ -146,14 +175,26 @@ class BookingPageController extends Controller
                 'qr_token'        => $passengerQrToken,
                 'qr_png'          => $qrPngBase64,
             ];
-        });
 
-        $fileName = $booking->booking_code . '.pdf';
+            $pdfContent = Pdf::loadView('bookings.pdf.ticket', [
+                'tickets' => collect([$ticket]),
+                'booking' => $booking,
+            ])->setPaper('a4')->output();
 
-        return Pdf::loadView('bookings.pdf.ticket', [
-            'tickets' => $tickets,
-            'booking' => $booking,
-        ])->setPaper('a4')->download($fileName);
+            $seatLabel = preg_replace('/[^A-Za-z0-9]/', '', (string) $passenger->seat_no);
+            $zip->addFromString($booking->booking_code . '-Kursi' . $seatLabel . '.pdf', $pdfContent);
+        }
+
+        $zip->close();
+
+        $zipContents = (string) file_get_contents($tmpZip);
+        @unlink($tmpZip);
+
+        return response($zipContents, 200, [
+            'Content-Type'        => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="' . $booking->booking_code . '-tiket.zip"',
+            'Content-Length'      => strlen($zipContents),
+        ]);
     }
 
     public function downloadSuratBukti(
