@@ -99,6 +99,13 @@
             'active_patterns' => ['customers.*'],
         ],
         [
+            'route' => 'dropping-data.index',
+            'label' => 'Data Pemesanan Dropping',
+            'testid' => 'nav-dropping-data',
+            'icon' => 'bus',
+            'active_patterns' => ['dropping-data.*'],
+        ],
+        [
             'route' => 'customer-surveys.index',
             'label' => 'Survei Pelanggan',
             'testid' => 'nav-customer-surveys',

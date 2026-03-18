@@ -20,6 +20,7 @@ import initQrScanPage from './pages/qr-scan/index';
 import initPassengerLktPage from './pages/passengers-lkt/index';
 import initCustomersPage from './pages/customers/index';
 import initDroppingBookingsPage from './pages/dropping-bookings/index';
+import initDroppingDataPage from './pages/dropping-data/index';
 
 const pageModules = {
     'admin-users/index': initAdminUsersPage,
@@ -36,6 +37,7 @@ const pageModules = {
     'passengers-lkt/index': initPassengerLktPage,
     'customers/index': initCustomersPage,
     'dropping-bookings/index': initDroppingBookingsPage,
+    'dropping-data/index': initDroppingDataPage,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {

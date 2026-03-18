@@ -16,6 +16,7 @@ use App\Http\Controllers\RegularBookings\RegularBookingPageController;
 use App\Http\Controllers\Stock\StockPageController;
 use App\Http\Controllers\Survey\PublicSurveyController;
 use App\Http\Controllers\Survey\CustomerSurveyDashboardController;
+use App\Http\Controllers\DroppingData\DroppingBookingDataPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'show'])->name('survey.show');
@@ -87,4 +88,11 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'show'])->name('customer-surveys.show');
     Route::patch('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'update'])->name('customer-surveys.update');
     Route::delete('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'destroy'])->name('customer-surveys.destroy');
+
+    Route::get('/dropping-data', [DroppingBookingDataPageController::class, 'index'])->name('dropping-data.index');
+    Route::post('/dropping-data', [DroppingBookingDataPageController::class, 'store'])->name('dropping-data.store');
+    Route::put('/dropping-data/{booking}', [DroppingBookingDataPageController::class, 'update'])->name('dropping-data.update');
+    Route::delete('/dropping-data/{booking}', [DroppingBookingDataPageController::class, 'destroy'])->name('dropping-data.destroy');
+    Route::get('/dropping-data/{booking}/ticket/download', [DroppingBookingDataPageController::class, 'downloadTicket'])->name('dropping-data.ticket.download');
+    Route::get('/dropping-data/{booking}/surat-jalan', [DroppingBookingDataPageController::class, 'downloadSuratJalan'])->name('dropping-data.surat-jalan');
 });
