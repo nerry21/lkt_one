@@ -103,7 +103,8 @@ class DroppingBookingPageController extends Controller
 
         $drafts->storePassengers(
             $request->session(),
-            $request->validated('passengers'),
+            $request->validated('passenger_name'),
+            $request->validated('passenger_phone'),
             $service,
         );
 

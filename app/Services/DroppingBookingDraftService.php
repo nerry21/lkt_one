@@ -58,11 +58,18 @@ class DroppingBookingDraftService
         ]);
     }
 
-    public function storePassengers(Session $session, array $passengers, DroppingBookingService $service): void
+    public function storePassengers(Session $session, string $name, string $phone, DroppingBookingService $service): void
     {
         $draft = $this->get($session);
         $allSeatCodes = $service->allSeatCodes();
-        $draft['passengers'] = $this->normalizePassengers($passengers, $allSeatCodes, $service);
+
+        $draft['passengers'] = collect($allSeatCodes)
+            ->map(fn (string $seatCode): array => [
+                'seat_no' => $seatCode,
+                'name'    => trim($name),
+                'phone'   => $service->normalizeIndonesianPhone($phone),
+            ])
+            ->all();
 
         $this->store($session, $draft);
     }
@@ -117,36 +124,17 @@ class DroppingBookingDraftService
 
     public function buildPassengerFormState(Request $request, array $draft, DroppingBookingService $service): array
     {
-        $allSeatCodes = $service->allSeatCodes();
-        $oldPassengers = $request->old('passengers');
+        $firstPassenger = ($draft['passengers'] ?? [])[0] ?? [];
 
-        $sourcePassengers = is_array($oldPassengers)
-            ? $this->normalizePassengers($oldPassengers, $allSeatCodes, $service)
-            : $this->normalizePassengers($draft['passengers'] ?? [], $allSeatCodes, $service);
-
-        $passengerMap = collect($sourcePassengers)->keyBy('seat_no');
-
-        $passengerForms = collect($allSeatCodes)
-            ->values()
-            ->map(function (string $seatCode, int $index) use ($passengerMap): array {
-                $passenger = $passengerMap->get($seatCode, []);
-
-                return [
-                    'index'   => $index,
-                    'seat_no' => $seatCode,
-                    'name'    => (string) ($passenger['name'] ?? ''),
-                    'phone'   => (string) ($passenger['phone'] ?? ''),
-                ];
-            })
-            ->all();
+        $name  = (string) $request->old('passenger_name', $firstPassenger['name'] ?? '');
+        $phone = (string) $request->old('passenger_phone', $firstPassenger['phone'] ?? '');
+        $filled = ($name !== '' && $phone !== '') ? 6 : 0;
 
         return [
-            'forms'         => $passengerForms,
-            'selected_seats'=> $allSeatCodes,
+            'name'          => $name,
+            'phone'         => $phone,
             'required_count'=> 6,
-            'filled_count'  => collect($passengerForms)
-                ->filter(fn (array $p): bool => $p['name'] !== '' && $p['phone'] !== '')
-                ->count(),
+            'filled_count'  => $filled,
         ];
     }
 
@@ -200,14 +188,9 @@ class DroppingBookingDraftService
     public function hasCompletePassengerData(array $draft, DroppingBookingService $service): bool
     {
         $d = $this->normalizeDraft($draft);
-        $allSeatCodes = $service->allSeatCodes();
-        $passengers = $this->normalizePassengers($d['passengers'], $allSeatCodes, $service);
+        $first = $d['passengers'][0] ?? [];
 
-        if (count($passengers) !== 6) {
-            return false;
-        }
-
-        return collect($passengers)->every(fn (array $p): bool => $p['name'] !== '' && $p['phone'] !== '');
+        return ($first['name'] ?? '') !== '' && ($first['phone'] ?? '') !== '';
     }
 
     private function normalizeDraft(array $draft): array
