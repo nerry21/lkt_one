@@ -161,7 +161,7 @@
                                     <button type="button" class="ddrop-action-btn ddrop-action-btn--edit" title="Edit" data-action="edit">
                                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 2.5C19.3284 1.67157 20.6716 1.67157 21.5 2.5C22.3284 3.32843 22.3284 4.67157 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
                                     </button>
-                                    <a href="{{ route('dropping-data.ticket.download', $booking) }}" class="ddrop-action-btn ddrop-action-btn--ticket" title="Download E-Tiket">
+                                    <a href="{{ route('dropping-data.ticket', $booking) }}" class="ddrop-action-btn ddrop-action-btn--ticket" title="Lihat E-Tiket" target="_blank">
                                         <svg viewBox="0 0 24 24" fill="none" width="15" height="15"><rect x="2" y="7" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 7V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V7" stroke="currentColor" stroke-width="1.8"/><path d="M16 17V19C16 20.1046 15.1046 21 14 21H10C8.89543 21 8 20.1046 8 19V17" stroke="currentColor" stroke-width="1.8"/></svg>
                                     </a>
                                     <a href="{{ route('dropping-data.surat-jalan', $booking) }}" class="ddrop-action-btn ddrop-action-btn--sj" title="Download E-Surat Jalan">

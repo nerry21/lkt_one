@@ -214,21 +214,20 @@ class DroppingBookingDataPageController extends Controller
             ->with('dropping_data_success', "Data pemesanan dropping {$code} berhasil dihapus.");
     }
 
-    public function downloadTicket(
+    public function showTicket(
         Booking $booking,
         RegularBookingPaymentService $payments,
         DroppingBookingService $service,
         DroppingBookingPersistenceService $persistence,
-    ): Response|RedirectResponse {
+    ): \Illuminate\Contracts\View\View {
         abort_if($booking->category !== 'Dropping', 404);
 
-        $booking    = $persistence->ensureTicketMetadata($booking);
+        $booking     = $persistence->ensureTicketMetadata($booking);
         $ticketState = $payments->buildTicketState($booking, $service);
-        $fileName   = ($ticketState['ticket_number'] !== '-' ? $ticketState['ticket_number'] : $booking->booking_code) . '.pdf';
 
-        return Pdf::loadView('dropping-bookings.pdf.ticket', [
+        return view('dropping-data.ticket', [
             'ticketState' => $ticketState,
-        ])->setPaper('a4')->download($fileName);
+        ]);
     }
 
     public function downloadSuratJalan(Booking $booking): Response
