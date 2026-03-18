@@ -61,7 +61,7 @@
         }
 
         .header-meta-cell {
-            width: 220px;
+            width: 210px;
             vertical-align: middle;
             padding-left: 12px;
         }
@@ -74,7 +74,7 @@
 
         .meta-label {
             display: table-cell;
-            width: 80px;
+            width: 72px;
             font-size: 10px;
             font-weight: 600;
             white-space: nowrap;
@@ -95,53 +95,22 @@
             padding-bottom: 1px;
         }
 
-        .divider {
-            border-top: 2px solid #000;
-            margin: 8px 0;
-        }
-
-        /* ── INFO SECTION ── */
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-        }
-
-        .info-table td {
-            padding: 4px 6px;
-            font-size: 10px;
-            vertical-align: top;
-            width: 50%;
-        }
-
-        .info-label {
-            font-weight: 700;
-            width: 110px;
-        }
-
-        .info-sep { width: 10px; }
-
-        .info-val {
-            border-bottom: 1px solid #999;
-            padding-bottom: 2px;
-        }
-
-        /* ── DATA TABLE ── */
+        /* ── TABLE ── */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 8px;
+            margin-top: 4px;
         }
 
         .data-table th,
         .data-table td {
             border: 1.5px solid #000;
-            padding: 5px 6px;
+            padding: 5px 5px;
             vertical-align: middle;
         }
 
         .data-table th {
-            background: #f0f0f0;
+            background: #ffffff;
             font-weight: 700;
             font-size: 10px;
             text-align: center;
@@ -149,26 +118,29 @@
         }
 
         .data-table td {
-            font-size: 10px;
+            font-size: 9.5px;
             vertical-align: top;
         }
 
-        .col-no      { width: 28px;  text-align: center; }
-        .col-nama    { width: 145px; }
-        .col-nohp    { width: 95px;  }
-        .col-jemput  { width: 155px; }
-        .col-tujuan  { width: 130px; }
-        .col-tarif   { width: 90px;  text-align: right; }
-        .col-ket     { }
+        .col-no    { width: 26px;  text-align: center; }
+        .col-kursi { width: 80px;  text-align: center; }
+        .col-nama  { width: 130px; }
+        .col-nohp  { width: 90px;  }
+        .col-jemput{ width: 145px; }
+        .col-tujuan{ width: 100px; }
+        .col-tarif { width: 75px;  text-align: right; }
+        .col-ket   { }
 
         .td-center { text-align: center; }
         .td-right  { text-align: right; }
+
+        .row-empty td { height: 22px; }
 
         /* ── FOOTER ── */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 24px;
+            margin-top: 20px;
         }
 
         .footer-sign-cell {
@@ -186,11 +158,6 @@
         .footer-name-under {
             font-size: 10.5px;
             font-weight: 700;
-        }
-
-        .footer-date {
-            font-size: 10px;
-            margin-bottom: 6px;
         }
 
         .badge-dropping {
@@ -219,7 +186,7 @@
             </td>
             <td class="header-center-cell">
                 <div class="company-name">PT. Lancang Kuning Travelindo</div>
-                <div class="doc-title">Surat Jalan Dropping</div>
+                <div class="doc-title">Surat Jalan</div>
                 <div class="doc-subtitle">
                     <span class="badge-dropping">Dropping Booking</span>
                     &nbsp;{{ $booking->booking_code }}
@@ -245,85 +212,38 @@
         </tr>
     </table>
 
-    <div class="divider"></div>
-
-    {{-- TRIP INFO ── --}}
-    <table class="info-table">
-        <tr>
-            <td>
-                <table style="width:100%;border-collapse:collapse;">
-                    <tr>
-                        <td class="info-label">Asal Penjemputan</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">{{ $booking->from_city }}</td>
-                    </tr>
-                    <tr><td colspan="3" style="height:4px;"></td></tr>
-                    <tr>
-                        <td class="info-label">Tujuan</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">{{ $booking->to_city }}</td>
-                    </tr>
-                    <tr><td colspan="3" style="height:4px;"></td></tr>
-                    <tr>
-                        <td class="info-label">Alamat Jemput</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">{{ $booking->pickup_location }}</td>
-                    </tr>
-                </table>
-            </td>
-            <td>
-                <table style="width:100%;border-collapse:collapse;padding-left:10px;">
-                    <tr>
-                        <td class="info-label">Alamat Antar</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">{{ $booking->dropoff_location }}</td>
-                    </tr>
-                    <tr><td colspan="3" style="height:4px;"></td></tr>
-                    <tr>
-                        <td class="info-label">Jenis Pemesanan</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">Dropping — Seluruh Armada</td>
-                    </tr>
-                    <tr><td colspan="3" style="height:4px;"></td></tr>
-                    <tr>
-                        <td class="info-label">Keterangan</td>
-                        <td class="info-sep">:</td>
-                        <td class="info-val">{{ $booking->notes ?: '—' }}</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-
     {{-- DATA TABLE --}}
     <table class="data-table">
         <thead>
             <tr>
                 <th class="col-no">NO.</th>
-                <th class="col-nama">NAMA PEMESAN</th>
+                <th class="col-kursi">KURSI</th>
+                <th class="col-nama">NAMA</th>
                 <th class="col-nohp">NOMOR HP</th>
-                <th class="col-jemput">ASAL PENJEMPUTAN</th>
+                <th class="col-jemput">JEMPUT</th>
                 <th class="col-tujuan">TUJUAN</th>
-                <th class="col-tarif">TARIF FINAL</th>
+                <th class="col-tarif">TARIF</th>
                 <th class="col-ket">KETERANGAN</th>
             </tr>
         </thead>
         <tbody>
+            {{-- Single pemesan row --}}
             <tr>
                 <td class="col-no td-center">1</td>
+                <td class="col-kursi td-center">1A, 2A, 2B,<br>3A, 4A, 5A</td>
                 <td class="col-nama">{{ $booking->passenger_name }}</td>
                 <td class="col-nohp">{{ $booking->passenger_phone }}</td>
-                <td class="col-jemput">{{ $booking->from_city }}</td>
+                <td class="col-jemput">{{ $booking->pickup_location }}</td>
                 <td class="col-tujuan">{{ $booking->to_city }}</td>
                 <td class="col-tarif td-right">
                     Rp {{ number_format((int)($booking->total_amount ?? 0), 0, ',', '.') }}
                 </td>
-                <td class="col-ket">Dropping — Seluruh 6 Kursi (1A,2A,2B,3A,4A,5A)</td>
+                <td class="col-ket">Dropping — Seluruh Armada<br>{{ $booking->notes ?: '' }}</td>
             </tr>
             {{-- Empty rows for spacing --}}
-            @for ($i = 0; $i < 5; $i++)
-                <tr style="height:22px;">
-                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+            @for ($i = 0; $i < 9; $i++)
+                <tr class="row-empty">
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                 </tr>
             @endfor
         </tbody>
@@ -333,12 +253,10 @@
     <table class="footer-table">
         <tr>
             <td class="footer-sign-cell">
-                <div class="footer-date">Pasir Pengaraian, {{ $tanggal }}</div>
                 <div class="footer-role">Pengemudi</div>
-                <div class="footer-name-under">{{ $driver_name ?: '________________' }}</div>
+                <div class="footer-name-under">{{ $driver_name ?: '' }}</div>
             </td>
             <td class="footer-sign-cell">
-                <div class="footer-date">&nbsp;</div>
                 <div class="footer-role">Pengurus</div>
                 <div class="footer-name-under">Zizi</div>
             </td>

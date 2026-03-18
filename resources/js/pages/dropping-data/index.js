@@ -74,8 +74,16 @@ function populateShowModal(data) {
             <span class="ddrop-detail-value">${data.trip_time} WIB</span>
         </div>
         <div class="ddrop-detail-item">
-            <span class="ddrop-detail-label">Tarif Final</span>
-            <span class="ddrop-detail-value" style="color:#047857;font-size:1.05rem">${formatRupiah(data.total_amount)}</span>
+            <span class="ddrop-detail-label">Tarif Dropping</span>
+            <span class="ddrop-detail-value" style="color:#047857;font-size:1.05rem">${formatRupiah(data.price_per_seat)}</span>
+        </div>
+        <div class="ddrop-detail-item">
+            <span class="ddrop-detail-label">Tambahan Ongkos</span>
+            <span class="ddrop-detail-value">${data.additional_fare > 0 ? formatRupiah(data.additional_fare) : '—'}</span>
+        </div>
+        <div class="ddrop-detail-item col-span-2">
+            <span class="ddrop-detail-label">Total Tarif</span>
+            <span class="ddrop-detail-value" style="color:#047857;font-weight:700;font-size:1.05rem">${formatRupiah(data.total_amount)}</span>
         </div>
         <div class="ddrop-detail-item">
             <span class="ddrop-detail-label">Metode Pembayaran</span>
@@ -109,7 +117,8 @@ function populateEditModal(data) {
     set('to_city',         data.to_city);
     set('pickup_location', data.pickup_location);
     set('dropoff_location',data.dropoff_location);
-    set('total_amount',    data.total_amount);
+    set('price_per_seat',  data.price_per_seat);
+    set('additional_fare', data.additional_fare);
     set('trip_date',       data.trip_date);
     set('trip_time',       data.trip_time);
     set('notes',           data.notes);

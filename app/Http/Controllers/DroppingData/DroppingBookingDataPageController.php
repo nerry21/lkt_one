@@ -72,7 +72,8 @@ class DroppingBookingDataPageController extends Controller
             'to_city'          => ['required', 'string', 'max:255'],
             'pickup_location'  => ['required', 'string', 'min:5', 'max:255'],
             'dropoff_location' => ['required', 'string', 'min:5', 'max:255'],
-            'total_amount'     => ['required', 'integer', 'min:0'],
+            'price_per_seat'   => ['required', 'integer', 'min:0'],
+            'additional_fare'  => ['nullable', 'integer', 'min:0'],
             'trip_date'        => ['required', 'date'],
             'trip_time'        => ['required', 'date_format:H:i'],
             'notes'            => ['nullable', 'string', 'max:500'],
@@ -93,6 +94,9 @@ class DroppingBookingDataPageController extends Controller
             $isPaid         = in_array($paymentStatus, ['Dibayar', 'Dibayar Tunai'], true);
             $bookingStatus  = $isPaid ? 'Aktif' : 'Draft';
             $ticketStatus   = $isPaid ? 'Aktif' : 'Draft';
+            $pricePerSeat   = (int) $validated['price_per_seat'];
+            $additionalFare = (int) ($validated['additional_fare'] ?? 0);
+            $totalAmount    = $pricePerSeat + $additionalFare;
 
             $booking = Booking::create([
                 'booking_code'    => $bookingCode,
@@ -109,9 +113,9 @@ class DroppingBookingDataPageController extends Controller
                 'pickup_location' => trim($validated['pickup_location']),
                 'dropoff_location'=> trim($validated['dropoff_location']),
                 'selected_seats'  => ['1A', '2A', '2B', '3A', '4A', '5A'],
-                'price_per_seat'  => (int) $validated['total_amount'],
-                'total_amount'    => (int) $validated['total_amount'],
-                'nominal_payment' => $isPaid ? (int) $validated['total_amount'] : null,
+                'price_per_seat'  => $pricePerSeat,
+                'total_amount'    => $totalAmount,
+                'nominal_payment' => $isPaid ? $totalAmount : null,
                 'payment_method'  => $paymentMethod,
                 'payment_status'  => $paymentStatus,
                 'booking_status'  => $bookingStatus,
@@ -145,7 +149,8 @@ class DroppingBookingDataPageController extends Controller
             'to_city'          => ['required', 'string', 'max:255'],
             'pickup_location'  => ['required', 'string', 'min:5', 'max:255'],
             'dropoff_location' => ['required', 'string', 'min:5', 'max:255'],
-            'total_amount'     => ['required', 'integer', 'min:0'],
+            'price_per_seat'   => ['required', 'integer', 'min:0'],
+            'additional_fare'  => ['nullable', 'integer', 'min:0'],
             'trip_date'        => ['required', 'date'],
             'trip_time'        => ['required', 'date_format:H:i'],
             'notes'            => ['nullable', 'string', 'max:500'],
@@ -159,8 +164,11 @@ class DroppingBookingDataPageController extends Controller
         $phone = $this->normalizePhone((string) ($validated['passenger_phone'] ?? ''));
 
         DB::transaction(function () use ($booking, $validated, $phone): void {
-            $paymentStatus = $validated['payment_status'] ?? (string) ($booking->payment_status ?? 'Belum Bayar');
-            $isPaid        = in_array($paymentStatus, ['Dibayar', 'Dibayar Tunai'], true);
+            $paymentStatus  = $validated['payment_status'] ?? (string) ($booking->payment_status ?? 'Belum Bayar');
+            $isPaid         = in_array($paymentStatus, ['Dibayar', 'Dibayar Tunai'], true);
+            $pricePerSeat   = (int) $validated['price_per_seat'];
+            $additionalFare = (int) ($validated['additional_fare'] ?? 0);
+            $totalAmount    = $pricePerSeat + $additionalFare;
 
             $booking->fill([
                 'from_city'       => trim($validated['from_city']),
@@ -172,9 +180,9 @@ class DroppingBookingDataPageController extends Controller
                 'passenger_phone' => $phone,
                 'pickup_location' => trim($validated['pickup_location']),
                 'dropoff_location'=> trim($validated['dropoff_location']),
-                'price_per_seat'  => (int) $validated['total_amount'],
-                'total_amount'    => (int) $validated['total_amount'],
-                'nominal_payment' => $isPaid ? (int) $validated['total_amount'] : $booking->nominal_payment,
+                'price_per_seat'  => $pricePerSeat,
+                'total_amount'    => $totalAmount,
+                'nominal_payment' => $isPaid ? $totalAmount : $booking->nominal_payment,
                 'payment_method'  => $validated['payment_method'] ?? $booking->payment_method,
                 'payment_status'  => $paymentStatus,
                 'notes'           => $validated['notes'] ?? null,

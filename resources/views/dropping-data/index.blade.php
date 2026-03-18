@@ -104,6 +104,9 @@
                                 'Menunggu Konfirmasi'            => 'ddrop-badge--blue',
                                 default                          => 'ddrop-badge--orange',
                             };
+                            $pricePerSeat    = (int)($booking->price_per_seat ?? 0);
+                            $totalAmt        = (int)($booking->total_amount ?? 0);
+                            $additionalFare  = max(0, $totalAmt - $pricePerSeat);
                             $rowData = json_encode([
                                 'id'               => $booking->id,
                                 'booking_code'     => $booking->booking_code,
@@ -113,7 +116,9 @@
                                 'to_city'          => $booking->to_city,
                                 'pickup_location'  => $booking->pickup_location,
                                 'dropoff_location' => $booking->dropoff_location,
-                                'total_amount'     => (int)($booking->total_amount ?? 0),
+                                'price_per_seat'   => $pricePerSeat,
+                                'additional_fare'  => $additionalFare,
+                                'total_amount'     => $totalAmt,
                                 'trip_date'        => $booking->trip_date?->format('Y-m-d') ?? '',
                                 'trip_date_fmt'    => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
                                 'trip_time'        => $tripTime,

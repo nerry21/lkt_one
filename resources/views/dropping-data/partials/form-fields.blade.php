@@ -60,11 +60,18 @@
             value="{{ old('trip_time', isset($booking) ? substr($booking->trip_time ?? '', 0, 5) : '') }}" required>
     </div>
 
-    <div class="ddrop-form-field col-span-2">
-        <label>Tarif Final (Rp) <span class="req">*</span></label>
-        <input type="number" name="total_amount" class="ddrop-form-input"
-            value="{{ old('total_amount', isset($booking) ? (int)($booking->total_amount ?? 0) : '') }}"
-            placeholder="Masukkan total tarif dropping" min="0" step="1000" required>
+    <div class="ddrop-form-field">
+        <label>Tarif Dropping (Rp) <span class="req">*</span></label>
+        <input type="number" name="price_per_seat" class="ddrop-form-input"
+            value="{{ old('price_per_seat', isset($booking) ? (int)($booking->price_per_seat ?? 0) : '') }}"
+            placeholder="Tarif dropping" min="0" step="1000" required>
+    </div>
+
+    <div class="ddrop-form-field">
+        <label>Tambahan Ongkos Dropping (Rp)</label>
+        <input type="number" name="additional_fare" class="ddrop-form-input"
+            value="{{ old('additional_fare', isset($booking) ? max(0, (int)($booking->total_amount ?? 0) - (int)($booking->price_per_seat ?? 0)) : '') }}"
+            placeholder="Tambahan ongkos (opsional)" min="0" step="1000">
     </div>
 
     <div class="ddrop-section-divider">Pembayaran & Keterangan</div>
