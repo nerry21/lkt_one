@@ -4,6 +4,8 @@ namespace App\Http\Controllers\DroppingData;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Driver;
+use App\Models\Mobil;
 use App\Services\DroppingBookingPersistenceService;
 use App\Services\DroppingBookingService;
 use App\Services\RegularBookingPaymentService;
@@ -40,7 +42,10 @@ class DroppingBookingDataPageController extends Controller
             $query->where('payment_status', $filterStatus);
         }
 
-        $bookings = $query->paginate(20)->withQueryString();
+        $bookings = $query->with(['driver', 'mobil'])->paginate(20)->withQueryString();
+
+        $drivers = Driver::orderBy('nama')->get(['id', 'nama', 'lokasi']);
+        $mobils  = Mobil::orderBy('kode_mobil')->get(['id', 'kode_mobil', 'jenis_mobil']);
 
         $stats = [
             'total'  => Booking::where('category', 'Dropping')->count(),
@@ -55,6 +60,8 @@ class DroppingBookingDataPageController extends Controller
             'pageHeading'     => 'Data Pemesanan Dropping',
             'pageDescription' => 'Kelola seluruh data pemesanan dropping Lancang Kuning Travelindo.',
             'bookings'        => $bookings,
+            'drivers'         => $drivers,
+            'mobils'          => $mobils,
             'search'          => $search,
             'filterStatus'    => $filterStatus,
             'stats'           => $stats,
@@ -80,6 +87,8 @@ class DroppingBookingDataPageController extends Controller
             'payment_method'   => ['nullable', 'string', 'in:transfer,qris,cash'],
             'payment_status'   => ['nullable', 'string'],
             'booking_for'      => ['nullable', 'string', 'in:self,other'],
+            'driver_id'        => ['nullable', 'uuid', 'exists:drivers,id'],
+            'mobil_id'         => ['nullable', 'uuid', 'exists:mobil,id'],
         ], [
             'passenger_phone.regex' => 'Nomor HP harus format Indonesia yang valid (08xxxxxxxxxx).',
             'trip_time.date_format' => 'Jam keberangkatan harus format HH:MM.',
@@ -121,6 +130,8 @@ class DroppingBookingDataPageController extends Controller
                 'booking_status'  => $bookingStatus,
                 'ticket_status'   => $ticketStatus,
                 'notes'           => $validated['notes'] ?? null,
+                'driver_id'       => $validated['driver_id'] ?? null,
+                'mobil_id'        => $validated['mobil_id'] ?? null,
             ]);
 
             $allSeats = ['1A', '2A', '2B', '3A', '4A', '5A'];
@@ -156,6 +167,8 @@ class DroppingBookingDataPageController extends Controller
             'notes'            => ['nullable', 'string', 'max:500'],
             'payment_method'   => ['nullable', 'string', 'in:transfer,qris,cash'],
             'payment_status'   => ['nullable', 'string'],
+            'driver_id'        => ['nullable', 'uuid', 'exists:drivers,id'],
+            'mobil_id'         => ['nullable', 'uuid', 'exists:mobil,id'],
         ], [
             'passenger_phone.regex' => 'Nomor HP harus format Indonesia yang valid.',
             'trip_time.date_format' => 'Jam keberangkatan harus format HH:MM.',
@@ -186,6 +199,8 @@ class DroppingBookingDataPageController extends Controller
                 'payment_method'  => $validated['payment_method'] ?? $booking->payment_method,
                 'payment_status'  => $paymentStatus,
                 'notes'           => $validated['notes'] ?? null,
+                'driver_id'       => $validated['driver_id'] ?? null,
+                'mobil_id'        => $validated['mobil_id'] ?? null,
             ]);
             $booking->save();
 

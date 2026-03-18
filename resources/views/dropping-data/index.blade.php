@@ -90,6 +90,8 @@
                         <th>Rute</th>
                         <th>Tgl & Jam</th>
                         <th>Tarif Final</th>
+                        <th>Driver</th>
+                        <th>Mobil</th>
                         <th>Keterangan</th>
                         <th class="ddrop-col-aksi">Aksi</th>
                     </tr>
@@ -127,6 +129,11 @@
                                 'payment_status'   => $booking->payment_status ?? '',
                                 'booking_status'   => $booking->booking_status ?? '',
                                 'has_ticket'       => (bool)$booking->ticket_number,
+                                'driver_id'        => $booking->driver_id ?? '',
+                                'driver_name'      => $booking->driver?->nama ?? ($booking->driver_name ?? ''),
+                                'mobil_id'         => $booking->mobil_id ?? '',
+                                'kode_mobil'       => $booking->mobil?->kode_mobil ?? '',
+                                'jenis_mobil'      => $booking->mobil?->jenis_mobil ?? '',
                             ], JSON_UNESCAPED_UNICODE);
                         @endphp
                         <tr class="ddrop-tr" data-row='{{ $rowData }}'>
@@ -149,6 +156,24 @@
                             </td>
                             <td class="ddrop-tarif">
                                 Rp {{ number_format((int)($booking->total_amount ?? 0), 0, ',', '.') }}
+                            </td>
+                            <td>
+                                @if ($booking->driver)
+                                    <div class="ddrop-name" style="font-size:0.83rem">{{ $booking->driver->nama }}</div>
+                                    @if ($booking->driver->lokasi)
+                                        <div class="ddrop-phone">{{ $booking->driver->lokasi }}</div>
+                                    @endif
+                                @else
+                                    <span style="color:#cbd5e1">—</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($booking->mobil)
+                                    <div class="ddrop-name" style="font-size:0.83rem">{{ $booking->mobil->kode_mobil }}</div>
+                                    <div class="ddrop-phone">{{ $booking->mobil->jenis_mobil }}</div>
+                                @else
+                                    <span style="color:#cbd5e1">—</span>
+                                @endif
                             </td>
                             <td>
                                 <div class="ddrop-notes">{{ Str::limit($booking->notes ?? '-', 50) }}</div>
@@ -175,7 +200,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="ddrop-empty">
+                            <td colspan="10" class="ddrop-empty">
                                 <svg viewBox="0 0 24 24" fill="none" width="40" height="40"><path d="M9 17H5C3.89543 17 3 16.1046 3 15V5C3 3.89543 3.89543 3 5 3H19C20.1046 3 21 3.89543 21 5V15C21 16.1046 20.1046 17 19 17H15M9 17L7 21H17L15 17M9 17H15" stroke="currentColor" stroke-width="1.5"/></svg>
                                 <p>Belum ada data pemesanan dropping.</p>
                                 <button type="button" class="ddrop-btn-primary" id="btn-open-create-empty">Tambah Data Dropping</button>

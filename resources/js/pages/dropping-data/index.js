@@ -93,6 +93,14 @@ function populateShowModal(data) {
             <span class="ddrop-detail-label">Keterangan</span>
             <span class="ddrop-detail-value">${data.notes || '—'}</span>
         </div>
+        <div class="ddrop-detail-item">
+            <span class="ddrop-detail-label">Driver</span>
+            <span class="ddrop-detail-value">${data.driver_name || '—'}</span>
+        </div>
+        <div class="ddrop-detail-item">
+            <span class="ddrop-detail-label">Mobil</span>
+            <span class="ddrop-detail-value">${data.kode_mobil ? data.kode_mobil + (data.jenis_mobil ? ' — ' + data.jenis_mobil : '') : '—'}</span>
+        </div>
     `;
 }
 
@@ -124,6 +132,8 @@ function populateEditModal(data) {
     set('notes',           data.notes);
     set('payment_method',  data.payment_method);
     set('payment_status',  data.payment_status);
+    set('driver_id',       data.driver_id);
+    set('mobil_id',        data.mobil_id);
 }
 
 // ── DELETE MODAL ─────────────────────────────────────────────────────────────

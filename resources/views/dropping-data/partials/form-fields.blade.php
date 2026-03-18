@@ -103,4 +103,32 @@
         >{{ old('notes', $booking?->notes ?? '') }}</textarea>
     </div>
 
+    <div class="ddrop-section-divider">Data Driver & Armada</div>
+
+    <div class="ddrop-form-field">
+        <label>Driver</label>
+        <select name="driver_id" class="ddrop-form-select">
+            <option value="">— Pilih Driver —</option>
+            @foreach ($drivers ?? [] as $driver)
+                <option value="{{ $driver->id }}"
+                    @selected(old('driver_id', $booking?->driver_id) === (string) $driver->id)>
+                    {{ $driver->nama }}{{ $driver->lokasi ? ' — ' . $driver->lokasi : '' }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
+    <div class="ddrop-form-field">
+        <label>Mobil</label>
+        <select name="mobil_id" class="ddrop-form-select">
+            <option value="">— Pilih Mobil —</option>
+            @foreach ($mobils ?? [] as $mobil)
+                <option value="{{ $mobil->id }}"
+                    @selected(old('mobil_id', $booking?->mobil_id) === (string) $mobil->id)>
+                    {{ $mobil->kode_mobil }} — {{ $mobil->jenis_mobil }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
 </div>

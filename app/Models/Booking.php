@@ -38,6 +38,7 @@ class Booking extends Model
         'route_label',
         'driver_name',
         'driver_id',
+        'mobil_id',
         'payment_method',
         'payment_reference',
         'payment_proof_path',
@@ -139,6 +140,11 @@ class Booking extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class);
+    }
+
+    public function mobil(): BelongsTo
+    {
+        return $this->belongsTo(Mobil::class);
     }
 
     public function validator(): BelongsTo
