@@ -122,14 +122,14 @@
             vertical-align: top;
         }
 
-        .col-no    { width: 26px;  text-align: center; }
-        .col-kursi { width: 80px;  text-align: center; }
-        .col-nama  { width: 130px; }
-        .col-nohp  { width: 90px;  }
-        .col-jemput{ width: 145px; }
-        .col-tujuan{ width: 100px; }
-        .col-tarif { width: 75px;  text-align: right; }
-        .col-ket   { }
+        .col-no    { width: 24px;  text-align: center; }
+        .col-kursi { width: 68px;  text-align: center; }
+        .col-nama  { width: 115px; }
+        .col-nohp  { width: 88px;  }
+        .col-jemput{ width: 140px; }
+        .col-tujuan{ width: 95px;  }
+        .col-tarif { width: 72px;  text-align: right; }
+        .col-ket   { width: 115px; word-wrap: break-word; overflow: hidden; }
 
         .td-center { text-align: center; }
         .td-right  { text-align: right; }
@@ -212,6 +212,14 @@
         </tr>
     </table>
 
+    @php
+        $userNotes = $booking->notes ?? '';
+        // Filter out auto-generated wizard notes
+        if (str_starts_with($userNotes, 'Draft dropping booking')) {
+            $userNotes = '';
+        }
+    @endphp
+
     {{-- DATA TABLE --}}
     <table class="data-table">
         <thead>
@@ -230,7 +238,7 @@
             {{-- Single pemesan row --}}
             <tr>
                 <td class="col-no td-center">1</td>
-                <td class="col-kursi td-center">1A, 2A, 2B,<br>3A, 4A, 5A</td>
+                <td class="col-kursi td-center">1A, 2A, 2B, 3A, 4A, 5A</td>
                 <td class="col-nama">{{ $booking->passenger_name }}</td>
                 <td class="col-nohp">{{ $booking->passenger_phone }}</td>
                 <td class="col-jemput">{{ $booking->pickup_location }}</td>
@@ -238,10 +246,10 @@
                 <td class="col-tarif td-right">
                     Rp {{ number_format((int)($booking->total_amount ?? 0), 0, ',', '.') }}
                 </td>
-                <td class="col-ket">Dropping — Seluruh Armada<br>{{ $booking->notes ?: '' }}</td>
+                <td class="col-ket">Dropping — Seluruh Armada{{ $userNotes ? '. ' . $userNotes : '' }}</td>
             </tr>
             {{-- Empty rows for spacing --}}
-            @for ($i = 0; $i < 9; $i++)
+            @for ($i = 0; $i < 7; $i++)
                 <tr class="row-empty">
                     <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                 </tr>
