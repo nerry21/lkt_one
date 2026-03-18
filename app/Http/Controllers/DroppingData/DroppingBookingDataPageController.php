@@ -264,12 +264,26 @@ class DroppingBookingDataPageController extends Controller
             ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath))
             : null;
 
-        return Pdf::loadView('dropping-data.pdf.surat-jalan', [
-            'booking'     => $booking,
-            'logo_base64' => $logoBase64,
-            'tanggal'     => $booking->trip_date?->format('d F Y') ?? '-',
+        $rows = [[
+            'kursi'  => '1A, 2A, 2B, 3A, 4A, 5A',
+            'nama'   => (string) ($booking->passenger_name ?? ''),
+            'no_hp'  => (string) ($booking->passenger_phone ?? ''),
+            'jemput' => (string) ($booking->pickup_location ?? ''),
+            'tujuan' => (string) ($booking->to_city ?? ''),
+            'tarif'  => (int) ($booking->total_amount ?? 0),
+        ]];
+
+        while (count($rows) < 12) {
+            $rows[] = ['kursi' => '', 'nama' => '', 'no_hp' => '', 'jemput' => '', 'tujuan' => '', 'tarif' => null];
+        }
+
+        return Pdf::loadView('bookings.pdf.surat-jalan', [
+            'rows'        => $rows,
+            'tanggal'     => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
             'driver_name' => trim((string) ($booking->driver_name ?? '')),
-        ])->setPaper('a4')->download($booking->booking_code . '-SJ.pdf');
+            'kode_mobil'  => '',
+            'logo_base64' => $logoBase64,
+        ])->setPaper('a4', 'landscape')->download($booking->booking_code . '-SJ.pdf');
     }
 
     private function generateBookingCode(): string
