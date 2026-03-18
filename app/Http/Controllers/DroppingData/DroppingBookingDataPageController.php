@@ -274,6 +274,8 @@ class DroppingBookingDataPageController extends Controller
     {
         abort_if($booking->category !== 'Dropping', 404);
 
+        $booking->loadMissing(['driver', 'mobil']);
+
         $logoPath   = public_path('images/lk_travel.png');
         $logoBase64 = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath))
@@ -295,8 +297,8 @@ class DroppingBookingDataPageController extends Controller
         return Pdf::loadView('bookings.pdf.surat-jalan', [
             'rows'        => $rows,
             'tanggal'     => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
-            'driver_name' => trim((string) ($booking->driver_name ?? '')),
-            'kode_mobil'  => '',
+            'driver_name' => trim((string) ($booking->driver?->nama ?? $booking->driver_name ?? '')),
+            'kode_mobil'  => (string) ($booking->mobil?->kode_mobil ?? ''),
             'logo_base64' => $logoBase64,
         ])->setPaper('a4', 'landscape')->download($booking->booking_code . '-SJ.pdf');
     }
