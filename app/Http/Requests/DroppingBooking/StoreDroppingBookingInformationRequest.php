@@ -1,0 +1,90 @@
+<?php
+
+namespace App\Http\Requests\DroppingBooking;
+
+use App\Services\DroppingBookingService;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
+
+class StoreDroppingBookingInformationRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $service = app(DroppingBookingService::class);
+
+        return [
+            'trip_date'                    => ['required', 'date', 'after_or_equal:today'],
+            'booking_type'                 => ['required', 'string', Rule::in($service->bookingTypeValues())],
+            'pickup_location'              => ['required', 'string', 'min:2', 'max:255'],
+            'destination_location'         => ['required', 'string', 'min:2', 'max:255'],
+            'departure_time'               => ['required', 'date_format:H:i'],
+            'fare_amount'                  => ['required', 'integer', 'min:0'],
+            'additional_fare_per_passenger'=> ['nullable', 'integer', 'min:0'],
+            'pickup_address'               => ['required', 'string', 'min:10', 'max:255'],
+            'dropoff_address'              => ['required', 'string', 'min:10', 'max:255'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'trip_date'                    => 'tanggal keberangkatan',
+            'booking_type'                 => 'jenis pemesanan',
+            'pickup_location'              => 'asal penjemputan',
+            'destination_location'         => 'tujuan',
+            'departure_time'               => 'jam keberangkatan',
+            'fare_amount'                  => 'tarif per penumpang',
+            'additional_fare_per_passenger'=> 'ongkos tambahan per penumpang',
+            'pickup_address'               => 'alamat penjemputan',
+            'dropoff_address'              => 'alamat pengantaran',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'departure_time.date_format'  => 'Jam keberangkatan harus dalam format HH:MM (contoh: 07:30).',
+            'pickup_address.min'           => 'Alamat penjemputan minimal 10 karakter.',
+            'dropoff_address.min'          => 'Alamat pengantaran minimal 10 karakter.',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->has('pickup_location') || $validator->errors()->has('destination_location')) {
+                    return;
+                }
+
+                $origin = trim((string) $this->input('pickup_location'));
+                $destination = trim((string) $this->input('destination_location'));
+
+                if (strtolower($origin) === strtolower($destination)) {
+                    $validator->errors()->add('destination_location', 'Tujuan harus berbeda dengan asal penjemputan.');
+                }
+            },
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'trip_date'                    => trim((string) $this->input('trip_date')),
+            'booking_type'                 => trim((string) $this->input('booking_type')),
+            'pickup_location'              => trim((string) $this->input('pickup_location')),
+            'destination_location'         => trim((string) $this->input('destination_location')),
+            'departure_time'               => trim((string) $this->input('departure_time')),
+            'fare_amount'                  => max((int) $this->input('fare_amount', 0), 0),
+            'additional_fare_per_passenger'=> max((int) $this->input('additional_fare_per_passenger', 0), 0),
+            'pickup_address'               => trim((string) $this->input('pickup_address')),
+            'dropoff_address'              => trim((string) $this->input('dropoff_address')),
+        ]);
+    }
+}

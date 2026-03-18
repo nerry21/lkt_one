@@ -17,6 +17,13 @@
             'active_patterns' => ['regular-bookings.*'],
         ],
         [
+            'route' => 'dropping-bookings.index',
+            'label' => 'Pemesanan Dropping',
+            'testid' => 'nav-dropping-bookings',
+            'icon' => 'bus',
+            'active_patterns' => ['dropping-bookings.*'],
+        ],
+        [
             'route' => 'package-bookings.index',
             'label' => 'Pengantaran Paket',
             'testid' => 'nav-package-bookings',
