@@ -16,21 +16,217 @@
 
 @section('content')
     <style>
-        /* Warna teks di dalam modal detail pemesanan */
-        .bpg-detail-dialog-card .bpg-detail-item strong,
-        .bpg-detail-dialog-card .bpg-detail-item p {
-            color: #0f172a !important;
+        /* ══════════════════════════════════════════
+           DETAIL MODAL — Redesign
+        ══════════════════════════════════════════ */
+        .bpg-detail-dialog-card {
+            background: #ffffff !important;
+            border: none !important;
+            box-shadow: 0 24px 80px rgba(0,0,0,.22) !important;
+            border-radius: 20px !important;
+            width: min(660px, calc(100vw - 24px)) !important;
+            max-height: calc(100dvh - 48px) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            padding: 0 !important;
         }
-        .bpg-detail-dialog-card .bpg-detail-item span {
-            color: #475569 !important;
+
+        /* Header */
+        .bpg-detail-dialog-card .admin-users-dialog-head {
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+            padding: 20px 24px 18px;
+            border-radius: 20px 20px 0 0;
+            flex-shrink: 0;
+            border-bottom: none;
         }
-        .bpg-detail-dialog-card .admin-users-dialog-head h3,
+        .bpg-detail-dialog-card .admin-users-dialog-head h3 {
+            color: #ffffff !important;
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin: 0 0 4px;
+        }
         .bpg-detail-dialog-card .bpg-detail-subtitle {
-            color: #0f172a !important;
+            color: rgba(255,255,255,.7) !important;
+            font-size: 0.8rem;
+            margin: 0;
+            font-family: monospace;
+            letter-spacing: .03em;
+        }
+        .bpg-detail-dialog-card .admin-users-dialog-close {
+            color: rgba(255,255,255,.8);
+            background: rgba(255,255,255,.12);
+            border-radius: 10px;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .bpg-detail-dialog-card .admin-users-dialog-close:hover {
+            background: rgba(255,255,255,.22);
+        }
+
+        /* Body */
+        .bpg-detail-dialog-card .bpg-detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            background: #f8fafc;
+        }
+
+        /* Status bar */
+        .bpg-dv-status-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 14px 20px;
+            background: #ffffff;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .bpg-dv-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+        .bpg-dv-badge--green  { background: #d1fae5; color: #065f46; }
+        .bpg-dv-badge--blue   { background: #dbeafe; color: #1e40af; }
+        .bpg-dv-badge--orange { background: #fef3c7; color: #92400e; }
+        .bpg-dv-badge--red    { background: #fee2e2; color: #991b1b; }
+        .bpg-dv-badge--gray   { background: #f1f5f9; color: #475569; }
+        .bpg-dv-badge--purple { background: #ede9fe; color: #5b21b6; }
+
+        /* Section */
+        .bpg-dv-section {
+            background: #ffffff;
+            margin: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid #f1f5f9;
+            overflow: hidden;
+        }
+        .bpg-dv-section-head {
+            padding: 10px 16px 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .bpg-dv-section-head svg {
+            width: 15px; height: 15px;
+            color: #047857;
+            flex-shrink: 0;
+        }
+        .bpg-dv-section-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #047857;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+        .bpg-dv-rows {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+        .bpg-dv-row {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f8fafc;
+            border-right: 1px solid #f8fafc;
+        }
+        .bpg-dv-row:nth-child(2n) { border-right: none; }
+        .bpg-dv-row:last-child,
+        .bpg-dv-row:nth-last-child(2):not(.bpg-dv-row--full) { border-bottom: none; }
+        .bpg-dv-row--full {
+            grid-column: 1 / -1;
+            border-right: none;
+        }
+        .bpg-dv-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 4px;
+        }
+        .bpg-dv-value {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.4;
+        }
+        .bpg-dv-value--price {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #047857;
+        }
+        .bpg-dv-value--mono {
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .bpg-dv-value--muted { color: #94a3b8; font-weight: 400; }
+        .bpg-dv-route {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .bpg-dv-route-city {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .bpg-dv-route-arrow {
+            color: #047857;
+            font-size: 1rem;
+        }
+
+        /* Footer actions */
+        .bpg-detail-dialog-card .admin-users-dialog-actions {
+            background: #ffffff;
+            border-top: 1px solid #f1f5f9;
+            padding: 14px 20px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            flex-shrink: 0;
+            border-radius: 0 0 20px 20px;
+        }
+        .bpg-detail-dialog-card .admin-users-secondary-button,
+        .bpg-detail-dialog-card .admin-users-primary-button {
+            font-size: 0.82rem;
+            padding: 9px 16px;
+            border-radius: 9px;
+            font-weight: 700;
+        }
+        .bpg-detail-dialog-card .admin-users-secondary-button {
+            background: #f8fafc;
+            color: #374151;
+            border: 1px solid #e2e8f0;
+        }
+        .bpg-detail-dialog-card .admin-users-secondary-button:hover {
+            background: #f1f5f9;
+        }
+        .bpg-detail-dialog-card .admin-users-primary-button {
+            background: #047857 !important;
+            color: #ffffff !important;
+            border: none;
         }
         #bpg-detail-full-link,
-        #bpg-detail-full-link * {
-            color: #000000 !important;
+        #bpg-detail-full-link * { color: #ffffff !important; }
+
+        @media (max-width: 480px) {
+            .bpg-dv-rows { grid-template-columns: 1fr; }
+            .bpg-dv-row { border-right: none; }
+            .bpg-dv-row:last-child { border-bottom: none; }
+            .bpg-detail-dialog-card { border-radius: 16px 16px 0 0 !important; }
         }
     </style>
     <section class="admin-users-page animate-fade-in" data-bookings-page>

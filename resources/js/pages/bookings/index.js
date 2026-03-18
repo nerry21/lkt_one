@@ -499,9 +499,27 @@ async function fetchAndRender() {
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
 
+function bookingStatusBadge(status) {
+    const map = {
+        'Aktif':    'green',
+        'Selesai':  'green',
+        'Dibayar':  'green',
+        'Dibayar Tunai': 'green',
+        'Draft':    'gray',
+        'Belum Bayar': 'orange',
+        'Menunggu Pembayaran': 'blue',
+        'Menunggu Verifikasi': 'blue',
+        'Menunggu Konfirmasi': 'blue',
+        'Batal':    'red',
+        'Reguler':  'purple',
+        'Paket':    'blue',
+    };
+    return map[status] || 'gray';
+}
+
 function openDetailModal(booking) {
     document.getElementById('bpg-detail-title').textContent = booking.nama_pemesanan || '-';
-    document.getElementById('bpg-detail-subtitle').textContent = `${booking.booking_code || '-'} · ${booking.booking_status || '-'}`;
+    document.getElementById('bpg-detail-subtitle').textContent = booking.booking_code || '-';
     document.getElementById('bpg-detail-full-link').href = `/dashboard/bookings/${booking.id}`;
 
     const isPackageBooking = booking.category === 'Paket';
@@ -517,63 +535,117 @@ function openDetailModal(booking) {
         suratLink.hidden  = true;
     }
 
+    const bookingStatus   = booking.booking_status || '';
+    const paymentStatus   = booking.payment_status || '';
+    const serviceType     = booking.service_type || '';
+    const hasPickup       = (booking.pickup_location || '').trim() !== '';
+    const hasDropoff      = (booking.dropoff_location || '').trim() !== '';
+
     const body = document.getElementById('bpg-detail-body');
 
     body.innerHTML = `
-        <div class="bpg-detail-grid">
-            <div class="bpg-detail-item">
-                <span>Nama Pemesanan</span>
-                <strong>${escapeHtml(booking.nama_pemesanan || '-')}</strong>
+        <!-- Status Badges -->
+        <div class="bpg-dv-status-bar">
+            ${bookingStatus ? `<span class="bpg-dv-badge bpg-dv-badge--${bookingStatusBadge(bookingStatus)}">${escapeHtml(bookingStatus)}</span>` : ''}
+            ${paymentStatus ? `<span class="bpg-dv-badge bpg-dv-badge--${bookingStatusBadge(paymentStatus)}">${escapeHtml(paymentStatus)}</span>` : ''}
+            ${serviceType ? `<span class="bpg-dv-badge bpg-dv-badge--purple">${escapeHtml(serviceType)}</span>` : ''}
+        </div>
+
+        <!-- Rute Perjalanan -->
+        <div class="bpg-dv-section">
+            <div class="bpg-dv-section-head">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="bpg-dv-section-title">Rute Perjalanan</span>
             </div>
-            <div class="bpg-detail-item">
-                <span>No HP</span>
-                <strong>${escapeHtml(booking.phone || '-')}</strong>
+            <div class="bpg-dv-rows">
+                <div class="bpg-dv-row bpg-dv-row--full">
+                    <div class="bpg-dv-label">Rute</div>
+                    <div class="bpg-dv-route">
+                        <span class="bpg-dv-route-city">${escapeHtml(booking.from_city || '-')}</span>
+                        <span class="bpg-dv-route-arrow">→</span>
+                        <span class="bpg-dv-route-city">${escapeHtml(booking.to_city || '-')}</span>
+                    </div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Tanggal</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.trip_date_label || '-')}</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Waktu</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.trip_time || '-')} WIB</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Armada</div>
+                    <div class="bpg-dv-value">Armada ${escapeHtml(String(booking.armada_index || 1))}</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Jenis Layanan</div>
+                    <div class="bpg-dv-value">${escapeHtml(serviceType || '-')}</div>
+                </div>
             </div>
-            <div class="bpg-detail-item">
-                <span>Kota Asal</span>
-                <strong>${escapeHtml(booking.from_city || '-')}</strong>
+        </div>
+
+        <!-- Data Penumpang -->
+        <div class="bpg-dv-section">
+            <div class="bpg-dv-section-head">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="bpg-dv-section-title">Data Penumpang</span>
             </div>
-            <div class="bpg-detail-item">
-                <span>Kota Tujuan</span>
-                <strong>${escapeHtml(booking.to_city || '-')}</strong>
+            <div class="bpg-dv-rows">
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Nama Pemesan</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.nama_pemesanan || '-')}</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">No HP</div>
+                    <div class="bpg-dv-value bpg-dv-value--mono">${escapeHtml(booking.phone || '-')}</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Kursi</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.selected_seats_label || '-')}</div>
+                </div>
+                <div class="bpg-dv-row">
+                    <div class="bpg-dv-label">Jumlah Penumpang</div>
+                    <div class="bpg-dv-value">${escapeHtml(String(booking.passenger_count || 0))} Orang</div>
+                </div>
             </div>
-            <div class="bpg-detail-item">
-                <span>Tanggal Keberangkatan</span>
-                <strong>${escapeHtml(booking.trip_date_label || '-')}</strong>
+        </div>
+
+        <!-- Alamat -->
+        ${hasPickup || hasDropoff ? `
+        <div class="bpg-dv-section">
+            <div class="bpg-dv-section-head">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="bpg-dv-section-title">Alamat</span>
             </div>
-            <div class="bpg-detail-item">
-                <span>Waktu Keberangkatan</span>
-                <strong>${escapeHtml(booking.trip_time || '-')}</strong>
+            <div class="bpg-dv-rows">
+                ${hasPickup ? `
+                <div class="bpg-dv-row bpg-dv-row--full">
+                    <div class="bpg-dv-label">Alamat Penjemputan</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.pickup_location)}</div>
+                </div>` : ''}
+                ${hasDropoff ? `
+                <div class="bpg-dv-row bpg-dv-row--full">
+                    <div class="bpg-dv-label">Alamat Pengantaran</div>
+                    <div class="bpg-dv-value">${escapeHtml(booking.dropoff_location)}</div>
+                </div>` : ''}
             </div>
-            <div class="bpg-detail-item">
-                <span>Pilih Kursi</span>
-                <strong>${escapeHtml(booking.selected_seats_label || '-')}</strong>
+        </div>` : ''}
+
+        <!-- Biaya -->
+        <div class="bpg-dv-section" style="margin-bottom:12px">
+            <div class="bpg-dv-section-head">
+                <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="14" rx="3" stroke="currentColor" stroke-width="2"/><path d="M2 10h20" stroke="currentColor" stroke-width="2"/></svg>
+                <span class="bpg-dv-section-title">Pembayaran</span>
             </div>
-            <div class="bpg-detail-item">
-                <span>Jumlah Penumpang</span>
-                <strong>${escapeHtml(String(booking.passenger_count || 0))} Orang</strong>
+            <div class="bpg-dv-rows">
+                <div class="bpg-dv-row bpg-dv-row--full">
+                    <div class="bpg-dv-label">Total Biaya</div>
+                    <div class="bpg-dv-value bpg-dv-value--price">${escapeHtml(booking.total_amount_formatted || '-')}</div>
+                </div>
             </div>
-            <div class="bpg-detail-item">
-                <span>Jenis Layanan</span>
-                <strong>${escapeHtml(booking.service_type || '-')}</strong>
-            </div>
-            <div class="bpg-detail-item">
-                <span>Armada</span>
-                <strong>Armada ${escapeHtml(String(booking.armada_index || 1))}</strong>
-            </div>
-            <div class="bpg-detail-item">
-                <span>Biaya</span>
-                <strong class="bpg-detail-price">${escapeHtml(booking.total_amount_formatted || '-')}</strong>
-            </div>
-            <div class="bpg-detail-item bpg-detail-item--full">
-                <span>Alamat Penjemputan</span>
-                <p>${escapeHtml(booking.pickup_location || '-')}</p>
-            </div>
-            <div class="bpg-detail-item bpg-detail-item--full">
-                <span>Alamat Pengantaran</span>
-                <p>${escapeHtml(booking.dropoff_location || '-')}</p>
-            </div>
-        </div>`;
+        </div>
+    `;
 
     openModal('bpg-detail-modal');
 }
