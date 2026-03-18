@@ -349,6 +349,7 @@
         @media print {
             body { background: none; padding: 0; }
             .page-actions { display: none; }
+            .no-print { display: none; }
             .ticket-wrapper { max-width: 100%; margin: 0 0 20px; }
             .ticket { page-break-after: always; border: 2px solid #1a237e; }
             .ticket:last-child { page-break-after: avoid; }
@@ -358,8 +359,7 @@
 <body>
 
 <div class="page-actions">
-    <button class="btn-back" onclick="history.back()">← Kembali ke Invoice</button>
-    <a href="{{ route('bookings.ticket.download', $booking) }}" class="btn-download">⬇ Download PDF</a>
+    <button class="btn-back" onclick="history.back()">← Kembali</button>
     <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak Semua Tiket</button>
 </div>
 
@@ -520,6 +520,15 @@
 
     </div>{{-- /ticket-body --}}
 </div>{{-- /ticket --}}
+
+{{-- Per-ticket download button --}}
+<div style="text-align:center;margin-top:10px;" class="no-print">
+    <a href="{{ route('bookings.ticket.download.single', [$booking, $ticket['passenger_id']]) }}"
+       style="display:inline-flex;align-items:center;gap:6px;background:#2e7d32;color:#fff;padding:8px 22px;border-radius:8px;font:700 0.85rem sans-serif;text-decoration:none;">
+        ⬇ Download Tiket — {{ $ticket['passenger_name'] }} (Kursi {{ $ticket['seat_no'] }})
+    </a>
+</div>
+
 </div>{{-- /ticket-wrapper --}}
 @endforeach
 

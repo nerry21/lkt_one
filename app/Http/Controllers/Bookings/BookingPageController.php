@@ -75,6 +75,7 @@ class BookingPageController extends Controller
             }
 
             return [
+                'passenger_id'   => $passenger->id,
                 'booking_code'   => (string) $booking->booking_code,
                 'passenger_name' => (string) $passenger->name,
                 'passenger_phone'=> (string) $passenger->phone,
@@ -195,6 +196,49 @@ class BookingPageController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $booking->booking_code . '-tiket.zip"',
             'Content-Length'      => strlen($zipContents),
         ]);
+    }
+
+    public function downloadSingleTicket(Booking $booking, int $passengerId): \Symfony\Component\HttpFoundation\Response
+    {
+        $booking->loadMissing('passengers');
+
+        $passenger = $booking->passengers->firstWhere('id', $passengerId);
+        abort_if(! $passenger, 404);
+
+        $totalAmount    = (float) ($booking->total_amount ?? 0);
+        $passengerCount = max(1, (int) ($booking->passenger_count ?? 1));
+        $tarifFinal     = $passengerCount > 0 ? round($totalAmount / $passengerCount) : $totalAmount;
+
+        $passengerQrToken = $this->ensurePassengerQrToken($passenger, $booking);
+        $qrPngBase64      = filled($passengerQrToken)
+            ? 'data:image/png;base64,' . base64_encode((string) QrCode::format('png')->size(110)->margin(1)->generate($passengerQrToken))
+            : null;
+
+        $ticket = [
+            'booking_code'    => (string) $booking->booking_code,
+            'passenger_name'  => (string) $passenger->name,
+            'passenger_phone' => (string) $passenger->phone,
+            'seat_no'         => (string) $passenger->seat_no,
+            'from_city'       => (string) $booking->from_city,
+            'to_city'         => (string) $booking->to_city,
+            'trip_date'       => $booking->trip_date?->translatedFormat('d F Y') ?? '-',
+            'trip_time'       => (string) ($booking->trip_time ?? '-'),
+            'tarif'           => 'Rp ' . number_format($tarifFinal, 0, ',', '.'),
+            'uang_muka'       => 'Rp 0',
+            'sisa'            => 'Rp 0',
+            'purchase_date'   => $booking->created_at?->translatedFormat('d F Y') ?? '-',
+            'all_seats'       => (array) ($booking->selected_seats ?? []),
+            'qr_token'        => $passengerQrToken,
+            'qr_png'          => $qrPngBase64,
+        ];
+
+        $seatLabel = preg_replace('/[^A-Za-z0-9]/', '', (string) $passenger->seat_no);
+        $fileName  = $booking->booking_code . '-Kursi' . $seatLabel . '-' . \Illuminate\Support\Str::slug($passenger->name) . '.pdf';
+
+        return Pdf::loadView('bookings.pdf.ticket', [
+            'tickets' => collect([$ticket]),
+            'booking' => $booking,
+        ])->setPaper('a4')->download($fileName);
     }
 
     public function downloadSuratBukti(
