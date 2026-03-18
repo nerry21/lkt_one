@@ -124,26 +124,24 @@
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
                         <h2>Data Penumpang</h2>
-                        <p>Urutan penumpang mengikuti urutan kursi dropping yang sudah diisi.</p>
+                        <p>Data pemesan yang berlaku untuk seluruh 6 kursi dropping.</p>
                     </div>
 
-                    <div class="regular-booking-passenger-list">
-                        @foreach ($reviewState['passengers'] as $passenger)
+                    @php $passenger = $reviewState['passengers'][0] ?? null; @endphp
+
+                    @if ($passenger)
+                        <div class="regular-booking-passenger-list">
                             <article class="regular-booking-passenger-card">
                                 <div class="regular-booking-passenger-card-head">
                                     <div>
-                                        <h3>Kursi {{ $passenger['seat_no'] }}</h3>
-                                        <p>Data penumpang untuk kursi {{ $passenger['seat_no'] }}.</p>
+                                        <h3>Pemesan</h3>
+                                        <p>Berlaku untuk semua kursi (1A, 2A, 2B, 3A, 4A, 5A).</p>
                                     </div>
 
-                                    <span class="stock-value-badge stock-value-badge-emerald">Penumpang {{ $loop->iteration }}</span>
+                                    <span class="stock-value-badge stock-value-badge-emerald">Semua Kursi</span>
                                 </div>
 
                                 <div class="regular-booking-review-grid">
-                                    <div class="regular-booking-summary-item">
-                                        <span>Kursi</span>
-                                        <strong>{{ $passenger['seat_no'] }}</strong>
-                                    </div>
                                     <div class="regular-booking-summary-item">
                                         <span>Nama</span>
                                         <strong>{{ $passenger['name'] }}</strong>
@@ -154,8 +152,8 @@
                                     </div>
                                 </div>
                             </article>
-                        @endforeach
-                    </div>
+                        </div>
+                    @endif
                 </section>
 
                 <div class="regular-booking-form-actions">
