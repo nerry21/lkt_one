@@ -214,6 +214,31 @@ class DroppingBookingDataPageController extends Controller
             ->with('dropping_data_success', "Data pemesanan dropping {$code} berhasil dihapus.");
     }
 
+    public function downloadTicket(
+        Booking $booking,
+        RegularBookingPaymentService $payments,
+        DroppingBookingService $service,
+        DroppingBookingPersistenceService $persistence,
+    ): Response {
+        abort_if($booking->category !== 'Dropping', 404);
+
+        $booking     = $persistence->ensureTicketMetadata($booking);
+        $ticketState = $payments->buildTicketState($booking, $service);
+
+        $logoPath        = public_path('images/lk_travel.png');
+        $logo64          = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath)) : null;
+        $jasaRaharjaPath = public_path('images/logo_jasaraharja.png');
+        $jasaRaharja64   = file_exists($jasaRaharjaPath) ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($jasaRaharjaPath)) : null;
+
+        $fileName = ($ticketState['ticket_number'] !== '-' ? $ticketState['ticket_number'] : $booking->booking_code) . '.pdf';
+
+        return Pdf::loadView('dropping-data.pdf.ticket', [
+            'ticketState'    => $ticketState,
+            'logo64'         => $logo64,
+            'jasaRaharja64'  => $jasaRaharja64,
+        ])->setPaper('a4', 'landscape')->download($fileName);
+    }
+
     public function showTicket(
         Booking $booking,
         RegularBookingPaymentService $payments,

@@ -94,5 +94,6 @@ Route::prefix('dashboard')->group(function () {
     Route::put('/dropping-data/{booking}', [DroppingBookingDataPageController::class, 'update'])->name('dropping-data.update');
     Route::delete('/dropping-data/{booking}', [DroppingBookingDataPageController::class, 'destroy'])->name('dropping-data.destroy');
     Route::get('/dropping-data/{booking}/ticket', [DroppingBookingDataPageController::class, 'showTicket'])->name('dropping-data.ticket');
+    Route::get('/dropping-data/{booking}/ticket/download', [DroppingBookingDataPageController::class, 'downloadTicket'])->name('dropping-data.ticket.download');
     Route::get('/dropping-data/{booking}/surat-jalan', [DroppingBookingDataPageController::class, 'downloadSuratJalan'])->name('dropping-data.surat-jalan');
 });
