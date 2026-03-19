@@ -67,6 +67,7 @@ class Booking extends Model
         'ticket_pdf_generated_at',
         'notes',
         'rental_end_date',
+        'return_trip_time',
     ];
 
     protected $casts = [

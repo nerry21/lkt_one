@@ -113,6 +113,13 @@
             'active_patterns' => ['dropping-data.*'],
         ],
         [
+            'route' => 'rental-data.index',
+            'label' => 'Data Pemesanan Rental',
+            'testid' => 'nav-rental-data',
+            'icon' => 'car',
+            'active_patterns' => ['rental-data.*'],
+        ],
+        [
             'route' => 'customer-surveys.index',
             'label' => 'Survei Pelanggan',
             'testid' => 'nav-customer-surveys',

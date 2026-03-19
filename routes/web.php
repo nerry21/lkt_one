@@ -18,6 +18,7 @@ use App\Http\Controllers\Stock\StockPageController;
 use App\Http\Controllers\Survey\PublicSurveyController;
 use App\Http\Controllers\Survey\CustomerSurveyDashboardController;
 use App\Http\Controllers\DroppingData\DroppingBookingDataPageController;
+use App\Http\Controllers\RentalData\RentalDataPageController;
 use App\Http\Controllers\PublicDownloadController;
 use Illuminate\Support\Facades\Route;
 
@@ -116,4 +117,10 @@ Route::prefix('dashboard')->group(function () {
     Route::get('/dropping-data/{booking}/ticket', [DroppingBookingDataPageController::class, 'showTicket'])->name('dropping-data.ticket');
     Route::get('/dropping-data/{booking}/ticket/download', [DroppingBookingDataPageController::class, 'downloadTicket'])->name('dropping-data.ticket.download');
     Route::get('/dropping-data/{booking}/surat-jalan', [DroppingBookingDataPageController::class, 'downloadSuratJalan'])->name('dropping-data.surat-jalan');
+    Route::get('/rental-data', [RentalDataPageController::class, 'index'])->name('rental-data.index');
+    Route::post('/rental-data', [RentalDataPageController::class, 'store'])->name('rental-data.store');
+    Route::put('/rental-data/{booking}', [RentalDataPageController::class, 'update'])->name('rental-data.update');
+    Route::delete('/rental-data/{booking}', [RentalDataPageController::class, 'destroy'])->name('rental-data.destroy');
+    Route::get('/rental-data/{booking}/ticket/download', [RentalDataPageController::class, 'downloadTicket'])->name('rental-data.ticket.download');
+    Route::get('/rental-data/{booking}/surat-jalan', [RentalDataPageController::class, 'downloadSuratJalan'])->name('rental-data.surat-jalan');
 });
