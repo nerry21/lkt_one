@@ -318,9 +318,9 @@
     <table class="body-table">
         <tr>
 
-            {{-- LEFT: Tiket Penumpang Dropping --}}
+            {{-- LEFT: Tiket Penumpang --}}
             <td class="col-left">
-                <div class="section-title">Tiket Penumpang Dropping</div>
+                <div class="section-title">Tiket Penumpang {{ $ticketTypeLabel ?? 'Dropping' }}</div>
                 <div class="section-body">
                     <table class="field-table">
                         <tr>
@@ -405,7 +405,7 @@
                 <div class="section-title">Perhatian</div>
                 <div class="section-body">
                     <ul class="rules-list">
-                        <li><span class="li-no">1.</span>Tiket ini merupakan pemesanan dropping — seluruh armada dipesan untuk satu perjalanan.</li>
+                        <li><span class="li-no">1.</span>Tiket ini merupakan pemesanan {{ strtolower($ticketTypeLabel ?? 'Dropping') }} — seluruh armada dipesan untuk {{ isset($ticketTypeLabel) && $ticketTypeLabel === 'Rental' ? 'periode yang ditentukan' : 'satu perjalanan' }}.</li>
                         <li><span class="li-no">2.</span>Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya.</li>
                         <li><span class="li-no">3.</span>Barang Bawaan Penumpang Jika Terjadi Kehilangan Yang Sifat Nya Kelalaian Penumpang, Bukan Menjadi Tanggung Jawab Perusahaan.</li>
                         <li><span class="li-no">4.</span>Dilarang Membawa Benda Terlarang (narkoba Dll), Hewan, Atau Barang Bawaan Yang Bau Nya Menyengat Dan Dapat Menganggu Kenyamanan Penumpang.</li>

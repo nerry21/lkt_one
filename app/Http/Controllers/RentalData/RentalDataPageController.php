@@ -267,9 +267,10 @@ class RentalDataPageController extends Controller
         $fileName = ($ticketState['ticket_number'] !== '-' ? $ticketState['ticket_number'] : $booking->booking_code) . '.pdf';
 
         return Pdf::loadView('dropping-data.pdf.ticket', [
-            'ticketState'   => $ticketState,
-            'logo64'        => $logo64,
-            'jasaRaharja64' => $jasaRaharja64,
+            'ticketState'    => $ticketState,
+            'logo64'         => $logo64,
+            'jasaRaharja64'  => $jasaRaharja64,
+            'ticketTypeLabel'=> 'Rental',
         ])->setPaper('a4', 'landscape')->download($fileName);
     }
 
