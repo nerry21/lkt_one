@@ -958,9 +958,15 @@ function resetForm(armadaIndex = 1, tripTime = '') {
     document.getElementById('booking-form-description').textContent = `Lengkapi data pemesanan reguler dari dashboard admin${armadaLabel}.`;
 
     document.getElementById('booking-trip-date').value = todayVal;
-    if (tripTime) {
-        document.getElementById('booking-trip-time').value = tripTime;
-    }
+    document.getElementById('booking-trip-time').value = tripTime || '';
+
+    // Explicitly reset city selects to empty — form.reset() alone is unreliable
+    // on mobile browsers (Android/iOS) which may restore previously selected values
+    const fromCityEl = document.getElementById('booking-from-city');
+    const toCityEl = document.getElementById('booking-to-city');
+    if (fromCityEl) fromCityEl.value = '';
+    if (toCityEl) toCityEl.value = '';
+
     document.getElementById('booking-passenger-count').value = '1';
     document.getElementById('booking-additional-fare').value = '0';
     document.getElementById('booking-payment-method').value = '';
@@ -1466,6 +1472,9 @@ export default function initBookingsPage({ user } = {}) {
         closeModal('booking-type-choice-modal');
         resetForm(state._pendingChoiceArmada || 1, state._pendingChoiceTime || '');
         openModal('booking-form-modal');
+        // Re-run after the browser has rendered the modal — handles cases where mobile
+        // browsers restore previously selected values after form.reset()
+        requestAnimationFrame(() => updatePricing());
     });
 
     document.getElementById('choice-package-btn')?.addEventListener('click', () => {
@@ -1522,14 +1531,22 @@ export default function initBookingsPage({ user } = {}) {
         fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
     });
 
-    // Pricing + re-fetch occupied seats when route changes
-    document.getElementById('booking-from-city')?.addEventListener('change', () => {
+    // Pricing + re-fetch occupied seats when route changes.
+    // Listen to both 'change' and 'input' because some mobile browsers (Android Chrome)
+    // fire 'input' instead of 'change' when autofill fills a <select>.
+    let _cityChangePending = false;
+    function handleCityChange() {
         updatePricing();
-        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
-    });
-    document.getElementById('booking-to-city')?.addEventListener('change', () => {
-        updatePricing();
-        fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
+        if (_cityChangePending) return;
+        _cityChangePending = true;
+        setTimeout(() => {
+            _cityChangePending = false;
+            fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
+        }, 50);
+    }
+    ['change', 'input'].forEach((evt) => {
+        document.getElementById('booking-from-city')?.addEventListener(evt, handleCityChange);
+        document.getElementById('booking-to-city')?.addEventListener(evt, handleCityChange);
     });
 
     // Payment method
