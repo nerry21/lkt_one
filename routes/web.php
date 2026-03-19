@@ -12,6 +12,7 @@ use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
 use App\Http\Controllers\Mobil\MobilPageController;
 use App\Http\Controllers\PackageBookings\PackageBookingPageController;
 use App\Http\Controllers\DroppingBookings\DroppingBookingPageController;
+use App\Http\Controllers\RentalBookings\RentalBookingPageController;
 use App\Http\Controllers\RegularBookings\RegularBookingPageController;
 use App\Http\Controllers\Stock\StockPageController;
 use App\Http\Controllers\Survey\PublicSurveyController;
@@ -96,6 +97,18 @@ Route::prefix('dashboard')->group(function () {
     Route::patch('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'update'])->name('customer-surveys.update');
     Route::delete('/customer-surveys/{customerSurvey}', [CustomerSurveyDashboardController::class, 'destroy'])->name('customer-surveys.destroy');
 
+    Route::get('/rental-bookings', [RentalBookingPageController::class, 'index'])->name('rental-bookings.index');
+    Route::post('/rental-bookings/information', [RentalBookingPageController::class, 'storeInformation'])->name('rental-bookings.information.store');
+    Route::get('/rental-bookings/passengers', [RentalBookingPageController::class, 'passengers'])->name('rental-bookings.passengers');
+    Route::post('/rental-bookings/passengers', [RentalBookingPageController::class, 'storePassengers'])->name('rental-bookings.passengers.store');
+    Route::get('/rental-bookings/review', [RentalBookingPageController::class, 'review'])->name('rental-bookings.review');
+    Route::post('/rental-bookings/review', [RentalBookingPageController::class, 'storeReview'])->name('rental-bookings.review.store');
+    Route::get('/rental-bookings/payment', [RentalBookingPageController::class, 'payment'])->name('rental-bookings.payment');
+    Route::post('/rental-bookings/payment', [RentalBookingPageController::class, 'storePayment'])->name('rental-bookings.payment.store');
+    Route::get('/rental-bookings/invoice', [RentalBookingPageController::class, 'invoice'])->name('rental-bookings.invoice');
+    Route::get('/rental-bookings/invoice/download', [RentalBookingPageController::class, 'downloadInvoice'])->name('rental-bookings.invoice.download');
+    Route::get('/rental-bookings/e-ticket', [RentalBookingPageController::class, 'ticket'])->name('rental-bookings.ticket');
+    Route::get('/rental-bookings/e-ticket/download', [RentalBookingPageController::class, 'downloadTicket'])->name('rental-bookings.ticket.download');
     Route::get('/dropping-data', [DroppingBookingDataPageController::class, 'index'])->name('dropping-data.index');
     Route::post('/dropping-data', [DroppingBookingDataPageController::class, 'store'])->name('dropping-data.store');
     Route::put('/dropping-data/{booking}', [DroppingBookingDataPageController::class, 'update'])->name('dropping-data.update');

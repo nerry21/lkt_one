@@ -24,6 +24,13 @@
             'active_patterns' => ['dropping-bookings.*'],
         ],
         [
+            'route' => 'rental-bookings.index',
+            'label' => 'Pemesanan Rental Mobil',
+            'testid' => 'nav-rental-bookings',
+            'icon' => 'car',
+            'active_patterns' => ['rental-bookings.*'],
+        ],
+        [
             'route' => 'package-bookings.index',
             'label' => 'Pengantaran Paket',
             'testid' => 'nav-package-bookings',

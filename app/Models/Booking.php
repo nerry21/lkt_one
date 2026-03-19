@@ -66,6 +66,7 @@ class Booking extends Model
         'ticket_pdf_disk',
         'ticket_pdf_generated_at',
         'notes',
+        'rental_end_date',
     ];
 
     protected $casts = [
@@ -82,6 +83,7 @@ class Booking extends Model
         'discount_eligible'        => 'boolean',
         'eligible_discount'        => 'boolean',
         'ticket_pdf_generated_at'  => 'datetime',
+        'rental_end_date'          => 'date',
     ];
 
     protected static function booted(): void
