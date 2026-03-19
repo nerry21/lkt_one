@@ -288,7 +288,6 @@
 <div class="page-actions">
     <a class="btn-back" href="{{ route('rental-bookings.invoice') }}">← Kembali ke Invoice</a>
     <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak Tiket Rental</button>
-    <a class="btn-print" href="{{ route('rental-bookings.ticket.download') }}" style="text-decoration:none;">⬇&nbsp; Download PDF</a>
 </div>
 
 @php
