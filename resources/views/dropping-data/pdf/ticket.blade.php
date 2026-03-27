@@ -283,13 +283,13 @@
                 @if ($logo64)
                     <img src="{{ $logo64 }}" alt="Logo">
                 @endif
-                <div class="logo-text">PT. Lancang Kuning<br>Travelindo</div>
+                <div class="logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
             </td>
             <td class="center-cell">
-                <div class="company-name">Lancang Kuning Travelindo</div>
+                <div class="company-name">JET (JAYA EXECUTIVE TRANSPORT)</div>
                 <div><span class="company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</span></div>
                 <div class="address">
-                    Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
+                    Alamat : Jalan Riau, No 139, Lenggopan Kelurahan Pasirpengaraian, Kabupaten Rokan Hulu<br>
                     Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
                 </div>
                 <table class="phones-table">

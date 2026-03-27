@@ -187,7 +187,7 @@
 
         {{-- Header --}}
         <section class="ticket-header">
-            <h1 class="ticket-brand">E-Ticket Lancang Kuning Travelindo</h1>
+            <h1 class="ticket-brand">E-Ticket JET (JAYA EXECUTIVE TRANSPORT)</h1>
             <p class="ticket-subtitle">Dokumen tiket elektronik resmi. Harap ditunjukkan saat keberangkatan.</p>
             <div>
                 <span class="badge badge-white">{{ $booking->ticket_number ?? $booking->booking_code }}</span>
@@ -335,7 +335,7 @@
 
         {{-- Footer --}}
         <div class="footer-note">
-            Dicetak oleh sistem Lancang Kuning Travelindo &mdash; {{ $generated_at }}
+            Dicetak oleh sistem JET (JAYA EXECUTIVE TRANSPORT) &mdash; {{ $generated_at }}
             &nbsp;|&nbsp; Tiket ini sah sebagai bukti pemesanan resmi.
         </div>
 

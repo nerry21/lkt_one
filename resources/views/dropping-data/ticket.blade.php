@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Ticket Dropping {{ $ticketState['ticket_number'] }} | Lancang Kuning Travelindo</title>
+    <title>E-Ticket Dropping {{ $ticketState['ticket_number'] }} | JET (JAYA EXECUTIVE TRANSPORT)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
@@ -302,16 +302,16 @@
     {{-- HEADER --}}
     <div class="ticket-header">
         <div class="ticket-logo-box">
-            <img src="/images/lk_travel.png" alt="Lancang Kuning Travelindo"
+            <img src="/images/lk_travel.png" alt="JET (JAYA EXECUTIVE TRANSPORT)"
                  style="width:90px;height:90px;object-fit:contain;display:block;">
-            <div class="ticket-logo-text">PT. Lancang Kuning<br>Travelindo</div>
+            <div class="ticket-logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
         </div>
 
         <div class="ticket-header-center">
-            <div class="ticket-company-name">Lancang Kuning Travelindo</div>
+            <div class="ticket-company-name">JET (JAYA EXECUTIVE TRANSPORT)</div>
             <div class="ticket-company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</div>
             <div class="ticket-address">
-                Alamat : Jl. Lingkar Pasir Pengaraian, Dusun Kampung Baru, Desa Koto Tinggi, Kec. Rambah, Kab. Rokan Hulu<br>
+                Alamat : Jalan Riau, No 139, Lenggopan Kelurahan Pasirpengaraian, Kabupaten Rokan Hulu<br>
                 Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
             </div>
             <div class="ticket-phones">

@@ -148,7 +148,7 @@
 <body>
     <div class="ticket-shell">
         <section class="ticket-header">
-            <h1 class="ticket-brand">E-ticket Lancang Kuning Travelindo</h1>
+            <h1 class="ticket-brand">E-ticket JET (JAYA EXECUTIVE TRANSPORT)</h1>
             <p class="ticket-subtitle">Dokumen tiket elektronik untuk perjalanan reguler yang sudah tercatat pada sistem.</p>
 
             <div class="ticket-badges">
