@@ -298,10 +298,6 @@
                             <div class="phone-city">Pekanbaru</div>
                             <div class="phone-number">0823-6421-0642</div>
                         </td>
-                        <td>
-                            <div class="phone-city">Rokan Hulu</div>
-                            <div class="phone-number">0823-1320-5885</div>
-                        </td>
                     </tr>
                 </table>
             </td>

@@ -319,10 +319,6 @@
                     <div class="ticket-phone-city">Pekanbaru</div>
                     <div class="ticket-phone-number">0823-6421-0642</div>
                 </div>
-                <div>
-                    <div class="ticket-phone-city">Rokan Hulu</div>
-                    <div class="ticket-phone-number">0823-1320-5885</div>
-                </div>
             </div>
         </div>
 

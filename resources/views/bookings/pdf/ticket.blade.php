@@ -446,11 +446,9 @@
                 <table class="phones-table">
                     <tr>
                         <td class="phone-city">Pekanbaru</td>
-                        <td class="phone-city">Rokan Hulu</td>
                     </tr>
                     <tr>
                         <td class="phone-number">0823-6421-0642</td>
-                        <td class="phone-number">0823-1320-5885</td>
                     </tr>
                 </table>
             </td>
