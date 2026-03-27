@@ -53,6 +53,7 @@
             height: 80px;
             display: block;
             margin: 0 auto 3px auto;
+            object-fit: contain;
         }
 
         .logo-text {
@@ -247,6 +248,7 @@
             height: 100px;
             display: block;
             margin: 0 auto;
+            object-fit: contain;
         }
 
         .qr-token {
@@ -362,68 +364,42 @@
             text-align: right;
             margin-top: 8px;
         }
+
+        .logo-missing {
+            font-size: 7px;
+            color: #b71c1c;
+            text-align: center;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
 
 @php
-    /**
-     * Resize gambar ke ukuran kecil lalu encode ke base64 PNG.
-     * Ini penting karena file logo asli sangat besar (1-2 MiB),
-     * sehingga tidak bisa langsung di-embed ke DomPDF.
-     */
-    function resizeImageToBase64(string $filePath, string $type, int $size = 80): ?string {
-        if (!file_exists($filePath)) return null;
-
-        try {
-            $src = match ($type) {
-                'png'  => imagecreatefrompng($filePath),
-                'jpg'  => imagecreatefromjpeg($filePath),
-                default => null,
-            };
-            if (!$src) return null;
-
-            $w = imagesx($src);
-            $h = imagesy($src);
-
-            // Hitung rasio agar proporsional
-            $ratio = min($size / $w, $size / $h);
-            $newW  = (int) round($w * $ratio);
-            $newH  = (int) round($h * $ratio);
-
-            $dst = imagecreatetruecolor($newW, $newH);
-
-            // Aktifkan transparansi untuk PNG
-            imagealphablending($dst, false);
-            imagesavealpha($dst, true);
-            $transparent = imagecolorallocatealpha($dst, 255, 255, 255, 127);
-            imagefilledrectangle($dst, 0, 0, $newW, $newH, $transparent);
-
-            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $w, $h);
-            imagedestroy($src);
-
-            ob_start();
-            imagepng($dst);
-            $data = ob_get_clean();
-            imagedestroy($dst);
-
-            return 'data:image/png;base64,' . base64_encode($data);
-        } catch (\Throwable $e) {
-            return null;
-        }
-    }
-
-    $brandLogoCandidates = [
+    $logoJetCandidates = [
         public_path('images/jet_travel.png'),
         public_path('images/jet_travel.PNG'),
         public_path('images/JET_TRAVEL.png'),
         public_path('images/JET_TRAVEL.PNG'),
+        public_path('images/jet-travel.png'),
+        public_path('images/jet-travel.PNG'),
     ];
 
-    $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
-    $brandLogoType = is_string($brandLogoPath) ? strtolower(pathinfo($brandLogoPath, PATHINFO_EXTENSION)) : 'png';
-    $lkLogo = is_string($brandLogoPath) ? resizeImageToBase64($brandLogoPath, $brandLogoType, 80) : null;
-    $jrLogo = resizeImageToBase64(public_path('images/logo_jasaraharja.png'), 'png', 80);
+    $logoJasaRaharjaCandidates = [
+        public_path('images/logo_jasaraharja.png'),
+        public_path('images/logo_jasaraharja.PNG'),
+        public_path('images/logo_jasa_raharja.png'),
+        public_path('images/logo_jasa_raharja.PNG'),
+    ];
+
+    $lkLogoPath = collect($logoJetCandidates)->first(function (string $path): bool {
+        return is_file($path);
+    });
+
+    $jrLogoPath = collect($logoJasaRaharjaCandidates)->first(function (string $path): bool {
+        return is_file($path);
+    });
 
     $seatMap = [
         ['1A', 'SOPIR'],
@@ -434,174 +410,183 @@
 
 @foreach ($tickets as $ticket)
 <div class="ticket-wrapper">
-<div class="ticket">
+    <div class="ticket">
 
-    {{-- HEADER --}}
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-col">
-                @if ($lkLogo)
-                    <img src="{{ $lkLogo }}" alt="LK" class="logo-img">
-                @endif
-                <div class="logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
-            </td>
-            <td class="header-center-col">
-                <div class="company-name">JET (JAYA EXECUTIVE TRANSPORT)</div>
-                <div><span class="company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</span></div>
-                <div class="company-address">
-                    Alamat : Jalan Riau, No 139, Lenggopan Kelurahan Pasirpengaraian, Kabupaten Rokan Hulu<br>
-                    Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
-                </div>
-                <table class="phones-table">
-                    <tr>
-                        <td class="phone-city">Pekanbaru/RokanHulu</td>
-                    </tr>
-                    <tr>
-                        <td class="phone-number">0823-6421-0642</td>
-                    </tr>
-                </table>
-            </td>
-            <td class="header-logo-col">
-                @if ($jrLogo)
-                    <img src="{{ $jrLogo }}" alt="Jasa Raharja" class="logo-img">
-                @endif
-                <div class="logo-text">Jasa Raharja<br>Protected</div>
-            </td>
-        </tr>
-    </table>
+        {{-- HEADER --}}
+        <table class="header-table">
+            <tr>
+                <td class="header-logo-col">
+                    @if ($lkLogoPath)
+                        <img src="{{ $lkLogoPath }}" alt="JET Travel" class="logo-img">
+                    @else
+                        <div class="logo-missing">Logo JET tidak ditemukan</div>
+                    @endif
+                    <div class="logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
+                </td>
 
-    {{-- BODY --}}
-    <table class="body-table">
-        <tr>
-
-            {{-- LEFT: Tiket Penumpang --}}
-            <td class="col-left">
-                <div class="section-title">Tiket Penumpang</div>
-                <table class="fields-table">
-                    <tr>
-                        <td class="field-label">Nama Penumpang</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['passenger_name'] ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Dari</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['from_city'] ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Tujuan</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['to_city'] ?? '-' }}</td>
-                    </tr>
-                </table>
-                <div class="sub-title">Keberangkatan</div>
-                <table class="fields-table">
-                    <tr>
-                        <td class="field-label">Tgl. Berangkat</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['trip_date'] ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Jam</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">
-                            {{ isset($ticket['trip_time']) && $ticket['trip_time'] ? $ticket['trip_time'] . ' WIB' : '-' }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Tarif</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['tarif'] ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Uang Muka</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['uang_muka'] ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="field-label">Sisa</td>
-                        <td class="field-colon">:</td>
-                        <td class="field-value">{{ $ticket['sisa'] ?? '-' }}</td>
-                    </tr>
-                </table>
-            </td>
-
-            {{-- MIDDLE: QR & Nomor Bangku --}}
-            <td class="col-middle">
-                <div class="section-title">QR Loyalti &amp; Bangku</div>
-
-                {{-- QR Code --}}
-                @if (!empty($ticket['qr_png']))
-                    <div class="qr-wrap">
-                        <img src="{{ $ticket['qr_png'] }}" alt="QR Tiket">
-                        <div class="qr-token">{{ $ticket['qr_token'] }}</div>
-                        <div class="qr-label">Scan untuk loyalti</div>
+                <td class="header-center-col">
+                    <div class="company-name">JET (JAYA EXECUTIVE TRANSPORT)</div>
+                    <div><span class="company-sub">Travel Pekanbaru &amp; Pasir Pengaraian</span></div>
+                    <div class="company-address">
+                        Alamat : Jalan Riau, No 139, Lenggopan Kelurahan Pasirpengaraian, Kabupaten Rokan Hulu<br>
+                        Alamat : Jl. Pahlawan Kerja, Kec. Marpoyan Damai, Kota Pekanbaru
                     </div>
-                @else
-                    <div class="qr-empty">QR belum tersedia</div>
-                @endif
+                    <table class="phones-table">
+                        <tr>
+                            <td class="phone-city">Pekanbaru/RokanHulu</td>
+                        </tr>
+                        <tr>
+                            <td class="phone-number">0823-6421-0642</td>
+                        </tr>
+                    </table>
+                </td>
 
-                <table class="seat-table">
-                    @foreach ($seatMap as $row)
-                    <tr>
-                        @foreach ($row as $seat)
-                        <td>
-                            @if ($seat === 'SOPIR')
-                                <div class="seat-driver">SOPIR</div>
-                            @elseif (($ticket['seat_no'] ?? '') === $seat)
-                                <div class="seat-active">{{ str_replace('A', '', $seat) }}</div>
-                            @else
-                                <div class="seat-cell">{{ str_replace('A', '', $seat) }}</div>
-                            @endif
-                        </td>
+                <td class="header-logo-col">
+                    @if ($jrLogoPath)
+                        <img src="{{ $jrLogoPath }}" alt="Jasa Raharja" class="logo-img">
+                    @else
+                        <div class="logo-missing">Logo JR tidak ditemukan</div>
+                    @endif
+                    <div class="logo-text">Jasa Raharja<br>Protected</div>
+                </td>
+            </tr>
+        </table>
+
+        {{-- BODY --}}
+        <table class="body-table">
+            <tr>
+                {{-- LEFT: Tiket Penumpang --}}
+                <td class="col-left">
+                    <div class="section-title">Tiket Penumpang</div>
+                    <table class="fields-table">
+                        <tr>
+                            <td class="field-label">Nama Penumpang</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['passenger_name'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Dari</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['from_city'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Tujuan</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['to_city'] ?? '-' }}</td>
+                        </tr>
+                    </table>
+
+                    <div class="sub-title">Keberangkatan</div>
+                    <table class="fields-table">
+                        <tr>
+                            <td class="field-label">Tgl. Berangkat</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['trip_date'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Jam</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">
+                                {{ !empty($ticket['trip_time']) ? $ticket['trip_time'].' WIB' : '-' }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Tarif</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['tarif'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Uang Muka</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['uang_muka'] ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="field-label">Sisa</td>
+                            <td class="field-colon">:</td>
+                            <td class="field-value">{{ $ticket['sisa'] ?? '-' }}</td>
+                        </tr>
+                    </table>
+                </td>
+
+                {{-- MIDDLE: QR & Nomor Bangku --}}
+                <td class="col-middle">
+                    <div class="section-title">QR Loyalti &amp; Bangku</div>
+
+                    @if (!empty($ticket['qr_png']))
+                        <div class="qr-wrap">
+                            <img src="{{ $ticket['qr_png'] }}" alt="QR Tiket">
+                            <div class="qr-token">{{ $ticket['qr_token'] ?? '' }}</div>
+                            <div class="qr-label">Scan untuk loyalti</div>
+                        </div>
+                    @else
+                        <div class="qr-empty">QR belum tersedia</div>
+                    @endif
+
+                    <table class="seat-table">
+                        @foreach ($seatMap as $row)
+                            <tr>
+                                @foreach ($row as $seat)
+                                    <td>
+                                        @if ($seat === 'SOPIR')
+                                            <div class="seat-driver">SOPIR</div>
+                                        @elseif (($ticket['seat_no'] ?? '') === $seat)
+                                            <div class="seat-active">{{ str_replace('A', '', $seat) }}</div>
+                                        @else
+                                            <div class="seat-cell">{{ str_replace('A', '', $seat) }}</div>
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
                         @endforeach
-                    </tr>
-                    @endforeach
-                </table>
-                <div class="purchase-date">
-                    <strong>Tanggal Pembelian Tiket</strong><br>
-                    Pasir Pengaraian, {{ $ticket['purchase_date'] ?? '-' }}
-                </div>
-                <div class="pengurus-label">Pengurus</div>
-                <div class="sign-line"></div>
-                <div class="asuransi-box">Dilindungi Oleh<br>Asuransi Jasa Raharja</div>
-            </td>
+                    </table>
 
-            {{-- RIGHT: Perhatian --}}
-            <td class="col-right">
-                <div class="section-title">Perhatian</div>
-                <table class="rules-table">
-                    <tr>
-                        <td class="rule-no">1.</td>
-                        <td class="rule-text">Jemput Antar Ke Alamat Dalam Batas Tertentu</td>
-                    </tr>
-                    <tr>
-                        <td class="rule-no">2.</td>
-                        <td class="rule-text">Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya</td>
-                    </tr>
-                    <tr>
-                        <td class="rule-no">3.</td>
-                        <td class="rule-text">Barang Bawaan Penumpang Jika Terjadi Kehilangan Yang Sifat Nya Kelalaian Penumpang, Bukan Menjadi Tanggung Jawab Perusahaan</td>
-                    </tr>
-                    <tr>
-                        <td class="rule-no">4.</td>
-                        <td class="rule-text">Dilarang Membawa Benda Terlarang (narkoba Dll), Hewan, Atau Barang Bawaan Yang Bau Nya Menyengat Dan Dapat Menganggu Kenyamanan Penumpang.</td>
-                    </tr>
-                    <tr>
-                        <td class="rule-no">5.</td>
-                        <td class="rule-text">Dilarang Melakukan Tindakan Amoral Atau Asusila Serta Tindak Pidana Lainnya Selama Perjalanan.</td>
-                    </tr>
-                </table>
-                <div class="promo-divider"></div>
-                <div class="promo-title">Promo</div>
-                <div class="promo-text">Kumpulkan 5 Tiket (discnt 50%) / Kumpulkan 10 Tiket Dengan Nama Dan No Hp Yang Sama Gratis 1x Keberangkatan</div>
-                <div class="tagline">Cepat, Aman &amp; Nyaman</div>
-            </td>
+                    <div class="purchase-date">
+                        <strong>Tanggal Pembelian Tiket</strong><br>
+                        Pasir Pengaraian, {{ $ticket['purchase_date'] ?? '-' }}
+                    </div>
 
-        </tr>
-    </table>
+                    <div class="pengurus-label">Pengurus</div>
+                    <div class="sign-line"></div>
+                    <div class="asuransi-box">Dilindungi Oleh<br>Asuransi Jasa Raharja</div>
+                </td>
 
-</div>
+                {{-- RIGHT: Perhatian --}}
+                <td class="col-right">
+                    <div class="section-title">Perhatian</div>
+                    <table class="rules-table">
+                        <tr>
+                            <td class="rule-no">1.</td>
+                            <td class="rule-text">Jemput Antar Ke Alamat Dalam Batas Tertentu</td>
+                        </tr>
+                        <tr>
+                            <td class="rule-no">2.</td>
+                            <td class="rule-text">Bagasi Free 15kg/orang, Kelebihan Dikenakan Biaya</td>
+                        </tr>
+                        <tr>
+                            <td class="rule-no">3.</td>
+                            <td class="rule-text">Barang Bawaan Penumpang Jika Terjadi Kehilangan Yang Sifat Nya Kelalaian Penumpang, Bukan Menjadi Tanggung Jawab Perusahaan</td>
+                        </tr>
+                        <tr>
+                            <td class="rule-no">4.</td>
+                            <td class="rule-text">Dilarang Membawa Benda Terlarang (Narkoba Dll), Hewan, Atau Barang Bawaan Yang Bau Nya Menyengat Dan Dapat Menganggu Kenyamanan Penumpang.</td>
+                        </tr>
+                        <tr>
+                            <td class="rule-no">5.</td>
+                            <td class="rule-text">Dilarang Melakukan Tindakan Amoral Atau Asusila Serta Tindak Pidana Lainnya Selama Perjalanan.</td>
+                        </tr>
+                    </table>
+
+                    <div class="promo-divider"></div>
+                    <div class="promo-title">Promo</div>
+                    <div class="promo-text">
+                        Kumpulkan 5 Tiket (discnt 50%) / Kumpulkan 10 Tiket Dengan Nama Dan No Hp Yang Sama Gratis 1x Keberangkatan
+                    </div>
+                    <div class="tagline">Cepat, Aman &amp; Nyaman</div>
+                </td>
+            </tr>
+        </table>
+
+    </div>
 </div>
 @endforeach
 
