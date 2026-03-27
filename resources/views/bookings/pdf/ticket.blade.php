@@ -413,7 +413,16 @@
         }
     }
 
-    $lkLogo = resizeImageToBase64(public_path('images/lk_travel.png'), 'png', 80);
+    $brandLogoCandidates = [
+        public_path('images/lk_travel.png'),
+        public_path('images/lk_travel.PNG'),
+        public_path('images/LK_TRAVEL.png'),
+        public_path('images/LK_TRAVEL.PNG'),
+    ];
+
+    $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
+    $brandLogoType = is_string($brandLogoPath) ? strtolower(pathinfo($brandLogoPath, PATHINFO_EXTENSION)) : 'png';
+    $lkLogo = is_string($brandLogoPath) ? resizeImageToBase64($brandLogoPath, $brandLogoType, 80) : null;
     $jrLogo = resizeImageToBase64(public_path('images/logo_jasaraharja.png'), 'png', 80);
 
     $seatMap = [

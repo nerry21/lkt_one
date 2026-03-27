@@ -285,6 +285,20 @@
 </head>
 <body>
 
+@php
+    $brandLogoCandidates = [
+        public_path('images/lk_travel.png'),
+        public_path('images/lk_travel.PNG'),
+        public_path('images/LK_TRAVEL.png'),
+        public_path('images/LK_TRAVEL.PNG'),
+    ];
+
+    $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
+    $brandLogo = is_string($brandLogoPath)
+        ? 'data:image/' . strtolower(pathinfo($brandLogoPath, PATHINFO_EXTENSION)) . ';base64,' . base64_encode((string) file_get_contents($brandLogoPath))
+        : null;
+@endphp
+
 <div class="page-actions">
     <a class="btn-back" href="{{ route('dropping-bookings.invoice') }}">← Kembali ke Invoice</a>
     <button class="btn-print" onclick="window.print()">🖨&nbsp; Cetak Tiket Dropping</button>
@@ -303,8 +317,10 @@
     {{-- HEADER --}}
     <div class="ticket-header">
         <div class="ticket-logo-box">
-            <img src="/images/lk_travel.png" alt="JET (JAYA EXECUTIVE TRANSPORT)"
-                 style="width:90px;height:90px;object-fit:contain;display:block;">
+            @if ($brandLogo)
+                <img src="{{ $brandLogo }}" alt="JET (JAYA EXECUTIVE TRANSPORT)"
+                     style="width:90px;height:90px;object-fit:contain;display:block;">
+            @endif
             <div class="ticket-logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
         </div>
 

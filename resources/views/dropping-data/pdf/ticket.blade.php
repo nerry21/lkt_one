@@ -272,6 +272,22 @@
     $totalAmount = (float) ($ts['total_amount'] ?? 0);
     $passenger   = $ts['passengers'][0] ?? ['name' => '-', 'seat_no' => '-', 'phone' => '-'];
     $seatMap     = [['1', 'SOPIR'], ['2', '3'], ['4', '5']];
+    $resolvedLogo64 = $logo64 ?? null;
+
+    if (! $resolvedLogo64) {
+        $brandLogoCandidates = [
+            public_path('images/lk_travel.png'),
+            public_path('images/lk_travel.PNG'),
+            public_path('images/LK_TRAVEL.png'),
+            public_path('images/LK_TRAVEL.PNG'),
+        ];
+
+        $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
+
+        if (is_string($brandLogoPath)) {
+            $resolvedLogo64 = 'data:image/' . strtolower(pathinfo($brandLogoPath, PATHINFO_EXTENSION)) . ';base64,' . base64_encode((string) file_get_contents($brandLogoPath));
+        }
+    }
 @endphp
 
 <div class="ticket">
@@ -280,8 +296,8 @@
     <table class="header-table">
         <tr>
             <td class="logo-cell">
-                @if ($logo64)
-                    <img src="{{ $logo64 }}" alt="Logo">
+                @if ($resolvedLogo64)
+                    <img src="{{ $resolvedLogo64 }}" alt="Logo">
                 @endif
                 <div class="logo-text">PT. REZEKI KELUARGA<br>BERKAH BERLIMPAH</div>
             </td>
