@@ -1099,7 +1099,8 @@ export default function initBookingsPage({ user } = {}) {
         return;
     }
 
-    // Tab bar stays hidden — only from_pkb direction is used
+    const routeTabsEl = document.getElementById('bpg-route-tabs');
+    if (routeTabsEl) { routeTabsEl.hidden = false; }
     if (slotsShell) { slotsShell.hidden = false; }
     const accessNote = document.getElementById('bookings-access-note');
     if (accessNote) { accessNote.hidden = true; }

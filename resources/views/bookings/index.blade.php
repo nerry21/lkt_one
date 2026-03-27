@@ -268,13 +268,19 @@
             Halaman ini hanya dapat diakses oleh Admin atau Super Admin.
         </p>
 
-        {{-- Route Direction Tabs (hidden — only Pekanbaru → Pasir is active) --}}
-        <div class="bpg-route-tabs" id="bpg-route-tabs" hidden>
+        {{-- Route Direction Tabs --}}
+        <div class="bpg-route-tabs" id="bpg-route-tabs">
             <button class="bpg-route-tab is-active" type="button" data-direction="from_pkb" data-testid="tab-from-pkb">
                 <svg viewBox="0 0 24 24" fill="none">
                     <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 Pekanbaru → Pasir
+            </button>
+            <button class="bpg-route-tab" type="button" data-direction="to_pkb" data-testid="tab-to-pkb">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M11 18L5 12L11 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Rokan Hulu → Pekanbaru
             </button>
         </div>
 
