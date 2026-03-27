@@ -240,7 +240,7 @@ class DroppingBookingDataPageController extends Controller
         $booking     = $persistence->ensureTicketMetadata($booking);
         $ticketState = $payments->buildTicketState($booking, $service);
 
-        $logoPath        = public_path('images/lk_travel.png');
+        $logoPath        = public_path('images/jet_travel.png');
         $logo64          = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath)) : null;
         $jasaRaharjaPath = public_path('images/logo_jasaraharja.png');
         $jasaRaharja64   = file_exists($jasaRaharjaPath) ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($jasaRaharjaPath)) : null;
@@ -276,7 +276,7 @@ class DroppingBookingDataPageController extends Controller
 
         $booking->loadMissing(['driver', 'mobil']);
 
-        $logoPath   = public_path('images/lk_travel.png');
+        $logoPath   = public_path('images/jet_travel.png');
         $logoBase64 = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath))
             : null;

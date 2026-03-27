@@ -276,10 +276,10 @@
 
     if (! $resolvedLogo64) {
         $brandLogoCandidates = [
-            public_path('images/lk_travel.png'),
-            public_path('images/lk_travel.PNG'),
-            public_path('images/LK_TRAVEL.png'),
-            public_path('images/LK_TRAVEL.PNG'),
+            public_path('images/jet_travel.png'),
+            public_path('images/jet_travel.PNG'),
+            public_path('images/JET_TRAVEL.png'),
+            public_path('images/JET_TRAVEL.PNG'),
         ];
 
         $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
@@ -311,7 +311,7 @@
                 <table class="phones-table">
                     <tr>
                         <td>
-                            <div class="phone-city">Pekanbaru</div>
+                            <div class="phone-city">Pekanbaru/RokanHulu</div>
                             <div class="phone-number">0823-6421-0642</div>
                         </td>
                     </tr>

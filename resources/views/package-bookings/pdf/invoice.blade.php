@@ -328,7 +328,7 @@
             <tr>
                 <td width="80" valign="middle">
                     <div style="width:68px; height:68px; border-radius:50%; border:3px solid #fff; background:#fff; overflow:hidden; text-align:center; line-height:68px;">
-                        <img src="{{ public_path('images/lk_travel.png') }}" style="width:64px; height:64px; object-fit:contain; vertical-align:middle; border-radius:50%;" alt="LKT Logo">
+                        <img src="{{ public_path('images/jet_travel.png') }}" style="width:64px; height:64px; object-fit:contain; vertical-align:middle; border-radius:50%;" alt="LKT Logo">
                     </div>
                 </td>
                 <td valign="middle" style="text-align:center; padding:0 10px;">

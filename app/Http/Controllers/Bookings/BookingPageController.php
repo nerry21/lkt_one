@@ -391,7 +391,7 @@ class BookingPageController extends Controller
 
         $tanggal = $date !== '' ? \Carbon\Carbon::parse($date)->translatedFormat('d F Y') : '-';
 
-        $logoPath = public_path('images/lk_travel.png');
+        $logoPath = public_path('images/jet_travel.png');
         $logoBase64 = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
             : null;

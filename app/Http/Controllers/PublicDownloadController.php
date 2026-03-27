@@ -31,7 +31,7 @@ class PublicDownloadController extends Controller
 
         $booking->loadMissing(['driver', 'mobil']);
 
-        $logoPath   = public_path('images/lk_travel.png');
+        $logoPath   = public_path('images/jet_travel.png');
         $logoBase64 = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath))
             : null;
@@ -75,7 +75,7 @@ class PublicDownloadController extends Controller
         $booking     = $persistence->ensureTicketMetadata($booking);
         $ticketState = $payments->buildTicketState($booking, $service);
 
-        $logoPath        = public_path('images/lk_travel.png');
+        $logoPath        = public_path('images/jet_travel.png');
         $logo64          = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode((string) file_get_contents($logoPath))
             : null;

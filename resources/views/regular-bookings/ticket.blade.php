@@ -341,10 +341,10 @@
 
 @php
     $brandLogoCandidates = [
-        public_path('images/lk_travel.png'),
-        public_path('images/lk_travel.PNG'),
-        public_path('images/LK_TRAVEL.png'),
-        public_path('images/LK_TRAVEL.PNG'),
+        public_path('images/jet_travel.png'),
+        public_path('images/jet_travel.PNG'),
+        public_path('images/JET_TRAVEL.png'),
+        public_path('images/JET_TRAVEL.PNG'),
     ];
 
     $brandLogoPath = collect($brandLogoCandidates)->first(fn (string $path): bool => is_file($path));
@@ -392,7 +392,7 @@
             </div>
             <div class="ticket-phones">
                 <div>
-                    <div class="ticket-phone-city">Pekanbaru</div>
+                    <div class="ticket-phone-city">Pekanbaru/RokanHulu</div>
                     <div class="ticket-phone-number">0823-6421-0642</div>
                 </div>
             </div>
