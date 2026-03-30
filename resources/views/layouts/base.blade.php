@@ -16,7 +16,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $pageTitle ?? 'Lancang Kuning Travelindo' }}</title>
+    <title>{{ $pageTitle ?? 'JET (JAYA EXCECUTIVE TRANSPORT)' }}</title>
     <meta name="theme-color" content="#022c22">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">

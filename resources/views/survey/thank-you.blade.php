@@ -105,8 +105,8 @@
 <div class="sv-ty-shell">
     <div class="sv-ty-card">
         <div class="sv-ty-brand">
-            <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo">
-            <span>Lancang Kuning Travelindo</span>
+            <img src="/images/login-brand-whatsapp.jpeg" alt="JET (JAYA EXCECUTIVE TRANSPORT)">
+            <span>JET (JAYA EXCECUTIVE TRANSPORT)</span>
         </div>
 
         <div class="sv-ty-icon">
@@ -118,7 +118,7 @@
         <h1 class="sv-ty-title">Terima Kasih!</h1>
         <p class="sv-ty-desc">
             Jawaban survei Anda telah berhasil kami terima.<br>
-            Masukan Anda sangat berarti bagi kami untuk terus meningkatkan kualitas layanan <strong>Lancang Kuning Travelindo</strong>.
+            Masukan Anda sangat berarti bagi kami untuk terus meningkatkan kualitas layanan <strong>JET (JAYA EXCECUTIVE TRANSPORT)</strong>.
         </p>
 
         <div class="sv-ty-divider"></div>

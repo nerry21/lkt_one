@@ -54,11 +54,11 @@ class DroppingBookingDataPageController extends Controller
         ];
 
         return view('dropping-data.index', [
-            'pageTitle'       => 'Data Pemesanan Dropping | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Data Pemesanan Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'dropping-data/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Data Pemesanan Dropping',
-            'pageDescription' => 'Kelola seluruh data pemesanan dropping Lancang Kuning Travelindo.',
+            'pageDescription' => 'Kelola seluruh data pemesanan dropping JET (JAYA EXCECUTIVE TRANSPORT).',
             'bookings'        => $bookings,
             'drivers'         => $drivers,
             'mobils'          => $mobils,

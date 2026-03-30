@@ -140,7 +140,7 @@
 <body>
     <div class="invoice-shell">
         <section class="invoice-header">
-            <h1 class="invoice-brand">Invoice Lancang Kuning Travelindo</h1>
+            <h1 class="invoice-brand">Invoice JET (JAYA EXCECUTIVE TRANSPORT)</h1>
             <p class="invoice-subtitle">Dokumen ini diterbitkan dari sistem dashboard untuk pemesanan dropping.</p>
 
             <div class="invoice-badges">

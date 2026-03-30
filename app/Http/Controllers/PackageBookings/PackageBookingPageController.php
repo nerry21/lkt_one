@@ -28,7 +28,7 @@ class PackageBookingPageController extends Controller
         $formState = $drafts->buildFormState($request, $draft, $service);
 
         return view('package-bookings.index', [
-            'pageTitle' => 'Pengantaran Paket | Lancang Kuning Travelindo',
+            'pageTitle' => 'Pengantaran Paket | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Pengantaran Paket',
@@ -117,7 +117,7 @@ class PackageBookingPageController extends Controller
         $drafts->store($request->session(), $draft);
 
         return view('package-bookings.package', [
-            'pageTitle' => 'Ukuran Paket | Lancang Kuning Travelindo',
+            'pageTitle' => 'Ukuran Paket | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'package-bookings/package',
             'guardMode' => 'protected',
             'pageHeading' => 'Ukuran Paket',
@@ -175,7 +175,7 @@ class PackageBookingPageController extends Controller
         }
 
         return view('package-bookings.review', [
-            'pageTitle' => 'Review Pengiriman | Lancang Kuning Travelindo',
+            'pageTitle' => 'Review Pengiriman | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Review Pengiriman',
@@ -239,7 +239,7 @@ class PackageBookingPageController extends Controller
         }
 
         return view('package-bookings.payment', [
-            'pageTitle' => 'Pembayaran | Lancang Kuning Travelindo',
+            'pageTitle' => 'Pembayaran | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Pembayaran',
@@ -302,11 +302,11 @@ class PackageBookingPageController extends Controller
         }
 
         return view('package-bookings.invoice', [
-            'pageTitle' => 'Surat Bukti Pengiriman Barang | Lancang Kuning Travelindo',
+            'pageTitle' => 'Surat Bukti Pengiriman Barang | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Surat Bukti Pengiriman Barang',
-            'pageDescription' => 'Bukti resmi pengiriman paket melalui Lancang Kuning Travelindo',
+            'pageDescription' => 'Bukti resmi pengiriman paket melalui JET (JAYA EXCECUTIVE TRANSPORT)',
             'persistedBooking' => $persistedBooking,
             'invoiceState' => $this->buildPackageInvoiceState($persistedBooking, $service, $payments),
             'flashSuccess' => $request->session()->get('package_booking_success'),

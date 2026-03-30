@@ -15,7 +15,7 @@ class PublicSurveyController extends Controller
         return view('survey.form', [
             'questions'     => CustomerSurvey::questions(),
             'ratingOptions' => CustomerSurvey::ratingOptions(),
-            'pageTitle'     => 'Survei Kepuasan Pelanggan | Lancang Kuning Travelindo',
+            'pageTitle'     => 'Survei Kepuasan Pelanggan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'guardMode'     => 'none',
             'pageScript'    => '',
         ]);
@@ -31,7 +31,7 @@ class PublicSurveyController extends Controller
     public function thankYou(): View
     {
         return view('survey.thank-you', [
-            'pageTitle'  => 'Terima Kasih | Lancang Kuning Travelindo',
+            'pageTitle'  => 'Terima Kasih | JET (JAYA EXCECUTIVE TRANSPORT)',
             'guardMode'  => 'none',
             'pageScript' => '',
         ]);

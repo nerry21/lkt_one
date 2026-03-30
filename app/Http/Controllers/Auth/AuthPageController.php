@@ -10,7 +10,7 @@ class AuthPageController extends Controller
     public function show(): View
     {
         return view('auth.login', [
-            'pageTitle' => 'Lancang Kuning Travelindo | Login',
+            'pageTitle' => 'JET (JAYA EXCECUTIVE TRANSPORT) | Login',
             'pageScript' => 'auth/login',
             'guardMode' => 'public',
         ]);

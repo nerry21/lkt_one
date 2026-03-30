@@ -341,7 +341,7 @@
                         </span>
                     </div>
                     <div style="font-size:8px; color:#e0f2fe; margin-top:5px; line-height:1.6;">
-                        Alamat : Jl. Lingkat Pasir Pengaraian Dusun Kampung Baru Desa Koto Tinggi Kec. Rambah Kab. Rokan Hulu<br>
+                        Alamat : Jalan Riau, No 139, Lenggopan Kelurahan Pasirpengaraian, Kabupaten Rokan Hulu<br>
                         Alamat : Jl. Pahlawan Kerja Kec. Marpoyan Damai Kota Pekanbaru
                     </div>
                 </td>
@@ -486,7 +486,7 @@
                 </table>
 
                 {{-- Kantor info --}}
-                <div style="font-size:9.5px; font-weight:700; color:#0ea5e9; margin-bottom:6px;">Kantor Pusat Pasir Pengaraian :</div>
+                <div style="font-size:9.5px; font-weight:700; color:#0ea5e9; margin-bottom:6px;">No Kotak Kantor Pusat Pasir Pengaraian dan Pekanbaru :</div>
 
                 {{-- Pekanbaru --}}
                 <div style="margin-bottom:6px;">
@@ -496,19 +496,10 @@
                     </div>
                 </div>
 
-                {{-- Rohul --}}
-                <div style="margin-bottom:10px;">
-                    <div style="display:inline-block; background:#facc15; color:#1e293b; font-size:9px; font-weight:800; padding:2px 8px; border-radius:3px; margin-bottom:3px;">ROHUL</div><br>
-                    <div style="background:#0ea5e9; color:#fff; font-size:13px; font-weight:900; padding:4px 10px; border-radius:4px; display:inline-block;">
-                        0823-1320-5885
-                    </div>
-                </div>
-
                 {{-- Kritik & Saran --}}
                 <div style="background:#0ea5e9; color:#fff; border-radius:6px; padding:8px 10px; text-align:center;">
                     <div style="font-size:11px; font-weight:800; color:#facc15;">Kritik &amp; Saran</div>
                     <div style="font-size:10px; font-weight:700; margin-top:3px;">0811 7598 804</div>
-                    <div style="font-size:10px; font-weight:700;">0822 833 73811</div>
                 </div>
 
                 {{-- Invoice Info --}}
@@ -525,7 +516,7 @@
 
     {{-- FOOTER --}}
     <div style="background:#0ea5e9; color:#fff; text-align:center; font-size:8px; padding:4px; border-radius:0 0 8px 8px; margin-top:0;">
-        Lancang Kuning Travelindo &mdash; Travel Pekanbaru &amp; Pasir Pengaraian &mdash; Terima kasih telah mempercayai kami
+        JET (JAYA EXCECUTIVE TRANSPORT) &mdash; Travel Pekanbaru &amp; Pasir Pengaraian &mdash; Terima kasih telah mempercayai kami
     </div>
 
 </div>

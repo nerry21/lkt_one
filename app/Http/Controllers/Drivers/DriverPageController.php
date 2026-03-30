@@ -10,7 +10,7 @@ class DriverPageController extends Controller
     public function index(): View
     {
         return view('drivers.index', [
-            'pageTitle' => 'Data Driver | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Driver | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'drivers/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Driver',

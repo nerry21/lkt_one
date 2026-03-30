@@ -10,7 +10,7 @@ class CustomerPageController extends Controller
     public function index(): View
     {
         return view('customers.index', [
-            'pageTitle'       => 'Data Pelanggan | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Data Pelanggan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'customers/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Data Pelanggan',

@@ -28,7 +28,7 @@ class DroppingBookingPageController extends Controller
         $formState = $drafts->buildFormState($request, $draft, $service);
 
         return view('dropping-bookings.index', [
-            'pageTitle'       => 'Pemesanan Dropping | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Pemesanan Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'dropping-bookings/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Pemesanan Dropping',
@@ -76,7 +76,7 @@ class DroppingBookingPageController extends Controller
         $passengerFormState = $drafts->buildPassengerFormState($request, $draft, $service);
 
         return view('dropping-bookings.passengers', [
-            'pageTitle'         => 'Data Penumpang | Lancang Kuning Travelindo',
+            'pageTitle'         => 'Data Penumpang | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'        => '',
             'guardMode'         => 'protected',
             'pageHeading'       => 'Data Penumpang',
@@ -130,7 +130,7 @@ class DroppingBookingPageController extends Controller
         }
 
         return view('dropping-bookings.review', [
-            'pageTitle'       => 'Review Pemesanan Dropping | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Review Pemesanan Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => '',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Review Pemesanan Dropping',
@@ -194,7 +194,7 @@ class DroppingBookingPageController extends Controller
         }
 
         return view('dropping-bookings.payment', [
-            'pageTitle'        => 'Pembayaran Dropping | Lancang Kuning Travelindo',
+            'pageTitle'        => 'Pembayaran Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'       => '',
             'guardMode'        => 'protected',
             'pageHeading'      => 'Pembayaran',
@@ -257,7 +257,7 @@ class DroppingBookingPageController extends Controller
         }
 
         return view('dropping-bookings.invoice', [
-            'pageTitle'       => 'Invoice Pemesanan Dropping | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Invoice Pemesanan Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => '',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Invoice Pemesanan Dropping',
@@ -306,7 +306,7 @@ class DroppingBookingPageController extends Controller
         $persistedBooking = $persistence->ensureTicketMetadata($persistedBooking);
 
         return view('dropping-bookings.ticket', [
-            'pageTitle'       => 'E-ticket Dropping | Lancang Kuning Travelindo',
+            'pageTitle'       => 'E-ticket Dropping | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => '',
             'guardMode'       => 'protected',
             'pageHeading'     => 'E-ticket Dropping',

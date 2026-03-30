@@ -11,8 +11,8 @@
                     <path d="M6 9H18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
             </span>
-            <span>Lancang Kuning Travelindo</span>
+            <span>JET (JAYA EXCECUTIVE TRANSPORT)</span>
         </div>
-        <p>&copy; 2026 Lancang Kuning Travelindo. Semua hak dilindungi.</p>
+        <p>&copy; 2026 JET (JAYA EXCECUTIVE TRANSPORT). Semua hak dilindungi.</p>
     </div>
 </footer>

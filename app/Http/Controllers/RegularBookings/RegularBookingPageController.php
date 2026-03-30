@@ -30,7 +30,7 @@ class RegularBookingPageController extends Controller
         $formState = $drafts->buildFormState($request, $draft, $service);
 
         return view('regular-bookings.index', [
-            'pageTitle' => 'Pemesanan Reguler | Lancang Kuning Travelindo',
+            'pageTitle' => 'Pemesanan Reguler | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'regular-bookings/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Pemesanan Reguler',
@@ -131,7 +131,7 @@ class RegularBookingPageController extends Controller
         $drafts->store($request->session(), $draft);
 
         return view('regular-bookings.seats', [
-            'pageTitle' => 'Pilih Kursi | Lancang Kuning Travelindo',
+            'pageTitle' => 'Pilih Kursi | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'regular-bookings/seats',
             'guardMode' => 'protected',
             'pageHeading' => 'Pilih Kursi',
@@ -191,7 +191,7 @@ class RegularBookingPageController extends Controller
         $passengerFormState = $drafts->buildPassengerFormState($request, $draft, $service);
 
         return view('regular-bookings.passengers', [
-            'pageTitle' => 'Data Penumpang | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Penumpang | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Penumpang',
@@ -252,7 +252,7 @@ class RegularBookingPageController extends Controller
         }
 
         return view('regular-bookings.review', [
-            'pageTitle' => 'Review Pemesanan | Lancang Kuning Travelindo',
+            'pageTitle' => 'Review Pemesanan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Review Pemesanan',
@@ -331,7 +331,7 @@ class RegularBookingPageController extends Controller
         $reviewState = $drafts->buildReviewState($draft, $service);
 
         return view('regular-bookings.payment', [
-            'pageTitle' => 'Pembayaran | Lancang Kuning Travelindo',
+            'pageTitle' => 'Pembayaran | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Pembayaran',
@@ -404,7 +404,7 @@ class RegularBookingPageController extends Controller
         }
 
         return view('regular-bookings.invoice', [
-            'pageTitle' => 'Invoice Pemesanan | Lancang Kuning Travelindo',
+            'pageTitle' => 'Invoice Pemesanan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Invoice Pemesanan',
@@ -465,7 +465,7 @@ class RegularBookingPageController extends Controller
         $persistedBooking = $persistence->ensureTicketMetadata($persistedBooking);
 
         return view('regular-bookings.ticket', [
-            'pageTitle' => 'E-ticket Pemesanan | Lancang Kuning Travelindo',
+            'pageTitle' => 'E-ticket Pemesanan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'E-ticket Pemesanan',

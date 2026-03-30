@@ -9,10 +9,10 @@
             <div class="auth-hero-content">
                 <div class="auth-brand">
                     <div class="auth-brand-mark">
-                        <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo">
+                        <img src="/images/login-brand-whatsapp.jpeg" alt="JET (JAYA EXCECUTIVE TRANSPORT)">
                     </div>
                     <div>
-                        <h1>Lancang Kuning Travelindo</h1>
+                        <h1>JET (JAYA EXCECUTIVE TRANSPORT)</h1>
                         <p>Management System</p>
                     </div>
                 </div>
@@ -37,10 +37,10 @@
             <div class="auth-card">
                 <div class="auth-mobile-brand">
                     <div class="auth-brand-mark">
-                        <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo">
+                        <img src="/images/login-brand-whatsapp.jpeg" alt="JET (JAYA EXCECUTIVE TRANSPORT)">
                     </div>
                     <div>
-                        <h2>Lancang Kuning Travelindo</h2>
+                        <h2>JET (JAYA EXCECUTIVE TRANSPORT)</h2>
                         <p>Management System</p>
                     </div>
                 </div>
@@ -75,7 +75,7 @@
                 </form>
 
                 <div class="auth-footer">
-                    <p>&copy; 2026 Lancang Kuning Travelindo. Semua hak dilindungi.</p>
+                    <p>&copy; 2026 JET (JAYA EXCECUTIVE TRANSPORT). Semua hak dilindungi.</p>
                 </div>
             </div>
         </section>

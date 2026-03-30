@@ -10,7 +10,7 @@ class MobilPageController extends Controller
     public function index(): View
     {
         return view('mobil.index', [
-            'pageTitle' => 'Data Mobil | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Mobil | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'mobil/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Mobil',

@@ -547,9 +547,9 @@ class RegularBookingPageTest extends TestCase
         ])->get('/dashboard/regular-bookings/payment')
             ->assertOk()
             ->assertSee('Nama QRIS')
-            ->assertSee('QRIS Lancang Kuning Travelindo')
+            ->assertSee('QRIS JET (JAYA EXCECUTIVE TRANSPORT)')
             ->assertSee('QRIS-LKT-001')
-            ->assertSee('PT Lancang Kuning Travelindo')
+            ->assertSee('PT JET (JAYA EXCECUTIVE TRANSPORT)')
             ->assertSee('PEMBAYARAN-REGULER');
     }
 
@@ -588,7 +588,7 @@ class RegularBookingPageTest extends TestCase
 
         $this->assertSame('transfer', $booking->payment_method);
         $this->assertSame('Bank BCA', $booking->payment_account_bank);
-        $this->assertSame('PT Lancang Kuning Travelindo', $booking->payment_account_name);
+        $this->assertSame('PT JET (JAYA EXCECUTIVE TRANSPORT)', $booking->payment_account_name);
         $this->assertSame('1110 0022 2333', $booking->payment_account_number);
         $this->assertSame('300000.00', $booking->nominal_payment);
         $this->assertStringStartsWith('TRF-', (string) $booking->payment_reference);

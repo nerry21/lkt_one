@@ -7,7 +7,7 @@
     <section class="ddrop-header">
         <div class="ddrop-header-copy">
             <h1>Data Pemesanan Rental Mobil</h1>
-            <p>Kelola seluruh data pemesanan rental mobil Lancang Kuning Travelindo.</p>
+            <p>Kelola seluruh data pemesanan rental mobil JET (JAYA EXCECUTIVE TRANSPORT).</p>
         </div>
         <div class="ddrop-header-actions">
             <button class="ddrop-btn-primary" type="button" id="btn-open-create">

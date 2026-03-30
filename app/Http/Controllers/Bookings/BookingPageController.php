@@ -24,7 +24,7 @@ class BookingPageController extends Controller
         $canManageBookings = auth()->user()?->isAdmin() ?? false;
 
         return view('bookings.index', [
-            'pageTitle' => 'Data Penumpang | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Penumpang | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'bookings/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Penumpang',
@@ -39,7 +39,7 @@ class BookingPageController extends Controller
     public function show(Booking $booking, BookingManagementService $service): View
     {
         return view('bookings.show', [
-            'pageTitle' => 'Detail Pemesanan | Lancang Kuning Travelindo',
+            'pageTitle' => 'Detail Pemesanan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => '',
             'guardMode' => 'protected',
             'pageHeading' => 'Detail Pemesanan',

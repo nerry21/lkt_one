@@ -271,15 +271,15 @@
     {{-- Header --}}
     <header class="sv-header">
         <div class="sv-header-brand">
-            <img src="/images/login-brand-whatsapp.jpeg" alt="Lancang Kuning Travelindo">
+            <img src="/images/login-brand-whatsapp.jpeg" alt="JET (JAYA EXCECUTIVE TRANSPORT)">
             <div class="sv-header-brand-text">
-                <h1>Lancang Kuning Travelindo</h1>
+                <h1>JET (JAYA EXCECUTIVE TRANSPORT)</h1>
                 <p>Pekanbaru – Pasirpengaraian</p>
             </div>
         </div>
         <h2 class="sv-header-title">Survei Kepuasan Pelanggan</h2>
         <p class="sv-header-subtitle">
-            Terima kasih telah menggunakan layanan kami. Pendapat Anda sangat berarti untuk peningkatan kualitas pelayanan Lancang Kuning Travelindo.
+            Terima kasih telah menggunakan layanan kami. Pendapat Anda sangat berarti untuk peningkatan kualitas pelayanan JET (JAYA EXCECUTIVE TRANSPORT).
         </p>
     </header>
 

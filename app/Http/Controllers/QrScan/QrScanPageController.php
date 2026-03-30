@@ -10,7 +10,7 @@ class QrScanPageController extends Controller
     public function index(): View
     {
         return view('qr-scan.index', [
-            'pageTitle'       => 'Scan QR Tiket | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Scan QR Tiket | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'qr-scan/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Scan QR Tiket',

@@ -185,7 +185,7 @@
                 @endif
             </td>
             <td class="header-center-cell">
-                <div class="company-name">PT. Lancang Kuning Travelindo</div>
+                <div class="company-name">PT. JET (JAYA EXCECUTIVE TRANSPORT)</div>
                 <div class="doc-title">Surat Jalan</div>
                 <div class="doc-subtitle">
                     <span class="badge-dropping">Dropping Booking</span>

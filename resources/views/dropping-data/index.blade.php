@@ -7,7 +7,7 @@
     <section class="ddrop-header">
         <div class="ddrop-header-copy">
             <h1>Data Pemesanan Dropping</h1>
-            <p>Kelola seluruh data pemesanan dropping Lancang Kuning Travelindo.</p>
+            <p>Kelola seluruh data pemesanan dropping JET (JAYA EXCECUTIVE TRANSPORT).</p>
         </div>
         <div class="ddrop-header-actions">
             <button class="ddrop-btn-primary" type="button" id="btn-open-create">

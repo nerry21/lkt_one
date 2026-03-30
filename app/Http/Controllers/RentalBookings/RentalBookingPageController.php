@@ -28,7 +28,7 @@ class RentalBookingPageController extends Controller
         $formState = $drafts->buildFormState($request, $draft, $service);
 
         return view('rental-bookings.index', [
-            'pageTitle'       => 'Pemesanan Rental Mobil | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Pemesanan Rental Mobil | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'dropping-bookings/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Pemesanan Rental Mobil',
@@ -76,7 +76,7 @@ class RentalBookingPageController extends Controller
         $passengerFormState = $drafts->buildPassengerFormState($request, $draft, $service);
 
         return view('rental-bookings.passengers', [
-            'pageTitle'          => 'Data Pemesan | Lancang Kuning Travelindo',
+            'pageTitle'          => 'Data Pemesan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'         => '',
             'guardMode'          => 'protected',
             'pageHeading'        => 'Data Pemesan',
@@ -130,7 +130,7 @@ class RentalBookingPageController extends Controller
         }
 
         return view('rental-bookings.review', [
-            'pageTitle'        => 'Review Pemesanan Rental | Lancang Kuning Travelindo',
+            'pageTitle'        => 'Review Pemesanan Rental | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'       => '',
             'guardMode'        => 'protected',
             'pageHeading'      => 'Review Pemesanan Rental',
@@ -194,7 +194,7 @@ class RentalBookingPageController extends Controller
         }
 
         return view('rental-bookings.payment', [
-            'pageTitle'        => 'Pembayaran Rental | Lancang Kuning Travelindo',
+            'pageTitle'        => 'Pembayaran Rental | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'       => '',
             'guardMode'        => 'protected',
             'pageHeading'      => 'Pembayaran',
@@ -257,7 +257,7 @@ class RentalBookingPageController extends Controller
         }
 
         return view('rental-bookings.invoice', [
-            'pageTitle'        => 'Invoice Pemesanan Rental | Lancang Kuning Travelindo',
+            'pageTitle'        => 'Invoice Pemesanan Rental | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'       => '',
             'guardMode'        => 'protected',
             'pageHeading'      => 'Invoice Pemesanan Rental',
@@ -307,7 +307,7 @@ class RentalBookingPageController extends Controller
         $persistedBooking = $persistence->ensureTicketMetadata($persistedBooking);
 
         return view('rental-bookings.ticket', [
-            'pageTitle'        => 'E-ticket Rental | Lancang Kuning Travelindo',
+            'pageTitle'        => 'E-ticket Rental | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'       => '',
             'guardMode'        => 'protected',
             'pageHeading'      => 'E-ticket Rental Mobil',

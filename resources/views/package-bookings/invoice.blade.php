@@ -12,7 +12,7 @@
         <section class="regular-booking-page-header">
             <div class="regular-booking-page-copy">
                 <h1>Surat Bukti Pengiriman Barang</h1>
-                <p>Bukti resmi pengiriman paket melalui Lancang Kuning Travelindo.</p>
+                <p>Bukti resmi pengiriman paket melalui JET (JAYA EXCECUTIVE TRANSPORT).</p>
             </div>
 
             <div class="regular-booking-page-actions">

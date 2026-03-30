@@ -23,11 +23,11 @@ class CustomerSurveyDashboardController extends Controller
         $mobils  = Mobil::orderBy('kode_mobil')->get(['kode_mobil', 'jenis_mobil']);
 
         return view('customer-surveys.index', [
-            'pageTitle'       => 'Survei Pelanggan | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Survei Pelanggan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => '',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Survei Pelanggan',
-            'pageDescription' => 'Hasil jawaban survei kepuasan pelanggan Lancang Kuning Travelindo',
+            'pageDescription' => 'Hasil jawaban survei kepuasan pelanggan JET (JAYA EXCECUTIVE TRANSPORT)',
             'surveys'         => $surveys,
             'questions'       => CustomerSurvey::questions(),
             'drivers'         => $drivers,
@@ -38,7 +38,7 @@ class CustomerSurveyDashboardController extends Controller
     public function show(CustomerSurvey $customerSurvey): View
     {
         return view('customer-surveys.show', [
-            'pageTitle'       => 'Detail Survei | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Detail Survei | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => '',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Detail Survei',

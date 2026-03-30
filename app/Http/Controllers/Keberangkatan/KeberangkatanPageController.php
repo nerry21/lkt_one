@@ -11,7 +11,7 @@ class KeberangkatanPageController extends Controller
     public function index(): View
     {
         return view('keberangkatan.index', [
-            'pageTitle' => 'Data Keberangkatan | Lancang Kuning Travelindo',
+            'pageTitle' => 'Data Keberangkatan | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'keberangkatan/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Data Keberangkatan',

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Surat Jalan - PT. Lancang Kuning Travelindo</title>
+    <title>Surat Jalan - PT. JET (JAYA EXCECUTIVE TRANSPORT)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -165,7 +165,7 @@
                 @endif
             </td>
             <td class="header-center-cell">
-                <div class="company-name">PT. Lancang Kuning Travelindo</div>
+                <div class="company-name">PT. JET (JAYA EXCECUTIVE TRANSPORT)</div>
                 <div class="doc-title">Surat Jalan</div>
             </td>
             <td class="header-meta-cell">

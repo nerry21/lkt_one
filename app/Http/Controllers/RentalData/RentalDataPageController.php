@@ -54,11 +54,11 @@ class RentalDataPageController extends Controller
         ];
 
         return view('rental-data.index', [
-            'pageTitle'       => 'Data Pemesanan Rental | Lancang Kuning Travelindo',
+            'pageTitle'       => 'Data Pemesanan Rental | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript'      => 'rental-data/index',
             'guardMode'       => 'protected',
             'pageHeading'     => 'Data Pemesanan Rental Mobil',
-            'pageDescription' => 'Kelola seluruh data pemesanan rental mobil Lancang Kuning Travelindo.',
+            'pageDescription' => 'Kelola seluruh data pemesanan rental mobil JET (JAYA EXCECUTIVE TRANSPORT).',
             'bookings'        => $bookings,
             'drivers'         => $drivers,
             'mobils'          => $mobils,

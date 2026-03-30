@@ -13,7 +13,7 @@ class DashboardPageController extends Controller
         $payload = $statistics->payload();
 
         return view('dashboard.index', [
-            'pageTitle' => 'Dashboard | Lancang Kuning Travelindo',
+            'pageTitle' => 'Dashboard | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'dashboard/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Dashboard',

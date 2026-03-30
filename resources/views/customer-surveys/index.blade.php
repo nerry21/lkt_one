@@ -7,7 +7,7 @@
     <section class="admin-users-page-header">
         <div class="admin-users-page-copy">
             <h1>Survei Pelanggan</h1>
-            <p>Hasil jawaban survei kepuasan pelanggan Lancang Kuning Travelindo.</p>
+            <p>Hasil jawaban survei kepuasan pelanggan JET (JAYA EXCECUTIVE TRANSPORT).</p>
         </div>
         <div class="admin-users-page-actions">
             <a

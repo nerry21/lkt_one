@@ -11,7 +11,7 @@ class StockPageController extends Controller
     public function index(StockAllocationService $stockAllocationService): View
     {
         return view('stock.index', [
-            'pageTitle' => 'Stok Snack & Air Mineral | Lancang Kuning Travelindo',
+            'pageTitle' => 'Stok Snack & Air Mineral | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'stock/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Stok Snack & Air Mineral',

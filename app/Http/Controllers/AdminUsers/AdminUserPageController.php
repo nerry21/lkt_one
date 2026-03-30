@@ -10,7 +10,7 @@ class AdminUserPageController extends Controller
     public function index(): View
     {
         return view('admin-users.index', [
-            'pageTitle' => 'Admin & User | Lancang Kuning Travelindo',
+            'pageTitle' => 'Admin & User | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'admin-users/index',
             'guardMode' => 'protected',
             'pageHeading' => 'Admin & User',
