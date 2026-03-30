@@ -15,8 +15,7 @@
             </svg>
         </div>
         <div>
-            <h1>Lancang Kuning</h1>
-            <p>Travelindo</p>
+            <h1>JET (JAYA EXCECUTIVE TRANSPORT)</h1>
         </div>
         <button class="sidebar-close" type="button" data-sidebar-close aria-label="Tutup menu" data-testid="close-sidebar-btn">
             <svg viewBox="0 0 24 24" fill="none" class="icon icon-close">

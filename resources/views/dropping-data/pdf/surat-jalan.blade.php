@@ -181,7 +181,7 @@
         <tr>
             <td class="header-logo-cell">
                 @if ($logo_base64)
-                    <img src="{{ $logo_base64 }}" alt="Logo LK Travelindo">
+                    <img src="{{ $logo_base64 }}" alt="Logo JET (JAYA EXCECUTIVE TRANSPORT)">
                 @endif
             </td>
             <td class="header-center-cell">
