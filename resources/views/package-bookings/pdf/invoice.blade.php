@@ -333,7 +333,7 @@
                 </td>
                 <td valign="middle" style="text-align:center; padding:0 10px;">
                     <div style="font-size:22px; font-weight:900; color:#fff; letter-spacing:1px; font-style:italic; text-transform:uppercase;">
-                        LANCANG KUNING TRAVELINDO
+                         JET (JAYA EXCECUTIVE TRANSPORT) 
                     </div>
                     <div style="display:inline-block; background:#facc15; border-radius:4px; padding:3px 14px; margin-top:4px;">
                         <span style="font-size:11px; font-weight:800; color:#1e293b; letter-spacing:0.5px;">
@@ -490,7 +490,7 @@
 
                 {{-- Pekanbaru --}}
                 <div style="margin-bottom:6px;">
-                    <div style="display:inline-block; background:#facc15; color:#1e293b; font-size:9px; font-weight:800; padding:2px 8px; border-radius:3px; margin-bottom:3px;">PEKANBARU</div><br>
+                    <div style="display:inline-block; background:#facc15; color:#1e293b; font-size:9px; font-weight:800; padding:2px 8px; border-radius:3px; margin-bottom:3px;">PEKANBARU/PASIRPENGARAIAN</div><br>
                     <div style="background:#0ea5e9; color:#fff; font-size:13px; font-weight:900; padding:4px 10px; border-radius:4px; display:inline-block;">
                         0823-6421-0642
                     </div>
