@@ -548,7 +548,7 @@ class RegularBookingPageTest extends TestCase
             ->assertOk()
             ->assertSee('Nama QRIS')
             ->assertSee('QRIS JET (JAYA EXCECUTIVE TRANSPORT)')
-            ->assertSee('QRIS-LKT-001')
+            ->assertSee('QRIS-JET-001')
             ->assertSee('PT JET (JAYA EXCECUTIVE TRANSPORT)')
             ->assertSee('PEMBAYARAN-REGULER');
     }

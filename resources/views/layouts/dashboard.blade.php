@@ -91,7 +91,7 @@
         ],
         [
             'route' => 'passengers-lkt.index',
-            'label' => 'Data Penumpang LKT',
+            'label' => 'Data Penumpang JET (JAYA EXCECUTIVE TRANSPORT)',
             'testid' => 'nav-passengers-lkt',
             'icon' => 'passengers',
             'requires_admin' => true,

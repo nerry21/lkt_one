@@ -6,7 +6,7 @@
         {{-- Header --}}
         <section class="plkt-page-header">
             <div class="plkt-page-copy">
-                <h1>Data Penumpang LKT</h1>
+                <h1>Data Penumpang JET (JAYA EXCECUTIVE TRANSPORT)</h1>
                 <p>Riwayat seluruh penumpang dan frekuensi pemesanan</p>
             </div>
             <div class="plkt-page-actions">
