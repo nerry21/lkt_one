@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Services\SeatLockService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,7 @@ class DroppingBookingPersistenceService
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
+        private readonly SeatLockService         $seatLockService,
     ) {}
 
     public function currentDraftBooking(Session $session, DroppingBookingDraftService $drafts): ?Booking
@@ -105,6 +107,34 @@ class DroppingBookingPersistenceService
             if ($primaryCustomer !== null) {
                 $booking->customer_id = $primaryCustomer->id;
                 $booking->saveQuietly();
+            }
+
+            // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+            // persistDraft Dropping selalu pre-payment (status Draft, payment_status Belum Bayar),
+            // jadi lockType selalu 'soft'. promoteToHard dipanggil saat payment confirmation
+            // (scope persistPaymentSelection — belum masuk Section F promote logic).
+            //
+            // 6 seat di-lock sesuai aturan bisnis Dropping (armada di-reserve penuh).
+            // Source 6 seat: $reviewState['selected_seats'] di-set oleh DroppingBookingDraftService
+            // line 164 via $service->allSeatCodes() — array 6 kursi standar.
+            //
+            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan persistedBookingId
+            // session) skip seat locking via wasRecentlyCreated guard. Dropping tidak punya admin
+            // update endpoint, jadi tidak ada bug #22-equivalent yang perlu di-register.
+            if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
+                $slot = [
+                    'trip_date' => $tripDate,
+                    'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
+                    'from_city' => $reviewState['pickup_location'],
+                    'to_city' => $reviewState['destination_location'],
+                    'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                ];
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $reviewState['selected_seats'],
+                    'soft',
+                );
             }
 
             $booking->passengers()->delete();
