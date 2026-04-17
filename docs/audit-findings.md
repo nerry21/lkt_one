@@ -82,13 +82,15 @@ Progress Fase 1A (per commit):
 - ✅ Section F (commit f8af602): BookingManagementService::persistBooking create path
 - ✅ Section G (commit f0e66b0): RegularBookingPersistenceService::persistDraft create path
 - ✅ Section H (commit b5465ff): DroppingBookingPersistenceService::persistDraft create path
-- ⏳ Section I: RentalBookingPersistenceService::persistDraft multi-day (pending)
+- ✅ Section I (commit 2bfcbac): RentalBookingPersistenceService::persistDraft multi-day create path
 - ⏳ Section J: PackageBookingPersistenceService::persistDraft (pending)
 - ⏳ Section K: BookingController::quickPackageStore + occupiedSeats + release endpoint (pending)
-- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22)
+- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22 + #25)
 
-Race condition di production belum fully closed sampai Section I-K integration done.
-Section F+G+H: create path API + Regular wizard + Dropping wizard closed. Update path (bugs #21, #22) scheduled Section M.
+Race condition di production create path tertutup setelah Section J+K integration done.
+Update path protection tracked terpisah di Section M (bug #21 admin API + bug #22 Regular
+wizard re-invoke + bug #25 Rental wizard back-edit).
+Section F+G+H+I: create path API + Regular wizard + Dropping wizard + Rental wizard closed.
 
 ---
 
@@ -374,11 +376,13 @@ Level auth di `/api/*` routes tidak konsisten:
 
 **Bug laten yang baru ketangkap setelah switch ke MariaDB:**
 
-4 bug terdeteksi di Fase 1A:
+6 bug terdeteksi di Fase 1A:
 - bug #20 (empty trip_date di regular booking flow) — ✅ RESOLVED di commit 43ccbe7
 - bug #21 (BookingManagementService update path bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #22 (RegularBookingPersistenceService wizard re-invoke bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #23 (empty trip_date di dropping booking flow) — ✅ RESOLVED di commit 337899b
+- bug #24 (empty rental_start_date/rental_end_date di rental booking flow) — ✅ RESOLVED di commit c0999b8
+- bug #25 (RentalBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -534,6 +538,56 @@ wizard "save + navigate back" semantic review, audit trail.
 **Pattern reference:** Identical dengan bug #20 fix approach di Regular (commit 43ccbe7). Bug ditemukan + di-fix atomic dalam sesi Section H sama.
 
 **Catatan:** Dropping tidak punya admin update endpoint (tidak seperti Regular yang punya bug #22 update-path bypass). Section H hanya perlu register 1 bug (bug #23) — tidak ada bug #22-equivalent untuk Dropping.
+
+---
+
+### 24. Empty `rental_start_date` / `rental_end_date` Propagates ke Booking Insert di Rental Flow
+
+**Ditemukan saat:** Section I Fase 1A investigation (findings phase), parallel pattern dengan bug #20 Regular dan bug #23 Dropping. Rental lebih parah karena 2 field at risk (bukan 1).
+
+**Detail:**
+- `RentalBookingPersistenceService::persistDraft()` lines 57-58 pakai direct reference tanpa fallback:
+  - `'trip_date' => $reviewState['rental_start_date']`
+  - `'rental_end_date' => $reviewState['rental_end_date']`
+- `RentalBookingDraftService::normalizeDraft()` lines 202-203 `trim()` produces empty string `''` saat field missing, bukan null
+- Tidak ada null-coalesce atau fallback expression sama sekali
+- MariaDB `strict_trans_tables` reject `''` untuk DATE column (analog bug #20/#23)
+- Bug lebih parah dari #20/#23 karena interaksi dengan CarbonPeriod expansion di Section I — kalau end < start, CarbonPeriod return empty iteration → **seat locking silently skipped** (race condition fix bypass)
+
+**Note:** Bug ini silent karena tidak ada test coverage untuk Rental flow (konsisten bug #6). Identified via pattern parallel inspection saat Section I investigation.
+
+**Status:** ✅ RESOLVED di commit `c0999b8` (Section I Commit 1).
+
+**Fix diterapkan:**
+- `RentalBookingPersistenceService.php` area direct reference diganti dengan `filled()` check untuk kedua field
+- Fallback `rental_start_date` → `now()->toDateString()` (pattern identik bug #20/#23)
+- Fallback `rental_end_date` → `$tripDate` (POST-fallback, bukan `now()` ke-2) agar invariant `end >= start` tetap terjaga tanpa enforce manual
+- `Log::warning` trail per field saat fallback trigger
+- Cleanup `notes` field line 80 untuk pakai `$tripDate`/`$endDate` post-fallback (bukan empty string raw propagation)
+
+**Pattern reference:** Identical approach dengan bug #20/#23. Fallback end → start adalah adaptasi khas Rental untuk preserve range invariant.
+
+**Catatan:** Rental tidak punya admin update endpoint (seperti Dropping), jadi tidak ada bug #22-equivalent dari sisi API. Tapi wizard back-edit tetap bypass seat locking — tracked terpisah sebagai bug #25.
+
+---
+
+### 25. Rental Wizard Back-Edit Bypass Seat Locking
+
+**Ditemukan saat:** Section I Fase 1A review (RAGU I-3), parallel pattern dengan bug #22 Regular wizard re-invoke bypass.
+
+**Detail:**
+- Customer wizard Rental di step review bisa klik "Back" edit range/tanggal, maju lagi
+- `persistDraft` dipanggil ulang dengan `persistedBookingId` session existing
+- `Booking::query()->find($persistedBookingId)` → existing booking loaded
+- `wasRecentlyCreated = false` → guard Section I skip `lockSeats()` call
+- Kalau customer stretch range (3 hari jadi 5 hari), hari 4-5 tidak ter-lock → race window reopen
+- Kalau customer ubah tanggal (20-22 jadi 25-27), lock lama tetap di tanggal 20-22 (orphan), lock baru tidak dibuat untuk 25-27
+
+**Scope:** Update path protection — butuh re-sync `booking_seats` saat range berubah. Design pilihan: (a) release+re-lock eksplisit via `SeatLockService` di update path, atau (b) pattern conditional re-lock berdasarkan range-change detection.
+
+**Status:** 🔴 OPEN, scheduled Section M (bersama bug #21 admin API + bug #22 Regular wizard).
+
+**Catatan:** Rental tidak punya admin update endpoint (confirmed Section I investigation), jadi satu-satunya update path adalah wizard back-edit ini. Scope fix Section M untuk Rental hanya perlu cover wizard path, tidak perlu API path.
 
 ---
 
