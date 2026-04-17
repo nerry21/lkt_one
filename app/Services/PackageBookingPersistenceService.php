@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Services\SeatLockService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -10,6 +11,10 @@ use Illuminate\Support\Str;
 
 class PackageBookingPersistenceService
 {
+    public function __construct(
+        private readonly SeatLockService $seatLockService,
+    ) {}
+
     public function currentDraftBooking(Session $session, PackageBookingDraftService $drafts): ?Booking
     {
         $bookingId = $drafts->getPersistedBookingId($session);
@@ -100,6 +105,40 @@ class PackageBookingPersistenceService
             ]);
 
             $booking->save();
+
+            // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+            // Package 2-mode: Package Besar (requires_seat=true, 1 seat) vs Package Kecil
+            // (requires_seat=false, 0 seat). Guard !empty($selected_seats) handle keduanya:
+            //   Mode A: lockSeats dipanggil dengan 1 slot × 1 seat = 1 row
+            //   Mode B: skip lockSeats (tidak occupy kursi, parcel di bagasi)
+            //
+            // Share pool Regular auto-enforced via UNIQUE constraint uk_booking_seats_active_slot:
+            // category='Paket' bukan filter di booking_seats query — Package Besar seat 5A di
+            // slot (trip_date, trip_time, from_city, to_city, armada_index) sama dengan Regular
+            // booking 5A → UNIQUE collision → SeatConflictException. Kontrak Section D confirmed.
+            //
+            // persistDraft Package selalu pre-payment (status Draft, payment_status Belum Bayar),
+            // jadi lockType selalu 'soft'. quickPackageStore di BookingController yang direct-
+            // confirmed kemungkinan 'hard' — scope Section K, belum masuk sekarang.
+            //
+            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan persistedBookingId
+            // session) skip seat locking via wasRecentlyCreated guard. Gap update path di-track
+            // sebagai bug #27 (parallel bug #22 Regular dan bug #25 Rental), scheduled Section M.
+            if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
+                $slot = [
+                    'trip_date' => $tripDate,
+                    'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
+                    'from_city' => $reviewState['pickup_city'],
+                    'to_city' => $reviewState['destination_city'],
+                    'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                ];
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $reviewState['selected_seats'],
+                    'soft',
+                );
+            }
 
             return $booking->fresh();
         });
