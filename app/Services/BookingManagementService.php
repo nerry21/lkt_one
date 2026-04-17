@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
 use App\Models\BookingSeat;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -290,9 +291,43 @@ class BookingManagementService
         });
     }
 
-    public function updateBooking(Booking $booking, array $validated): Booking
+    public function updateBooking(Booking $booking, array $validated, User $actor): Booking
     {
-        return DB::transaction(fn (): Booking => $this->persistBooking($booking, $validated));
+        return DB::transaction(function () use ($booking, $validated, $actor): Booking {
+            $oldSlotKey = $this->buildSlotKey($booking);
+            $oldSeats = $this->normalizeSeatList((array) ($booking->selected_seats ?? []));
+            $newSlotKey = $this->buildSlotKeyFromValidated($validated);
+            $newSeats = $this->normalizeSeatList((array) ($validated['selected_seats'] ?? []));
+
+            $slotChanged = $oldSlotKey !== $newSlotKey;
+            $seatsChanged = $oldSeats !== $newSeats;
+            $needsReLock = $slotChanged || $seatsChanged;
+
+            if ($needsReLock && ! empty($oldSeats)) {
+                $reason = sprintf(
+                    'admin_update_booking_%s_by_user_%s',
+                    $booking->booking_code,
+                    $actor->id,
+                );
+                $this->seatLockService->releaseSeats($booking, $actor, $reason);
+            }
+
+            $persisted = $this->persistBooking($booking, $validated);
+
+            if ($needsReLock && ! empty($newSeats)) {
+                $paymentStatus = (string) ($validated['payment_status'] ?? $booking->payment_status);
+                $isPaid = in_array($paymentStatus, ['Dibayar', 'Dibayar Tunai'], true);
+                $lockType = $isPaid ? 'hard' : 'soft';
+                $this->seatLockService->lockSeats(
+                    $persisted,
+                    [$newSlotKey],
+                    $newSeats,
+                    $lockType,
+                );
+            }
+
+            return $persisted;
+        });
     }
 
     public function deleteBooking(Booking $booking): void
@@ -463,9 +498,8 @@ class BookingManagementService
         }
 
         // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
-        // Update path tidak lock seats — scheduled Section M (admin endpoint dedicated)
-        // dengan proper hard-lock protection + audit trail via releaseSeats().
-        // Lihat bug #21 di docs/audit-findings.md untuk detail gap ini.
+        // Update path handled di updateBooking() wrapper (release+relock Pattern C) —
+        // bug #21 RESOLVED Section M1.
         if ($booking->wasRecentlyCreated && ! empty($selectedSeats)) {
             $slot = [
                 'trip_date' => $validated['trip_date'] instanceof \DateTimeInterface
@@ -613,5 +647,42 @@ class BookingManagementService
         } while (BookingPassenger::query()->where('qr_token', $code)->exists());
 
         return $code;
+    }
+
+    private function buildSlotKey(Booking $booking): array
+    {
+        return [
+            'trip_date' => $booking->trip_date instanceof \DateTimeInterface
+                ? $booking->trip_date->format('Y-m-d')
+                : (string) $booking->trip_date,
+            'trip_time' => $this->normalizeTripTime((string) $booking->trip_time),
+            'from_city' => trim((string) $booking->from_city),
+            'to_city' => trim((string) $booking->to_city),
+            'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
+        ];
+    }
+
+    private function buildSlotKeyFromValidated(array $validated): array
+    {
+        return [
+            'trip_date' => $validated['trip_date'] instanceof \DateTimeInterface
+                ? $validated['trip_date']->format('Y-m-d')
+                : (string) ($validated['trip_date'] ?? ''),
+            'trip_time' => $this->normalizeTripTime((string) ($validated['trip_time'] ?? '')),
+            'from_city' => trim((string) ($validated['from_city'] ?? '')),
+            'to_city' => trim((string) ($validated['to_city'] ?? '')),
+            'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
+        ];
+    }
+
+    private function normalizeSeatList(array $seats): array
+    {
+        $clean = array_values(array_unique(array_map(
+            fn ($s): string => trim((string) $s),
+            $seats,
+        )));
+        sort($clean);
+
+        return $clean;
     }
 }
