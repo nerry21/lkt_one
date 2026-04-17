@@ -71,18 +71,24 @@ Dokumen ini merangkum semua temuan audit yang dilakukan dari dua sumber:
 - Soft/hard lock mechanism
 - Exception handling MySQL 1062 → `SeatConflictException` HTTP 409
 
-**Status:** 🟡 PARTIAL — Fondasi locking DONE, consumer integration PENDING.
+**Status:** 🟡 PARTIAL — Fondasi locking DONE, consumer integration 2/6 DONE.
 
 Progress Fase 1A (per commit):
 - ✅ Section A (commit 6edaeab): tabel booking_seats dengan generated column + UNIQUE
 - ✅ Section B (commit 9785ebb): model BookingSeat dengan scope active/released/soft/hard
 - ✅ Section C (commit 7aab2d1): SeatConflictException (HTTP 409)
 - ✅ Section D (commit 63ce639+96d8d05+a2f58c4): SeatLockService 4 method
-- ⏳ Section E: test coverage formal (pending)
-- ⏳ Section F-K: integrate SeatLockService ke 6 existing services/controllers (pending)
+- ✅ Section E (commit 5a2bfa6): test coverage formal 16 test SeatLockServiceTest
+- ✅ Section F (commit f8af602): BookingManagementService::persistBooking create path
+- ✅ Section G (commit f0e66b0): RegularBookingPersistenceService::persistDraft create path
+- ⏳ Section H: DroppingBookingPersistenceService::persistDraft (pending)
+- ⏳ Section I: RentalBookingPersistenceService::persistDraft multi-day (pending)
+- ⏳ Section J: PackageBookingPersistenceService::persistDraft (pending)
+- ⏳ Section K: BookingController::quickPackageStore + occupiedSeats + release endpoint (pending)
+- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22)
 
-Race condition di production belum fully closed sampai Section F-K integration done.
-Tanpa consumer update, existing code path masih bypass locking mechanism.
+Race condition di production belum fully closed sampai Section H-K integration done.
+Section F+G: create path API + Regular wizard closed. Update path (bugs #21, #22) scheduled Section M.
 
 ---
 
@@ -368,8 +374,10 @@ Level auth di `/api/*` routes tidak konsisten:
 
 **Bug laten yang baru ketangkap setelah switch ke MariaDB:**
 
-2 bug terdeteksi di Fase 1A — bug #20 (empty trip_date di regular booking flow) dan bug #21
-(update path bypass seat locking, muncul saat Section F integration). Lihat entry #20 dan #21 di bawah.
+3 bug terdeteksi di Fase 1A:
+- bug #20 (empty trip_date di regular booking flow) — ✅ RESOLVED di commit 43ccbe7
+- bug #21 (BookingManagementService update path bypass seat locking) — 🔴 OPEN, scheduled Section M
+- bug #22 (RegularBookingPersistenceService wizard re-invoke bypass seat locking) — 🔴 OPEN, scheduled Section M
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -414,15 +422,22 @@ tidak ada regression infrastructure.
 **Fix target:** Fase 1A Section G — saat rewrite `RegularBookingPersistenceService::persistDraft`
 untuk integrate `SeatLockService`, sekaligus fix root cause trip_date propagation.
 
-**Status:** 🔴 OPEN — scheduled Section G.
+**Status:** ✅ RESOLVED di commit `43ccbe7` (Section G Commit 1).
+
+**Fix diterapkan:**
+- `RegularBookingPersistenceService.php:60` null-coalesce `??` diganti dengan `filled()` check
+  yang catch both null dan empty string.
+- Fallback ke `now()->toDateString()` konsisten dengan buildFormState pattern.
+- `Log::warning` trail saat fallback trigger — visibility ke production kalau frontend
+  propagate empty trip_date consistently.
+- Test `regular_booking_review_save_persists_booking_as_draft` move dari FAIL → PASS.
+- Baseline pre-fix: 63/5. Post-fix: 64/4.
 
 **Notes:**
 - Test ini masked di SQLite pre-Fase 1A (pass trivially karena empty string DATE tolerated)
-- Setelah bug #20 fixed, test `regular_booking_review_save_persists_booking_as_draft` harus
-  move dari "known failures" ke "passing" — update audit-findings.md dan Section G commit
-  message saat itu
-- Ini adalah bug laten yang **baru ketangkap karena test infra fixed** — contoh konkret kenapa
-  bug #19 (test infra issue) punya dampak riil, bukan cosmetic
+- Ini adalah bug laten yang **baru ketangkap karena test infra fixed** (bug #19) — contoh konkret
+  kenapa bug #19 test infra issue punya dampak riil, bukan cosmetic. Fase 1A pipeline berhasil
+  mengekspos + menyelesaikan bug ini.
 
 ---
 
@@ -455,6 +470,44 @@ protection: hard lock detection, refund workflow, audit trail.
 - Kalau ada customer lain booking seat yang "terlock tapi tidak visible di UI admin", konflik
   silent di hari-H
 - Workaround sementara: admin jangan edit seat di booking yang sudah Paid
+
+---
+
+### 22. Update Path RegularBookingPersistenceService Bypass Seat Locking
+
+**Ditemukan saat:** Section G Fase 1A, parallel dengan bug #21 pattern.
+
+**Detail:**
+- `RegularBookingPersistenceService::persistDraft()` dipanggil dari wizard step "review save"
+- Session state wizard include `persistedBookingId` — kalau user back-edit (misal: pilih
+  kembali seat, lalu simpan review lagi), `persistDraft` di-invoke ulang dengan booking
+  existing (bukan create baru)
+- Section G Fase 1A integrate `SeatLockService` **hanya untuk create path** (guarded via
+  `$booking->wasRecentlyCreated`)
+- Update/re-edit path tetap update `selected_seats` JSON cache tapi tidak sync ke `booking_seats`
+- Dampak: booking_seats dari first persistDraft call tetap lock seat lama; cache JSON
+  tampilkan seat baru → divergence antara lock actual vs cache.
+
+**Root cause:**
+- Hard delete booking_seats di update path break audit trail (desain Opsi 2 Section A)
+- Proper update butuh release seats lama dengan `lock_released_by` = admin user, re-lock
+  seat baru. `persistDraft` tidak punya User context (method level).
+
+**Fix target:** Section M — admin endpoint dedicated dengan protection: hard lock detection,
+wizard "save + navigate back" semantic review, audit trail.
+
+**Status:** 🔴 OPEN — scheduled Section M.
+
+**Potensi dampak produksi:**
+- User edit seat di wizard setelah review pertama → seat lama tetap lock
+- Kalau customer lain booking seat yang "lock tapi tidak di UI", konflik silent di hari-H
+- Workaround sementara: instruct admin/user jangan back-edit wizard setelah review save
+
+**Relationship dengan bug #21:**
+- Bug #21 (BookingManagementService update via API) dan bug #22 (RegularBookingPersistenceService
+  re-invoke via wizard back-edit) adalah 2 manifestasi dari gap arsitektur yang sama:
+  `SeatLockService` butuh "release + re-lock" helper dengan User context untuk update flow.
+- Fix pattern mirip: Section M admin endpoint + wizard UX guard.
 
 ---
 
