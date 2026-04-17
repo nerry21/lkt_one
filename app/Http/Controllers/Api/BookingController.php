@@ -14,9 +14,11 @@ use App\Services\CustomerLoyaltyService;
 use App\Services\CustomerResolverService;
 use App\Services\PackageBookingService;
 use App\Services\RegularBookingPaymentService;
+use App\Services\SeatLockService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -281,10 +283,13 @@ class BookingController extends Controller
         StoreQuickPackageBookingRequest $request,
         PackageBookingService $packageService,
         RegularBookingPaymentService $payments,
+        SeatLockService $seatLockService,
     ): JsonResponse {
+        // Auth check OUTSIDE wrap - fail early sebelum open transaction
         $this->actor($request);
         $v = $request->validated();
 
+        // Pure compute OUTSIDE wrap - no DB mutation, no state read
         $fareAmount     = (int) $v['fare_amount'];
         $additionalFare = (int) ($v['additional_fare'] ?? 0);
         $itemQty        = (int) ($v['item_qty'] ?? 1);
@@ -293,6 +298,7 @@ class BookingController extends Controller
         $paymentStatus  = (string) $v['payment_status'];
         $paidStatuses   = ['Dibayar', 'Dibayar Tunai'];
         $isPaid         = in_array($paymentStatus, $paidStatuses, true);
+        $requiresDocs   = $paymentMethod !== '' || $paymentStatus !== 'Belum Bayar';
 
         $bankAccount = $paymentMethod === 'transfer'
             ? $payments->bankAccountByCode($v['bank_account_code'] ?? null)
@@ -306,44 +312,89 @@ class BookingController extends Controller
             'package_size'    => trim((string) ($v['package_size'] ?? '')),
         ], JSON_UNESCAPED_UNICODE);
 
-        $bookingCode = $this->generateUniquePackageCode('booking_code', 'PKT');
-        $requiresDocs = $paymentMethod !== '' || $paymentStatus !== 'Belum Bayar';
+        // Extract slot-key fields ONCE untuk reuse di fill() + lockSeats slot build.
+        // Konsisten value kedua usage (prevent subtle mismatch kalau source re-evaluated).
+        $tripDate    = (string) $v['trip_date'];
+        $tripTime    = $this->normalizeTripTime((string) $v['trip_time']);
+        $fromCity    = trim((string) $v['from_city']);
+        $toCity      = trim((string) $v['to_city']);
+        $armadaIndex = max(1, (int) ($v['armada_index'] ?? 1));
 
-        $booking = new Booking();
-        $booking->booking_code = $bookingCode;
-        $booking->fill([
-            'category'             => 'Paket',
-            'from_city'            => trim((string) $v['from_city']),
-            'to_city'              => trim((string) $v['to_city']),
-            'trip_date'            => $v['trip_date'],
-            'trip_time'            => $this->normalizeTripTime((string) $v['trip_time']),
-            'booking_for'          => trim((string) $v['package_size']),
-            'passenger_name'       => trim((string) $v['sender_name']),
-            'passenger_phone'      => trim((string) ($v['sender_phone'] ?? '')),
-            'passenger_count'      => $itemQty,
-            'pickup_location'      => trim((string) $v['sender_address']),
-            'dropoff_location'     => trim((string) $v['recipient_address']),
-            'selected_seats'       => (trim((string) ($v['package_size'] ?? '')) === 'Besar' && trim((string) ($v['seat_code'] ?? '')) !== '')
-                ? [trim((string) $v['seat_code'])]
-                : [],
-            'price_per_seat'       => $fareAmount,
-            'total_amount'         => $totalAmount,
-            'nominal_payment'      => $requiresDocs ? $totalAmount : null,
-            'route_label'          => trim((string) $v['from_city']) . ' - ' . trim((string) $v['to_city']),
-            'armada_index'         => max(1, (int) ($v['armada_index'] ?? 1)),
-            'payment_method'       => $paymentMethod !== '' ? $paymentMethod : null,
-            'payment_account_bank'   => $bankAccount['bank_name'] ?? null,
-            'payment_account_name'   => $bankAccount['account_holder'] ?? null,
-            'payment_account_number' => $bankAccount['account_number'] ?? null,
-            'payment_status'       => $paymentStatus,
-            'booking_status'       => $isPaid ? 'Diproses' : 'Draft',
-            'ticket_status'        => $isPaid ? 'Aktif' : 'Draft',
-            'paid_at'              => $isPaid ? now() : null,
-            'invoice_number'       => $requiresDocs ? $this->generateUniquePackageCode('invoice_number', 'SBB') : null,
-            'notes'                => $notes,
-        ]);
-        $booking->save();
+        $selectedSeats = (trim((string) ($v['package_size'] ?? '')) === 'Besar'
+            && trim((string) ($v['seat_code'] ?? '')) !== '')
+            ? [trim((string) $v['seat_code'])]
+            : [];
 
+        // Wrap DB mutation + state-dependent lookup (code generation + save + lockSeats).
+        // Bug #6 fix: tanpa wrap, error post-save = booking orphan tanpa rollback.
+        // Section K1 integration: lockSeats('hard'/'soft') conditional $isPaid -
+        //   isPaid=true (Diproses/Aktif): 'hard' (commitment immediate, refund butuh release)
+        //   isPaid=false (Draft/Draft): 'soft' (analog Section J persistDraft)
+        // Share pool Regular auto-enforced via UNIQUE uk_booking_seats_active_slot
+        // (category='Paket' bukan filter di booking_seats query).
+        $booking = DB::transaction(function () use (
+            $v, $fareAmount, $totalAmount, $itemQty, $paymentMethod, $paymentStatus,
+            $isPaid, $bankAccount, $notes, $requiresDocs, $seatLockService,
+            $tripDate, $tripTime, $fromCity, $toCity, $armadaIndex, $selectedSeats
+        ): Booking {
+            $bookingCode = $this->generateUniquePackageCode('booking_code', 'PKT');
+
+            $booking = new Booking();
+            $booking->booking_code = $bookingCode;
+            $booking->fill([
+                'category'               => 'Paket',
+                'from_city'              => $fromCity,
+                'to_city'                => $toCity,
+                'trip_date'              => $tripDate,
+                'trip_time'              => $tripTime,
+                'booking_for'            => trim((string) $v['package_size']),
+                'passenger_name'         => trim((string) $v['sender_name']),
+                'passenger_phone'        => trim((string) ($v['sender_phone'] ?? '')),
+                'passenger_count'        => $itemQty,
+                'pickup_location'        => trim((string) $v['sender_address']),
+                'dropoff_location'       => trim((string) $v['recipient_address']),
+                'selected_seats'         => $selectedSeats,
+                'price_per_seat'         => $fareAmount,
+                'total_amount'           => $totalAmount,
+                'nominal_payment'        => $requiresDocs ? $totalAmount : null,
+                'route_label'            => $fromCity . ' - ' . $toCity,
+                'armada_index'           => $armadaIndex,
+                'payment_method'         => $paymentMethod !== '' ? $paymentMethod : null,
+                'payment_account_bank'   => $bankAccount['bank_name'] ?? null,
+                'payment_account_name'   => $bankAccount['account_holder'] ?? null,
+                'payment_account_number' => $bankAccount['account_number'] ?? null,
+                'payment_status'         => $paymentStatus,
+                'booking_status'         => $isPaid ? 'Diproses' : 'Draft',
+                'ticket_status'          => $isPaid ? 'Aktif' : 'Draft',
+                'paid_at'                => $isPaid ? now() : null,
+                'invoice_number'         => $requiresDocs ? $this->generateUniquePackageCode('invoice_number', 'SBB') : null,
+                'notes'                  => $notes,
+            ]);
+            $booking->save();
+
+            // SeatLockService integration (Section K1 + bug #2 race condition fix).
+            // 2-mode guard konsisten Section J: Besar+seat_code non-empty → 1 seat lock,
+            // Kecil/Sedang atau Besar tanpa seat_code → skip (parcel di bagasi).
+            if (! empty($selectedSeats)) {
+                $slot = [
+                    'trip_date'    => $tripDate,
+                    'trip_time'    => $tripTime,
+                    'from_city'    => $fromCity,
+                    'to_city'      => $toCity,
+                    'armada_index' => $armadaIndex,
+                ];
+                $seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $selectedSeats,
+                    $isPaid ? 'hard' : 'soft',
+                );
+            }
+
+            return $booking;
+        });
+
+        // Response build OUTSIDE wrap - booking already committed, pure compute
         return response()->json([
             'id'                   => $booking->getKey(),
             'booking_code'         => $booking->booking_code,
