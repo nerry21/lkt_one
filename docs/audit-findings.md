@@ -81,14 +81,14 @@ Progress Fase 1A (per commit):
 - ✅ Section E (commit 5a2bfa6): test coverage formal 16 test SeatLockServiceTest
 - ✅ Section F (commit f8af602): BookingManagementService::persistBooking create path
 - ✅ Section G (commit f0e66b0): RegularBookingPersistenceService::persistDraft create path
-- ⏳ Section H: DroppingBookingPersistenceService::persistDraft (pending)
+- ✅ Section H (commit b5465ff): DroppingBookingPersistenceService::persistDraft create path
 - ⏳ Section I: RentalBookingPersistenceService::persistDraft multi-day (pending)
 - ⏳ Section J: PackageBookingPersistenceService::persistDraft (pending)
 - ⏳ Section K: BookingController::quickPackageStore + occupiedSeats + release endpoint (pending)
 - ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22)
 
-Race condition di production belum fully closed sampai Section H-K integration done.
-Section F+G: create path API + Regular wizard closed. Update path (bugs #21, #22) scheduled Section M.
+Race condition di production belum fully closed sampai Section I-K integration done.
+Section F+G+H: create path API + Regular wizard + Dropping wizard closed. Update path (bugs #21, #22) scheduled Section M.
 
 ---
 
@@ -374,10 +374,11 @@ Level auth di `/api/*` routes tidak konsisten:
 
 **Bug laten yang baru ketangkap setelah switch ke MariaDB:**
 
-3 bug terdeteksi di Fase 1A:
+4 bug terdeteksi di Fase 1A:
 - bug #20 (empty trip_date di regular booking flow) — ✅ RESOLVED di commit 43ccbe7
 - bug #21 (BookingManagementService update path bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #22 (RegularBookingPersistenceService wizard re-invoke bypass seat locking) — 🔴 OPEN, scheduled Section M
+- bug #23 (empty trip_date di dropping booking flow) — ✅ RESOLVED di commit 337899b
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -508,6 +509,31 @@ wizard "save + navigate back" semantic review, audit trail.
   re-invoke via wizard back-edit) adalah 2 manifestasi dari gap arsitektur yang sama:
   `SeatLockService` butuh "release + re-lock" helper dengan User context untuk update flow.
 - Fix pattern mirip: Section M admin endpoint + wizard UX guard.
+
+---
+
+### 23. Empty `trip_date` Propagates ke Booking Insert di Dropping Flow
+
+**Ditemukan saat:** Section H Fase 1A investigation (findings phase), parallel pattern dengan bug #20 Regular.
+
+**Detail:**
+- `DroppingBookingPersistenceService::persistDraft()` line 57 pakai null-coalesce `??` untuk trip_date fallback
+- `DroppingBookingDraftService::normalizeDraft()` line 195 `trim()` produces empty string `''` saat trip_date missing, bukan null
+- Null-coalesce tidak catch empty string → booking tersave dengan `trip_date=''`
+- MariaDB `strict_trans_tables` reject `''` untuk DATE column (analog bug #20)
+
+**Note:** Bug ini silent karena tidak ada test coverage untuk Dropping flow (konsisten dengan bug #6 "Test coverage minim"). Identified via pattern parallel inspection saat Section H investigation — tidak ada test yang exercise empty trip_date di Dropping, jadi tidak ter-surface seperti bug #20 yang ketangkap test suite.
+
+**Status:** ✅ RESOLVED di commit `337899b` (Section H Commit 1).
+
+**Fix diterapkan:**
+- `DroppingBookingPersistenceService.php` area null-coalesce diganti dengan `filled()` check yang catch both null dan empty string
+- Fallback ke `now()->toDateString()` konsisten dengan pattern Regular Section G (commit 43ccbe7)
+- `Log::warning` trail saat fallback trigger — visibility ke production
+
+**Pattern reference:** Identical dengan bug #20 fix approach di Regular (commit 43ccbe7). Bug ditemukan + di-fix atomic dalam sesi Section H sama.
+
+**Catatan:** Dropping tidak punya admin update endpoint (tidak seperti Regular yang punya bug #22 update-path bypass). Section H hanya perlu register 1 bug (bug #23) — tidak ada bug #22-equivalent untuk Dropping.
 
 ---
 
