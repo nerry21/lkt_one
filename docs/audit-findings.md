@@ -71,6 +71,19 @@ Dokumen ini merangkum semua temuan audit yang dilakukan dari dua sumber:
 - Soft/hard lock mechanism
 - Exception handling MySQL 1062 → `SeatConflictException` HTTP 409
 
+**Status:** 🟡 PARTIAL — Fondasi locking DONE, consumer integration PENDING.
+
+Progress Fase 1A (per commit):
+- ✅ Section A (commit 6edaeab): tabel booking_seats dengan generated column + UNIQUE
+- ✅ Section B (commit 9785ebb): model BookingSeat dengan scope active/released/soft/hard
+- ✅ Section C (commit 7aab2d1): SeatConflictException (HTTP 409)
+- ✅ Section D (commit 63ce639+96d8d05+a2f58c4): SeatLockService 4 method
+- ⏳ Section E: test coverage formal (pending)
+- ⏳ Section F-K: integrate SeatLockService ke 6 existing services/controllers (pending)
+
+Race condition di production belum fully closed sampai Section F-K integration done.
+Tanpa consumer update, existing code path masih bypass locking mechanism.
+
 ---
 
 ### 3. Database Default Masih SQLite
@@ -126,6 +139,13 @@ Dokumen ini merangkum semua temuan audit yang dilakukan dari dua sumber:
 - Bahkan kalau frontend jujur memanggilnya sebelum submit, hasilnya stale (TOCTOU — Time Of Check to Time Of Use)
 
 **Fix target Fase 1A:** `SeatAvailabilityValidator` yang dipanggil di dalam `persistBooking()` dengan `lockForUpdate()`. Atau lebih baik: rely on UNIQUE constraint di tabel `booking_seats` + handle MySQL 1062 error.
+
+**Status:** 🟡 PARTIAL — SeatLockService.lockSeats() sudah punya pre-check
+lockForUpdate + UNIQUE constraint fallback (commit 63ce639). Consumer existing
+(4 PersistenceService + BookingController::quickPackageStore) belum dipanggilkan
+service ini — scheduled Section F-K.
+
+Once Section F-K landed, status bisa jadi ✅ DONE.
 
 ---
 
