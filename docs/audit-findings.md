@@ -83,14 +83,17 @@ Progress Fase 1A (per commit):
 - ✅ Section G (commit f0e66b0): RegularBookingPersistenceService::persistDraft create path
 - ✅ Section H (commit b5465ff): DroppingBookingPersistenceService::persistDraft create path
 - ✅ Section I (commit 2bfcbac): RentalBookingPersistenceService::persistDraft multi-day create path
-- ⏳ Section J: PackageBookingPersistenceService::persistDraft (pending)
+- ✅ Section J (commit 529b96a): PackageBookingPersistenceService::persistDraft create path
 - ⏳ Section K: BookingController::quickPackageStore + occupiedSeats + release endpoint (pending)
-- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22 + #25)
+- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22 + #25 + #27)
 
-Race condition di production create path tertutup setelah Section J+K integration done.
-Update path protection tracked terpisah di Section M (bug #21 admin API + bug #22 Regular
-wizard re-invoke + bug #25 Rental wizard back-edit).
-Section F+G+H+I: create path API + Regular wizard + Dropping wizard + Rental wizard closed.
+Race condition di production create path untuk wizard flow tertutup setelah Section J done
+(F+G+H+I+J = 5 consumer service-layer integrated). Tinggal Section K (BookingController::
+quickPackageStore API path + occupiedSeats refactor + release endpoint) untuk tutup API surface
+create path. Update path protection di-track terpisah Section M (bug #21 admin API + #22 Regular
+wizard + #25 Rental wizard + #27 Package wizard).
+Section F+G+H+I+J: create path API + Regular wizard + Dropping wizard + Rental wizard +
+Package wizard service-layer closed.
 
 ---
 
@@ -376,13 +379,16 @@ Level auth di `/api/*` routes tidak konsisten:
 
 **Bug laten yang baru ketangkap setelah switch ke MariaDB:**
 
-6 bug terdeteksi di Fase 1A:
+9 bug terdeteksi di Fase 1A (5 RESOLVED, 4 OPEN):
 - bug #20 (empty trip_date di regular booking flow) — ✅ RESOLVED di commit 43ccbe7
 - bug #21 (BookingManagementService update path bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #22 (RegularBookingPersistenceService wizard re-invoke bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #23 (empty trip_date di dropping booking flow) — ✅ RESOLVED di commit 337899b
 - bug #24 (empty rental_start_date/rental_end_date di rental booking flow) — ✅ RESOLVED di commit c0999b8
 - bug #25 (RentalBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
+- bug #26 (empty trip_date operator salah di package booking flow) — ✅ RESOLVED di commit 7c539ba
+- bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
+- bug #28 (normalizeTripTime return empty string untuk empty input di Package service) — 🔴 OPEN, scheduled Fase 1B/Section L
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -588,6 +594,103 @@ wizard "save + navigate back" semantic review, audit trail.
 **Status:** 🔴 OPEN, scheduled Section M (bersama bug #21 admin API + bug #22 Regular wizard).
 
 **Catatan:** Rental tidak punya admin update endpoint (confirmed Section I investigation), jadi satu-satunya update path adalah wizard back-edit ini. Scope fix Section M untuk Rental hanya perlu cover wizard path, tidak perlu API path.
+
+---
+
+### 26. Empty `trip_date` Operator Miss di Package Booking Flow
+
+**Ditemukan saat:** Section J Fase 1A investigation, pattern parallel dengan bug #20/#23 tapi framing beda.
+
+**Detail (framing akurat — bukan copy-paste bug #20/#24):**
+- `PackageBookingPersistenceService::persistDraft()` line 54 **sudah punya defensive fallback**:
+  `'trip_date' => $reviewState['trip_date'] ?? now()->toDateString()`
+- Tapi operator `??` hanya catch `null`, **tidak catch empty string** `''`
+- `PackageBookingDraftService::normalizeDraft()` line 223 `trim((string) ($draft['trip_date'] ?? ''))` emit `''` saat field missing di payload (bukan null)
+- Hasilnya `??` tidak trigger → `''` propagate ke `$booking->fill()` → MariaDB `strict_trans_tables` reject DATE column
+
+**Framing berbeda dari:**
+- Bug #20 (Regular) dan Bug #24 (Rental): **sama sekali tidak ada fallback**
+- Bug #23 (Dropping): juga null-coalesce saja, tapi tanpa pre-existing "defensive attempt" comment — fallback sudah ada tapi tidak marked defensive
+- Bug #26 (Package): **sudah ada fallback, operator yang salah** — developer aware akan risk (pakai `??`), tapi operator yang dipilih tidak sufficient untuk defeat empty-string edge case
+
+**Upstream guard:** `hasCompleteInformation` line 194 `$normalizedDraft['trip_date'] !== ''` block normal flow. Defensive fix tetap applicable per precedent F-I.
+
+**Status:** ✅ RESOLVED di commit `7c539ba` (Section J Commit 1).
+
+**Fix diterapkan:**
+- Operator `??` diganti dengan `filled()` check yang catch both null dan `''`
+- Fallback `trip_date` → `now()->toDateString()` (sama dengan behavior original null case)
+- `Log::warning` trail saat fallback trigger — pattern uniform dengan #20/#23/#24
+
+**Pattern reference:** Identical fix approach dengan bug #20/#23/#24. Framing commit message accurate: "operator salah miss empty string", bukan "no fallback".
+
+---
+
+### 27. Package Wizard Back-Edit Bypass Seat Locking
+
+**Ditemukan saat:** Section J Fase 1A review, parallel pattern dengan bug #22 (Regular) dan bug #25 (Rental).
+
+**Detail:**
+- Customer wizard Package di step review bisa klik "Back" edit seat selection (misal ubah dari 5A ke 4B), maju lagi
+- `persistDraft` dipanggil ulang dengan `persistedBookingId` session existing
+- `Booking::query()->find($persistedBookingId)` → existing booking loaded
+- `wasRecentlyCreated = false` → guard Section J skip `lockSeats()` call
+- Kalau customer ubah seat selection (5A → 4B), lock lama di 5A tetap di `booking_seats` (orphan), lock baru untuk 4B tidak dibuat → race window reopen untuk 4B
+- Khusus Package: edge case kalau customer ubah `package_size` dari Besar (requires_seat) ke Kecil (tidak requires_seat), lock lama 5A orphan permanen
+
+**Scope:** Update path protection — butuh re-sync `booking_seats` saat seat selection berubah. Design pilihan: (a) release+re-lock eksplisit, atau (b) conditional re-lock berdasarkan seat-change detection.
+
+**Status:** 🔴 OPEN, scheduled Section M (bersama bug #21 admin API + bug #22 Regular + bug #25 Rental).
+
+**Catatan:** Package tidak punya admin update endpoint khusus (`quickPackageStore` di BookingController adalah create path, bukan update). Satu-satunya update path adalah wizard back-edit ini. Scope fix Section M untuk Package hanya perlu cover wizard path.
+
+---
+
+### 28. `normalizeTripTime` Return Empty String untuk Empty Input (Observed di Package Service)
+
+**Ditemukan saat:** Section J Fase 1A investigation (side-quest flag), scope discipline — tidak di-fix di Section J.
+
+**Detail:**
+- `PackageBookingPersistenceService::normalizeTripTime()` line 168: kalau input empty string `''`, `strlen('') === 5` evaluate false → return `''` (bukan fallback ke `'00:00:00'`)
+- Line 55 pass langsung ke `$booking->fill()` untuk kolom `trip_time`
+- Kolom `trip_time` tipe VARCHAR → MariaDB terima `''` tanpa reject (beda dari DATE di bug #26)
+- Integrity issue: `booking_seats` slot key matching gagal karena `trip_time` kosong → dua booking Package dengan `trip_time=''` di slot key "sama" masih UNIQUE-trigger (semantik correct defensive), tapi slot key undefined secara bisnis
+- Upstream guard `hasCompleteInformation:193` via `in_array(departure_time, ...)` block normal flow — silent di production saat guard jalan
+
+**Detail tambahan (framing konservatif):**
+Helper `normalizeTripTime` ada di Package service. Service lain (Regular/Dropping/Rental) kemungkinan punya helper serupa dengan behavior identik atau variant — perlu audit pattern-wide di Fase 1B sebelum bulk-fix. Ketangkap di Section J investigation pertama kali karena Package yang sedang di-touch.
+
+**Status:** 🔴 OPEN, scheduled Fase 1B atau Section L cleanup.
+
+**Scope fix:** Defensive fallback di `normalizeTripTime` return `'00:00:00'` saat input empty, plus potensi propagate check di field-level fill. Audit pattern-wide dulu di Fase 1B (Regular/Dropping/Rental) sebelum decide bulk-fix atau Package-only.
+
+**Catatan:** Tidak di-bundle di Section J Commit 1 karena scope discipline — bug #26 fokus hanya `trip_date` (parallel precedent #20 yang juga hanya `trip_date`). Expand scope ke `trip_time` = scope creep. Pattern-wide fix butuh audit dulu (apakah helper di Regular/Dropping/Rental behavior identik atau variant) — scope sendiri di Fase 1B.
+
+---
+
+## Design Review Items (Non-Bug, Require Business Confirmation)
+
+### DR-1. Package Booking Tidak Link Customer Record
+
+**Ditemukan saat:** Section J Fase 1A investigation (Concern 5 finding).
+
+**Evidence:**
+- `PackageBookingPersistenceService::persistDraft()` tidak resolve Customer record (no `CustomerResolverService` inject, no `customer_id` setter)
+- Package bookings simpan sender/recipient sebagai raw string di `passenger_name`/`passenger_phone` + JSON notes
+- `CustomerLoyaltyService` tidak ada reference ke category `'Paket'`/'Package'
+- Regular + Dropping + Rental semua link ke `Customer` + trigger `CustomerLoyaltyService::recalculateForCustomer`
+
+**Interpretasi kandidat:**
+- **(a) INTENTIONAL**: Parcel service product beda dari passenger loyalty — sender/recipient bukan "customer" dalam makna loyalty JET. Default interpretasi berdasarkan pattern-wide evidence (3 consumer passenger link, 1 consumer parcel tidak link).
+- (b) NEW-FEATURE GAP: Seharusnya link tapi belum implemented — Package sender punya chance jadi customer passenger nantinya.
+- (c) ACCIDENTAL BUG: Design spec require link tapi kode tidak implement.
+
+**Status:** 🟡 DESIGN REVIEW — default interpretasi (a) INTENTIONAL sampai Bu Bos confirm. Follow-up item, bukan bug. Tidak di-register dengan nomor bug.
+
+**Impact kalau ternyata (b) atau (c):**
+- Sender Package yang juga customer Passenger (Regular/Dropping/Rental) = 2 profile terpisah di data, tidak ter-merge
+- Loyalty count skip kontribusi Package — customer yang sering kirim paket tidak ter-reward
+- Reporting: "Customer X punya berapa transaksi?" → hanya count passenger, miss parcel
 
 ---
 
