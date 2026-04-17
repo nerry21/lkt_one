@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Services\CustomerLoyaltyService;
+use App\Services\SeatLockService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,7 @@ class RegularBookingPersistenceService
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
+        private readonly SeatLockService         $seatLockService,
     ) {}
 
     public function currentDraftBooking(Session $session, RegularBookingDraftService $drafts): ?Booking
@@ -110,6 +112,30 @@ class RegularBookingPersistenceService
             if ($primaryCustomer !== null) {
                 $booking->customer_id = $primaryCustomer->id;
                 $booking->saveQuietly();
+            }
+
+            // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+            // persistDraft selalu pre-payment (status Draft, payment_status Belum Bayar di
+            // line 79-80), jadi lockType selalu 'soft'. promoteToHard dipanggil saat
+            // payment confirmation (scope persistPaymentSelection / Section K).
+            //
+            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan
+            // persistedBookingId session) skip seat locking — bug #22 registered,
+            // scheduled Section M admin endpoint.
+            if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
+                $slot = [
+                    'trip_date' => $tripDate,
+                    'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
+                    'from_city' => $reviewState['pickup_location'],
+                    'to_city' => $reviewState['destination_location'],
+                    'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                ];
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $reviewState['selected_seats'],
+                    'soft',
+                );
             }
 
             $booking->passengers()->delete();
