@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\BookingPassenger;
+use App\Models\BookingSeat;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Services\CustomerLoyaltyService;
 use App\Services\CustomerResolverService;
+use App\Services\SeatLockService;
 
 class BookingManagementService
 {
@@ -18,6 +20,7 @@ class BookingManagementService
         protected RegularBookingPaymentService $paymentService,
         protected CustomerResolverService $customerResolver,
         protected CustomerLoyaltyService $loyaltyService,
+        protected SeatLockService $seatLockService,
     ) {
     }
 
@@ -457,6 +460,24 @@ class BookingManagementService
             } catch (\Throwable $e) {
                 report($e);
             }
+        }
+
+        // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+        // Update path tidak lock seats — scheduled Section M (admin endpoint dedicated)
+        // dengan proper hard-lock protection + audit trail via releaseSeats().
+        // Lihat bug #21 di docs/audit-findings.md untuk detail gap ini.
+        if ($booking->wasRecentlyCreated && ! empty($selectedSeats)) {
+            $slot = [
+                'trip_date' => $validated['trip_date'] instanceof \DateTimeInterface
+                    ? $validated['trip_date']->format('Y-m-d')
+                    : (string) $validated['trip_date'],
+                'trip_time' => $this->normalizeTripTime((string) $validated['trip_time']),
+                'from_city' => trim((string) $validated['from_city']),
+                'to_city' => trim((string) $validated['to_city']),
+                'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
+            ];
+            $lockType = $isPaid ? 'hard' : 'soft';
+            $this->seatLockService->lockSeats($booking, [$slot], $selectedSeats, $lockType);
         }
 
         // Preserve QR + loyalty data for existing passengers (keyed by seat_no)
