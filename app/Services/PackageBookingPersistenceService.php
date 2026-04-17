@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PackageBookingPersistenceService
@@ -39,6 +40,28 @@ class PackageBookingPersistenceService
                 $booking->booking_code = $this->generateBookingCode();
             }
 
+            // Bug #26 fix: operator ?? pada line 54 original hanya catch null, bukan ''.
+            // normalizeDraft di PackageBookingDraftService line 223 emit '' saat trip_date
+            // missing di payload -> fallback ?? tidak trigger -> empty string propagate
+            // ke $booking->fill() -> MariaDB strict reject DATE=''.
+            //
+            // Fix pakai filled() yang catch both null & empty string. Pattern identik
+            // bug #20 Regular (commit 43ccbe7) dan bug #23 Dropping (commit 337899b),
+            // framing beda: Package sudah ada attempt fallback (pakai ??), hanya operator
+            // yang salah.
+            //
+            // Log::warning trail supaya production bug serupa tidak silent.
+            if (filled($reviewState['trip_date'] ?? null)) {
+                $tripDate = $reviewState['trip_date'];
+            } else {
+                $tripDate = now()->toDateString();
+                Log::warning('Package booking persist: trip_date empty, fallback ke today', [
+                    'raw_value' => $reviewState['trip_date'] ?? null,
+                    'fallback' => $tripDate,
+                    'context' => 'PackageBookingPersistenceService::persistDraft',
+                ]);
+            }
+
             $notes = json_encode([
                 'recipient_name' => $reviewState['recipient_name'],
                 'recipient_phone' => $reviewState['recipient_phone'],
@@ -51,7 +74,7 @@ class PackageBookingPersistenceService
                 'category' => 'Paket',
                 'from_city' => $reviewState['pickup_city'],
                 'to_city' => $reviewState['destination_city'],
-                'trip_date' => $reviewState['trip_date'] ?? now()->toDateString(),
+                'trip_date' => $tripDate,
                 'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for' => $reviewState['package_size'],
                 'passenger_name' => $reviewState['sender_name'],
