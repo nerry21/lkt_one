@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Customer;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class RentalBookingPersistenceService
@@ -50,12 +51,42 @@ class RentalBookingPersistenceService
                 'phone' => '-',
             ];
 
+            // Bug #24 fix: filled() catch both null & empty string. Null-coalesce ??
+            // tidak catch '' yang dihasilkan normalizeDraft saat date field missing di
+            // session/payload. Fallback pattern identik bug #20 Regular (commit 43ccbe7)
+            // dan bug #23 Dropping (commit 337899b), dengan nuansa khas Rental:
+            //   - rental_start_date fallback ke today
+            //   - rental_end_date fallback ke rental_start_date (POST-fallback) agar
+            //     invariant end >= start tetap terjaga tanpa enforce manual
+            // Log::warning trail supaya production bug serupa tidak silent.
+            if (filled($reviewState['rental_start_date'] ?? null)) {
+                $tripDate = $reviewState['rental_start_date'];
+            } else {
+                $tripDate = now()->toDateString();
+                Log::warning('Rental booking persist: rental_start_date empty, fallback ke today', [
+                    'raw_value' => $reviewState['rental_start_date'] ?? null,
+                    'fallback' => $tripDate,
+                    'context' => 'RentalBookingPersistenceService::persistDraft',
+                ]);
+            }
+
+            if (filled($reviewState['rental_end_date'] ?? null)) {
+                $endDate = $reviewState['rental_end_date'];
+            } else {
+                $endDate = $tripDate;
+                Log::warning('Rental booking persist: rental_end_date empty, fallback ke rental_start_date', [
+                    'raw_value' => $reviewState['rental_end_date'] ?? null,
+                    'fallback' => $endDate,
+                    'context' => 'RentalBookingPersistenceService::persistDraft',
+                ]);
+            }
+
             $booking->fill([
                 'category'         => 'Rental',
                 'from_city'        => $reviewState['pickup_location'],
                 'to_city'          => $reviewState['destination_location'],
-                'trip_date'        => $reviewState['rental_start_date'],
-                'rental_end_date'  => $reviewState['rental_end_date'],
+                'trip_date'        => $tripDate,
+                'rental_end_date'  => $endDate,
                 'trip_time'        => '00:00:00',
                 'booking_for'      => $reviewState['booking_type'],
                 'passenger_name'   => $primaryPassenger['name'],
@@ -77,7 +108,7 @@ class RentalBookingPersistenceService
                 'payment_status'   => 'Belum Bayar',
                 'booking_status'   => 'Draft',
                 'ticket_status'    => 'Draft',
-                'notes'            => 'Draft rental mobil dari dashboard. Semua kursi dipesan (1A, 2A, 2B, 3A, 4A, 5A). Periode rental: ' . $reviewState['rental_start_date'] . ' s/d ' . $reviewState['rental_end_date'] . '.',
+                'notes'            => 'Draft rental mobil dari dashboard. Semua kursi dipesan (1A, 2A, 2B, 3A, 4A, 5A). Periode rental: ' . $tripDate . ' s/d ' . $endDate . '.',
             ]);
 
             $booking->save();
