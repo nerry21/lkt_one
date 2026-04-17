@@ -368,7 +368,8 @@ Level auth di `/api/*` routes tidak konsisten:
 
 **Bug laten yang baru ketangkap setelah switch ke MariaDB:**
 
-1 bug terdeteksi — bug #20 (empty trip_date di regular booking flow, lihat entry #20 di bawah).
+2 bug terdeteksi di Fase 1A — bug #20 (empty trip_date di regular booking flow) dan bug #21
+(update path bypass seat locking, muncul saat Section F integration). Lihat entry #20 dan #21 di bawah.
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -422,6 +423,38 @@ untuk integrate `SeatLockService`, sekaligus fix root cause trip_date propagatio
   message saat itu
 - Ini adalah bug laten yang **baru ketangkap karena test infra fixed** — contoh konkret kenapa
   bug #19 (test infra issue) punya dampak riil, bukan cosmetic
+
+---
+
+### 21. Update Path BookingManagementService Bypass Seat Locking
+
+**Ditemukan saat:** Section F Fase 1A plan review, RAGU F-1.
+
+**Detail:**
+- `BookingManagementService::persistBooking()` dipanggil baik dari `createBooking()`
+  maupun `updateBooking()`
+- Section F Fase 1A integrate `SeatLockService` **hanya untuk create path**
+  (guarded via `$booking->wasRecentlyCreated`)
+- Update path (`PUT /api/bookings/{id}`) masih update `selected_seats` JSON di Booking
+  model, tapi tidak sync ke `booking_seats` table
+- Dampak: booking_seats existing tetap lock seat lama; admin UI tampilkan seat baru
+  (dari selected_seats JSON) tapi aktual seat lock di DB mungkin beda
+
+**Root cause:**
+- Hard delete booking_seats di update path akan break audit trail (desain Opsi 2 Section A)
+- Proper update butuh: release seats lama dengan `lock_released_by` = admin user, re-lock
+  seat baru. Tapi `persistBooking` tidak punya User context.
+
+**Fix target:** Section M — admin endpoint dedicated untuk update booking dengan
+protection: hard lock detection, refund workflow, audit trail.
+
+**Status:** 🔴 OPEN — scheduled Section M.
+
+**Potensi dampak produksi:**
+- Admin update booking -> seat lama masih "terlock" di booking_seats, seat baru tidak terlock
+- Kalau ada customer lain booking seat yang "terlock tapi tidak visible di UI admin", konflik
+  silent di hari-H
+- Workaround sementara: admin jangan edit seat di booking yang sudah Paid
 
 ---
 
