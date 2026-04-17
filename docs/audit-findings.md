@@ -319,6 +319,92 @@ Level auth di `/api/*` routes tidak konsisten:
 
 ---
 
+## 🟡 BUG PENTING (Test Infrastructure)
+
+### 19. Test Suite Pakai SQLite In-Memory vs MariaDB Production
+
+**Ditemukan saat:** Section A Fase 1A — migrate fresh di test suite crash karena syntax MariaDB-only (`PERSISTENT` generated column, `CHARACTER SET ascii`) tidak dikenal SQLite.
+
+**Detail:**
+- `phpunit.xml` baris 26–27 hard-code `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`
+- Production dan dev lokal pakai MariaDB 10.4 XAMPP (per CLAUDE.md policy "MySQL 8 only, bukan SQLite")
+- Test yang hijau di SQLite bisa jadi false positive karena SQLite lebih permisif:
+  - FK tidak di-enforce secara default
+  - Tidak ada strict mode (implicit data conversion)
+  - Syntax subset dari MariaDB (no PERSISTENT, no CHARACTER SET per-column, no functional index)
+  - Timezone/charset handling beda
+
+**Dampak spesifik Fase 1A:**
+- Migration `booking_seats` (Section A) pakai generated column PERSISTENT untuk "poor man's partial index" — feature inti locking. Tidak ada equivalent SQLite.
+- Semua 46 test di test suite crash di setup phase karena `migrate:fresh` SQLite gagal parsing `DB::statement(...)`.
+
+**Fix diterapkan Fase 1A:**
+- Switch ke MariaDB via `.env.testing` (Laravel convention).
+- Test DB: `hitungan_lkt_test` (terpisah dari `hitungan_lkt` dev).
+- Remove hard-code SQLite di `phpunit.xml`.
+- `.env.testing` di-gitignore, `.env.testing.example` safe template di-commit.
+
+**Status:** ✅ DONE (Fase 1A, commit `chore(test): switch test DB from SQLite to MariaDB` — di branch `feat/phase-1a-seat-locking`)
+
+**Bug laten yang baru ketangkap setelah switch ke MariaDB:**
+
+1 bug terdeteksi — bug #20 (empty trip_date di regular booking flow, lihat entry #20 di bawah).
+Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
+Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
+bukan teoretis, sudah terbukti konkret.
+
+Test lain (40 passed, 4 known failure lama) tetap sama behavior antara SQLite dan MariaDB —
+tidak ada regression infrastructure.
+
+---
+
+### 20. Empty `trip_date` Propagates ke Booking Insert di Regular Booking Flow
+
+**Ditemukan saat:** Fase 1A, step D test run setelah switch SQLite → MariaDB (bug #19 fix).
+
+**Signature error:**
+- Exception: `Illuminate\Database\QueryException`
+- SQLSTATE: 22007 (Invalid datetime format)
+- MySQL code: 1292 (Incorrect date value: '' for column `bookings`.`trip_date`)
+- Trigger: POST `/dashboard/regular-bookings/review` dari test
+  `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`
+
+**Root cause hypothesis (belum verified):**
+- `trip_date` tidak ter-forward dari session wizard ke Booking insert payload di
+  `RegularBookingController::reviewSave()` atau persistence service
+- Mungkin session key mismatch (e.g., `trip_date` vs `trip_date_input`), atau
+  conditional yang skip set kalau input empty
+- SQLite masking: DATE = string storage class, `''` insert OK (no type coercion)
+- MariaDB strict_trans_tables: `''` untuk DATE → hard error 1292
+
+**Lokasi investigasi:**
+- `app/Http/Controllers/RegularBookingController.php` — method `reviewSave`
+- `app/Services/RegularBookingPersistenceService.php::persistDraft()` — booking insert
+- `app/Services/RegularBookingDraftService.php` — session state (kalau ada)
+- Test: `tests/Feature/RegularBookingPageTest.php:396`
+
+**Potensi dampak produksi:**
+- Kalau session timeout atau cookie issue di mid-wizard → booking save gagal dengan error 500
+- Kemungkinan user-facing issue yang sudah terjadi di production tapi:
+  - Ter-swallow oleh error log tanpa alert, atau
+  - Tertutup frontend validation yang mencegah trip_date kosong sampai ke server
+- Butuh verify via production log (search error 1292 atau "trip_date" di log Hostinger)
+
+**Fix target:** Fase 1A Section G — saat rewrite `RegularBookingPersistenceService::persistDraft`
+untuk integrate `SeatLockService`, sekaligus fix root cause trip_date propagation.
+
+**Status:** 🔴 OPEN — scheduled Section G.
+
+**Notes:**
+- Test ini masked di SQLite pre-Fase 1A (pass trivially karena empty string DATE tolerated)
+- Setelah bug #20 fixed, test `regular_booking_review_save_persists_booking_as_draft` harus
+  move dari "known failures" ke "passing" — update audit-findings.md dan Section G commit
+  message saat itu
+- Ini adalah bug laten yang **baru ketangkap karena test infra fixed** — contoh konkret kenapa
+  bug #19 (test infra issue) punya dampak riil, bukan cosmetic
+
+---
+
 ## Prioritas Perbaikan
 
 ### Immediate (Fase 1A — hari ini)
