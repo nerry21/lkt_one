@@ -49,7 +49,10 @@ return new class extends Migration
                 ->nullOnDelete();
 
             // Timestamp wajib — kapan merge dilakukan
-            $table->timestamp('merged_at');
+            // useCurrent() untuk kompatibilitas MySQL 8 (explicit_defaults_for_timestamp=ON)
+            // yang tidak memberi implicit DEFAULT CURRENT_TIMESTAMP. Aplikasi tetap supply
+            // nilai eksplisit via $mergedAt di CustomerMergeService.
+            $table->timestamp('merged_at')->useCurrent();
 
             // ── Metadata JSON ──────────────────────────────────────────────────
             // Snapshot data sebelum merge, informasi diagnostik tambahan
