@@ -330,9 +330,23 @@ class BookingManagementService
         });
     }
 
-    public function deleteBooking(Booking $booking): void
+    public function deleteBooking(Booking $booking, User $actor): void
     {
-        DB::transaction(function () use ($booking): void {
+        DB::transaction(function () use ($booking, $actor): void {
+            $hasActiveSeats = BookingSeat::query()
+                ->where('booking_id', $booking->id)
+                ->active()
+                ->exists();
+
+            if ($hasActiveSeats) {
+                $reason = sprintf(
+                    'admin_delete_booking_%s_by_user_%s',
+                    $booking->booking_code,
+                    $actor->id,
+                );
+                $this->seatLockService->releaseSeats($booking, $actor, $reason);
+            }
+
             $booking->passengers()->delete();
             $booking->delete();
         });
