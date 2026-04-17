@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Services\CustomerLoyaltyService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class RegularBookingPersistenceService
@@ -53,11 +54,26 @@ class RegularBookingPersistenceService
                 'phone' => '-',
             ];
 
+            // Bug #20 fix: filled() catch both null & empty string. Null-coalesce ??
+            // tidak catch '' yang dihasilkan normalizeDraft saat trip_date missing di
+            // session/payload. Fallback ke today konsisten dengan buildFormState line 87.
+            // Log::warning trail supaya production bug serupa tidak silent.
+            if (filled($reviewState['trip_date'] ?? null)) {
+                $tripDate = $reviewState['trip_date'];
+            } else {
+                $tripDate = now()->toDateString();
+                Log::warning('Regular booking persist: trip_date empty, fallback ke today', [
+                    'raw_value' => $reviewState['trip_date'] ?? null,
+                    'fallback' => $tripDate,
+                    'context' => 'RegularBookingPersistenceService::persistDraft',
+                ]);
+            }
+
             $booking->fill([
                 'category' => 'Reguler',
                 'from_city' => $reviewState['pickup_location'],
                 'to_city' => $reviewState['destination_location'],
-                'trip_date' => $reviewState['trip_date'] ?? now()->toDateString(),
+                'trip_date' => $tripDate,
                 'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for' => $reviewState['booking_type'],
                 'passenger_name' => $primaryPassenger['name'],
