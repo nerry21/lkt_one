@@ -84,16 +84,19 @@ Progress Fase 1A (per commit):
 - ✅ Section H (commit b5465ff): DroppingBookingPersistenceService::persistDraft create path
 - ✅ Section I (commit 2bfcbac): RentalBookingPersistenceService::persistDraft multi-day create path
 - ✅ Section J (commit 529b96a): PackageBookingPersistenceService::persistDraft create path
-- ⏳ Section K: BookingController::quickPackageStore + occupiedSeats + release endpoint (pending)
+- ✅ Section K1 (commit 36caded): BookingController::quickPackageStore integration + DB::transaction wrap (bug #6)
+- ⏳ Section K2: occupiedSeats refactor pakai SeatLockService::getOccupiedSeats (pending)
+- ⏳ Section K3: release endpoint baru pakai SeatLockService::releaseSeats (pending)
 - ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22 + #25 + #27)
 
-Race condition di production create path untuk wizard flow tertutup setelah Section J done
-(F+G+H+I+J = 5 consumer service-layer integrated). Tinggal Section K (BookingController::
-quickPackageStore API path + occupiedSeats refactor + release endpoint) untuk tutup API surface
-create path. Update path protection di-track terpisah Section M (bug #21 admin API + #22 Regular
+Race condition di production create path tertutup total setelah Section K1 done
+(F+G+H+I+J+K1 = 6 consumer integrated — 5 wizard service-layer + 1 API direct-confirmed).
+Section K2 (occupiedSeats read-path refactor) + Section K3 (release endpoint baru) di-track
+sebagai read-path + admin-ops coverage - bukan create-path race condition concern.
+Update path protection di-track terpisah Section M (bug #21 admin API + #22 Regular
 wizard + #25 Rental wizard + #27 Package wizard).
-Section F+G+H+I+J: create path API + Regular wizard + Dropping wizard + Rental wizard +
-Package wizard service-layer closed.
+Section F+G+H+I+J+K1: create path API + Regular wizard + Dropping wizard + Rental wizard +
+Package wizard service-layer + Package quickPackage API direct-confirmed closed.
 
 ---
 
@@ -171,7 +174,15 @@ Once Section F-K landed, status bisa jadi ✅ DONE.
 - Kalau error terjadi setelah `$booking->save()` (misal generate invoice gagal, generate QR gagal), booking tetap ter-persist tapi data tidak lengkap
 - Double risk: tanpa transaction + tanpa locking
 
-**Fix target Fase 1A:** Wrap dengan `DB::transaction`, integrate dengan `SeatLockService`
+**Status:** ✅ RESOLVED di commit `36caded` (Section K1).
+
+**Fix diterapkan:**
+- Wrap `DB::transaction(function () use (...) { ... })` boundary: auth + pure compute di luar wrap, code generation + booking save + seat lock di dalam wrap
+- Integrate `SeatLockService::lockSeats` conditional lockType (`$isPaid ? 'hard' : 'soft'`)
+- `generateUniquePackageCode` (×2 untuk booking_code + invoice_number) include di dalam wrap karena DB-dependent SELECT loop
+- Response building OUTSIDE wrap — pure compute dari committed booking instance
+
+**Pattern reference:** Atomic bundle fix + integration — bug #6 fix target Fase 1A explicit "wrap + integrate dengan SeatLockService" match implementation 1:1. Single commit logical karena behavior-wise inseparable.
 
 ---
 
@@ -293,14 +304,33 @@ Level auth di `/api/*` routes tidak konsisten:
 **Ditemukan saat:** Audit oleh Claude Code CLI (BARU)
 
 **Detail:**
-- Method `generateUniqueCode()` untuk booking_code, ticket_number, invoice_number pakai loop `do { ... } while (exists)`
+- Method `generateUniqueCode()` untuk `booking_code`, `ticket_number`, `invoice_number` pakai loop `do { ... } while (exists)`
 - Ini TOCTOU (Time Of Check to Time Of Use) — tapi ruang 4-char random sehingga collision kecil
 
 **Risiko:** Secara teknis 2 transaksi bersamaan bisa generate kode identik, karena `exists()` dibaca dari snapshot masing-masing transaction.
 
-**Probabilitas nyata:** Rendah (4-char random = 14.7M kombinasi). Tapi seiring volume naik, akan terjadi.
+**Probabilitas nyata:** Rendah (4-char random = 14.7M kombinasi per prefix per day). Tapi seiring volume naik, akan terjadi.
 
-**Fix target:** Fase akhir 1 atau fase 2. Pakai UNIQUE constraint di kolom booking_code, biarkan MySQL yang handle collision.
+**Update partial progress (Section K1 verifikasi + Verify 4, 2026-04-18):**
+
+| Kolom | UNIQUE Constraint | Status |
+|---|---|---|
+| `booking_code` | ✅ UNIQUE | Race-protected sejak migration `2026_03_13_000001_create_bookings_table.php:13` (`->unique()`) |
+| `invoice_number` | ❌ INDEX only | NO UNIQUE constraint. Migration `2026_03_14_000010_add_regular_booking_payment_progress_fields_to_bookings_table.php:12` declare nullable tanpa `->unique()`. Later migration `2026_03_14_000013_finalize_booking_schema_for_payment_ticket_and_loyalty.php:36` add INDEX untuk lookup perf, bukan UNIQUE. Race window pre-existing. |
+| `ticket_number` | ❌ INDEX only | NO UNIQUE constraint. Same pattern dengan `invoice_number` — nullable declaration + INDEX only (migration `2026_03_14_000013:37`). Race window pre-existing. |
+
+**K1 context:** Section K1 (commit `36caded`) verifikasi pre-commit reveal `invoice_number` gap. Verify 4 confirm `ticket_number` same gap pattern. K1 tidak introduce race (gap pre-existing sejak 2026_03_14), hanya surface via documentation process. K1 ship dengan acceptable risk scope:
+- `quickPackageStore` generate `invoice_number` (race window 1) — duplicate PDF document, recoverable via manual fix
+- `quickPackageStore` TIDAK generate `ticket_number` — K1 race boundary tidak expand ke ticket_number kolom
+- Race seat booking (K1 fixes via bug #2 + #6) prioritas > invoice_number race
+
+**Status:** 🔴 OPEN — partially addressed (1/3 kolom ✅ UNIQUE), scope sisa 2/3 kolom (`invoice_number` + `ticket_number`) belum resolved.
+
+**Fix target:** Section L atau Fase 2. Migration sequence bundled 2 kolom:
+1. Audit existing data — query `SELECT {col}, COUNT(*) FROM bookings GROUP BY {col} HAVING COUNT(*) > 1` untuk BOTH `invoice_number` + `ticket_number`
+2. Deduplication kalau ada duplicate di production data (manual atau scripted)
+3. Migration `add_unique_to_invoice_number_and_ticket_number_to_bookings_table` — bundle 2 kolom single migration
+4. Test concurrent call scenario (Section L test gap registry): same-prefix random seed collision untuk kedua kolom
 
 ---
 
@@ -388,7 +418,7 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #25 (RentalBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #26 (empty trip_date operator salah di package booking flow) — ✅ RESOLVED di commit 7c539ba
 - bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
-- bug #28 (normalizeTripTime return empty string untuk empty input di Package service) — 🔴 OPEN, scheduled Fase 1B/Section L
+- bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — 🔴 OPEN, scheduled Fase 1B
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -646,7 +676,7 @@ wizard "save + navigate back" semantic review, audit trail.
 
 ---
 
-### 28. `normalizeTripTime` Return Empty String untuk Empty Input (Observed di Package Service)
+### 28. `normalizeTripTime` Return Empty String untuk Empty Input (Pattern-Wide 6 Lokasi)
 
 **Ditemukan saat:** Section J Fase 1A investigation (side-quest flag), scope discipline — tidak di-fix di Section J.
 
@@ -657,18 +687,90 @@ wizard "save + navigate back" semantic review, audit trail.
 - Integrity issue: `booking_seats` slot key matching gagal karena `trip_time` kosong → dua booking Package dengan `trip_time=''` di slot key "sama" masih UNIQUE-trigger (semantik correct defensive), tapi slot key undefined secara bisnis
 - Upstream guard `hasCompleteInformation:193` via `in_array(departure_time, ...)` block normal flow — silent di production saat guard jalan
 
-**Detail tambahan (framing konservatif):**
-Helper `normalizeTripTime` ada di Package service. Service lain (Regular/Dropping/Rental) kemungkinan punya helper serupa dengan behavior identik atau variant — perlu audit pattern-wide di Fase 1B sebelum bulk-fix. Ketangkap di Section J investigation pertama kali karena Package yang sedang di-touch.
+**Audit pattern-wide update (Section K1 investigation verified, 2026-04-18):**
 
-**Status:** 🔴 OPEN, scheduled Fase 1B atau Section L cleanup.
+6 implementations total ditemukan di codebase:
 
-**Scope fix:** Defensive fallback di `normalizeTripTime` return `'00:00:00'` saat input empty, plus potensi propagate check di field-level fill. Audit pattern-wide dulu di Fase 1B (Regular/Dropping/Rental) sebelum decide bulk-fix atau Package-only.
+| # | Location | `trim()` variant? |
+|---|---|---|
+| 1 | `BookingManagementService:574` | ✅ trim first |
+| 2 | `SeatLockService:310` | ✅ trim first |
+| 3 | `PackageBookingPersistenceService:228` | ❌ no trim |
+| 4 | `DroppingBookingPersistenceService:338` | ❌ no trim |
+| 5 | `RegularBookingPersistenceService:289` | ❌ no trim |
+| 6 | `BookingController:421` (quickPackageStore) | ❌ no trim |
 
-**Catatan:** Tidak di-bundle di Section J Commit 1 karena scope discipline — bug #26 fokus hanya `trip_date` (parallel precedent #20 yang juga hanya `trip_date`). Expand scope ke `trip_time` = scope creep. Pattern-wide fix butuh audit dulu (apakah helper di Regular/Dropping/Rental behavior identik atau variant) — scope sendiri di Fase 1B.
+**Behavior convergence untuk empty input:** Semua 6 return `''` untuk input `''` (bug #28 pattern confirmed di semua lokasi).
+
+**Variance minor:** 4 non-trim vs 2 trim-first. Edge case `" 08:00 "` (padded input) → trim-ing variant normalize ke `'08:00:00'`, non-trimming variant return `" 08:00 "` unchanged → slot key mismatch lintas tabel.
+
+**Scope fix Fase 1B:**
+- (a) Konsolidasi ke 1 helper canonical (trait, BaseService, atau dedicated utility class)
+- (b) Decide canonical behavior: trim-first atau no-trim?
+- (c) Migrate 6 callsite ke canonical
+- (d) Defensive fallback `'00:00:00'` untuk empty input
+
+**Status:** 🔴 OPEN, scheduled Fase 1B. Audit scope expand berdasarkan Section K1 verifikasi — bukan lagi "kemungkinan ada di service lain", tapi **confirmed 6 lokasi dengan variance**.
+
+**Catatan:** Tidak di-bundle di Section J atau K1 Commit 1 karena scope discipline — bug #26 fokus hanya `trip_date`, K1 fokus wrap transaction + lockSeats integration. Expand scope ke `trip_time` = scope creep. Pattern-wide fix butuh canonical decision + migration 6 callsite = scope sendiri di Fase 1B.
 
 ---
 
 ## Design Review Items (Non-Bug, Require Business Confirmation)
+
+### DR-2. Service-Layer Refactor quickPackageStore
+
+**Ditemukan saat:** Section K1 Fase 1A investigation (Q2 Opsi (b) defer).
+
+**Evidence:**
+- `quickPackageStore` di `BookingController:280-353` build Booking direct (74 line method pre-K1, ~85 line post-K1)
+- `PackageBookingPersistenceService::persistDraft` handle wizard flow via service-layer (Section J)
+- Parallel functionality tapi split antara service-layer (wizard) dan controller-layer (API direct-confirmed) — code duplication risk
+
+**Proposed refactor (FUTURE, tidak di Section K1):**
+- Extract `quickPackageStore` method body ke `PackageBookingPersistenceService::quickStore(array $validated, ...): Booking`
+- Controller jadi thin (~10 line) — validate + call service + return response
+- Business logic sentralisasi di service layer, consistent dengan F-J pattern
+
+**Rationale defer:** Scope discipline — K1 fokus integration race condition fix (bug #2 + #6). Refactor = scope creep. Require:
+- Design decision: quickStore method signature parameters (full validated array vs strongly-typed DTO)
+- Test coverage service method baru
+- Controller response mapping (service return Booking, controller format JSON)
+
+**Status:** 🟡 DESIGN REVIEW — scheduled Fase 2 atau Fase berikutnya. Follow-up item, bukan bug.
+
+**Impact kalau defer permanen:** 2 code path untuk Package create (service wizard vs controller API) tetap diverge. Maintenance overhead (fix bug sekali di 2 tempat). Risk inconsistency saat business logic evolve (misal tarif calculation beda antara wizard vs API).
+
+---
+
+### DR-3. Frontend 409 Handling Coordination untuk quickPackage API
+
+**Ditemukan saat:** Section K1 Fase 1A review (Concern 4 implication).
+
+**Evidence:**
+- Post-Section K1, `quickPackageStore` dapat throw `SeatConflictException` (HTTP 409) kalau seat collision (Package Besar + seat_code yang sudah ter-lock di slot kombinasi sama oleh Regular/Dropping/Rental/Package lain)
+- Behavior baru: admin tool yang call `/api/bookings/quick-package` akan dapat 409 response saat collision (pre-K1: silent success + data inconsistency)
+- `SeatConflictException::render()` return JSON structured: `{error: 'seat_conflict', message: '...', conflicts: [{date, time, seat, booking_id}, ...]}` dengan status 409
+- Frontend admin tool current behavior terhadap 409 response: **belum diverify**
+
+**Risk kalau frontend tidak handle 409:**
+- (a) Unhandled JS exception, UI crash
+- (b) Generic error message ("Something went wrong") — admin tidak tahu seat sudah di-book
+- (c) Retry loop — admin kira network glitch, retry POST → sama 409 → frustration
+
+**Recommended coordination:**
+- Frontend admin tool (`/dashboard/bookings/quick-package` blade atau JS) perlu handle 409 response dengan:
+  - Friendly message: "Seat {seat_code} sudah dibook untuk keberangkatan {date time route}"
+  - Highlight conflict detail dari response body (`conflicts` array contain per-seat detail)
+  - Suggest admin pilih seat lain atau cancel booking
+
+**Status:** 🟡 DESIGN REVIEW — coordination dengan frontend team. Bukan blocker Section K1 (race condition fix behavior justru *expected* dari kontrak bug #2 resolution).
+
+**Impact kalau defer permanen:** UX admin degraded saat collision — tapi **data integrity preserved** (ini objektif utama K1). DR-3 adalah UX polish, bukan functional gap.
+
+**Context Section M reference:** DR-3 parallel dengan Section M Rental/Regular/Package wizard UX guard concern — kalau wizard back-edit bypass (bug #22/#25/#27) resolved via release+re-lock pattern, frontend juga butuh handle release operation status response. DR-3 scope terpisah tapi overlap architectural.
+
+---
 
 ### DR-1. Package Booking Tidak Link Customer Record
 
