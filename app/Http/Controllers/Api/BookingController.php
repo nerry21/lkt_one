@@ -69,9 +69,9 @@ class BookingController extends Controller
 
     public function update(UpdateBookingRequest $request, string $booking, BookingManagementService $service): JsonResponse
     {
-        $this->actor($request);
+        $actor = $this->actor($request);
 
-        $updatedBooking = $service->updateBooking($this->findBooking($booking), $request->validated());
+        $updatedBooking = $service->updateBooking($this->findBooking($booking), $request->validated(), $actor);
 
         return response()->json($service->detailPayload($updatedBooking));
     }
@@ -476,9 +476,9 @@ class BookingController extends Controller
 
     public function destroy(Request $request, string $booking, BookingManagementService $service): JsonResponse
     {
-        $this->actor($request);
+        $actor = $this->actor($request);
 
-        $service->deleteBooking($this->findBooking($booking));
+        $service->deleteBooking($this->findBooking($booking), $actor);
 
         return response()->json([
             'message' => 'Data pemesanan berhasil dihapus',
