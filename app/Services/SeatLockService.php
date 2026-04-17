@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Exceptions\SeatConflictException;
+use App\Exceptions\SeatLockReleaseNotAllowedException;
 use App\Models\Booking;
 use App\Models\BookingSeat;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -144,6 +146,90 @@ class SeatLockService
             ]);
 
             return $locked;
+        });
+    }
+
+    /**
+     * Promote semua active soft-locked seat booking ini ke lock_type = 'hard'.
+     *
+     * Dipanggil saat payment di-konfirmasi lunas (Section F:
+     * BookingController::validatePayment action='lunas'). Setelah promote,
+     * admin tidak bisa release seats tersebut via releaseSeats() — butuh
+     * proses refund khusus.
+     *
+     * Idempotent: scope softLocks() filter hanya row yang masih lock_type='soft'.
+     * Row yang sudah 'hard' tidak berubah, aman dipanggil berkali-kali.
+     *
+     * Tidak wrap transaction — single UPDATE adalah atomic. Filter `active()`
+     * skip row yang sudah di-release (lock_released_at != NULL).
+     *
+     * @return int Jumlah row yang di-update (0 kalau semua sudah hard / tidak ada soft lock aktif)
+     */
+    public function promoteToHard(Booking $booking): int
+    {
+        return BookingSeat::query()
+            ->where('booking_id', $booking->id)
+            ->active()
+            ->softLocks()
+            ->update(['lock_type' => 'hard']);
+    }
+
+    /**
+     * Release semua soft-locked seat booking ini. Guard: cek hard lock dulu.
+     *
+     * Row ter-release di-update dengan:
+     *   - lock_released_at = now()
+     *   - lock_released_by = $releasedBy->id (UUID)
+     *   - lock_release_reason = $reason
+     * lock_type tidak berubah (tetap 'soft'). Generated column active_slot_key
+     * auto re-compute jadi NULL (karena CASE WHEN lock_released_at IS NULL ...)
+     * — effectively row tidak lagi mengunci slot untuk booking baru.
+     *
+     * Kalau ada >=1 row dengan lock_type='hard', throw exception — tidak ada
+     * partial release. Admin wajib pakai proses refund terpisah.
+     *
+     * @return int Jumlah row yang di-release
+     *
+     * @throws SeatLockReleaseNotAllowedException  HTTP 403 kalau ada hard lock
+     */
+    public function releaseSeats(
+        Booking $booking,
+        User $releasedBy,
+        string $reason,
+    ): int {
+        return DB::transaction(function () use ($booking, $releasedBy, $reason): int {
+            // 1. Check hard locks dengan lockForUpdate untuk consistent read.
+            //    Hindari race: admin A bypass guard sementara admin B promote ke hard.
+            $hardLocked = BookingSeat::query()
+                ->where('booking_id', $booking->id)
+                ->active()
+                ->hardLocks()
+                ->lockForUpdate()
+                ->get();
+
+            if ($hardLocked->isNotEmpty()) {
+                throw new SeatLockReleaseNotAllowedException(
+                    bookingId: (int) $booking->id,
+                    hardLockedSeats: $hardLocked->pluck('seat_number')->values()->all(),
+                );
+            }
+
+            // 2. Update soft locks: set audit fields. lock_type biarkan 'soft'.
+            $count = BookingSeat::query()
+                ->where('booking_id', $booking->id)
+                ->active()
+                ->softLocks()
+                ->update([
+                    'lock_released_at' => now(),
+                    'lock_released_by' => $releasedBy->id,
+                    'lock_release_reason' => $reason,
+                ]);
+
+            // 3. Sync cache selected_seats ke empty — booking ini tidak punya
+            //    seat aktif lagi setelah release.
+            $booking->update(['selected_seats' => []]);
+
+            return $count;
         });
     }
 
