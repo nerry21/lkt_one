@@ -87,7 +87,10 @@ Progress Fase 1A (per commit):
 - ✅ Section K1 (commit 36caded): BookingController::quickPackageStore integration + DB::transaction wrap (bug #6)
 - ⏳ Section K2: occupiedSeats refactor pakai SeatLockService::getOccupiedSeats (pending)
 - ⏳ Section K3: release endpoint baru pakai SeatLockService::releaseSeats (pending)
-- ⏳ Section M: update path protection (admin endpoint dedicated, bugs #21 + #22 + #25 + #27)
+- ✅ Section M1 (commit 812a67d + 080f542 + 68eec79 + c127289): BookingManagementService updateBooking + deleteBooking seat lock integration (bug #21 + #29 RESOLVED)
+- ⏳ Section M2: RegularBookingPersistenceService wizard re-invoke bypass (bug #22)
+- ⏳ Section M3: RentalBookingPersistenceService wizard back-edit bypass (bug #25)
+- ⏳ Section M4: PackageBookingPersistenceService wizard back-edit bypass (bug #27)
 
 Race condition di production create path tertutup total setelah Section K1 done
 (F+G+H+I+J+K1 = 6 consumer integrated — 5 wizard service-layer + 1 API direct-confirmed).
@@ -504,13 +507,37 @@ untuk integrate `SeatLockService`, sekaligus fix root cause trip_date propagatio
 **Fix target:** Section M — admin endpoint dedicated untuk update booking dengan
 protection: hard lock detection, refund workflow, audit trail.
 
-**Status:** 🔴 OPEN — scheduled Section M.
+**Status:** ✅ RESOLVED — Section M1 (commit 812a67d + 68eec79 + c127289).
 
-**Potensi dampak produksi:**
+**Resolusi Section M1:**
+- `updateBooking()` signature ditambah `User $actor` parameter
+- Pattern C hybrid: compare old vs new `slot_key + selected_seats` (normalized + sorted).
+  Identical → no-op skip seat ops. Different → release+relock flow.
+- Release flow: `releaseSeats($booking, $actor, 'admin_update_booking_{code}_by_user_{id}')`
+  SEBELUM persistBooking — structured reason untuk audit traceability.
+- Relock flow: `lockSeats($persisted, [$newSlotKey], $newSeats, $lockType)` SETELAH
+  persistBooking save. `$lockType` conditional: `isPaid ? 'hard' : 'soft'` based on NEW
+  payment_status (konsisten Section F).
+- Hard lock guard: kalau booking punya hard lock existing dan seat/slot berubah,
+  `releaseSeats()` throw `SeatLockReleaseNotAllowedException` → DB::transaction rollback →
+  HTTP 403 bubble ke client. Admin forced ke refund flow.
+- Controller wiring (commit 68eec79): `BookingController::update` pass
+  `$this->actor($request)` ke service.
+- Test coverage (commit c127289): 6 test smoke di
+  `tests/Unit/Services/BookingManagementServiceTest.php` cover no-op, seat change,
+  slot change, hard lock guard.
+- Helpers baru: `buildSlotKey(Booking)`, `buildSlotKeyFromValidated(array)`,
+  `normalizeSeatList(array)` — `normalizeTripTime()` dipanggil supaya "08:00" vs
+  "08:00:00" tidak false-positive sebagai changed.
+
+**Potensi dampak produksi (pre-resolusi):**
 - Admin update booking -> seat lama masih "terlock" di booking_seats, seat baru tidak terlock
 - Kalau ada customer lain booking seat yang "terlock tapi tidak visible di UI admin", konflik
   silent di hari-H
-- Workaround sementara: admin jangan edit seat di booking yang sudah Paid
+- Workaround sementara (pre-M1): admin jangan edit seat di booking yang sudah Paid
+
+**Follow-up:** Frontend perlu handle HTTP 403 `lock_release_not_allowed` untuk PUT
+`/api/bookings/{id}` — lihat DR-4.
 
 ---
 
@@ -716,6 +743,89 @@ wizard "save + navigate back" semantic review, audit trail.
 
 ---
 
+### 29. `BookingManagementService::deleteBooking` Orphan booking_seats
+
+**Ditemukan saat:** Section M1 investigasi bug #21 (side-quest finding).
+
+**Lokasi:** `app/Services/BookingManagementService.php::deleteBooking()`
+
+**Detail:**
+- Sebelum M1, `deleteBooking()` hanya delete `passengers` + booking row
+- `booking_seats` rows untuk booking ini tidak di-release sebelum parent delete
+- FK `booking_seats.booking_id` punya `cascadeOnDelete()` → baris ikut terhapus saat
+  booking delete, **tapi tanpa audit fields (`lock_released_at`, `lock_released_by`,
+  `lock_release_reason`) di-set terlebih dahulu**
+- Tidak ada hard lock guard — admin bisa langsung delete booking yang sudah terbayar
+  penuh (hard locked), bypass aturan bisnis "paid booking harus via refund flow"
+
+**Root cause:** Missing `releaseSeats()` call sebelum `$booking->delete()`. Sister
+pattern dengan bug #21 — sama-sama mutation path di BookingManagementService yang
+bypass SeatLockService integration.
+
+**Fix:** Section M1 (commit 080f542 + 68eec79 + c127289).
+
+**Resolusi:**
+- `deleteBooking()` signature ditambah `User $actor` parameter
+- Pre-check `$hasActiveSeats` via `BookingSeat::where('booking_id')->active()->exists()`
+  — kalau ada, panggil `releaseSeats()` dengan structured reason
+  `'admin_delete_booking_{code}_by_user_{id}'`
+- Hard lock case: `releaseSeats()` throw `SeatLockReleaseNotAllowedException` → DB
+  transaction rollback → booking + booking_seats tetap utuh → HTTP 403 ke client.
+  Admin tidak bisa hapus booking yang sudah terbayar.
+- Soft lock case: audit fields di-set di booking_seats rows, lalu `$booking->delete()`
+  trigger FK cascade → rows terhapus. Audit trail di booking_seats lost by design
+  (Option A decision M1 — tracking "who deleted booking when" adalah separate concern,
+  bukan booking_seats purpose).
+- Controller wiring (commit 68eec79): `BookingController::destroy` pass actor ke service.
+- Test coverage (commit c127289): 2 test (soft cascade delete + hard lock guard throws).
+
+**Status:** ✅ RESOLVED Section M1.
+
+---
+
+### 30. BookingManagementService Booking-Level Race Condition (Admin-Admin Concurrent Edit)
+
+**Ditemukan saat:** Section M1 investigasi bug #21 (Q4 analysis, defer decision).
+
+**Lokasi:** `app/Services/BookingManagementService.php::updateBooking()` + controller
+`BookingController::update` + `::destroy`.
+
+**Detail:**
+- 2 admin edit booking yang sama bersamaan
+- Seat-level race sudah dihandle Section D SeatLockService (`lockForUpdate` di
+  booking_seats + UNIQUE constraint fallback via SQLSTATE 23000 catch)
+- **Tapi booking row-level race tidak dihandle**: `payment_status`, `driver_name`,
+  `notes`, `booking_status`, dll race bebas
+- Last-write-wins untuk non-seat fields → silent data loss (satu admin menang, satu
+  kehilangan perubahan tanpa notifikasi)
+
+**Skenario race:**
+1. Admin A open edit form booking XYZ, ubah `driver_name='Pak Budi'`
+2. Admin B open edit form booking XYZ (simultaneous), ubah `payment_status='Dibayar'`
+3. Admin A submit → DB update `driver_name='Pak Budi'`, payment_status masih awal
+4. Admin B submit 0.5 detik kemudian → DB update `payment_status='Dibayar'`, tapi
+   kirim payload dengan `driver_name=<old value>` dari form dia
+5. Hasil: `driver_name` revert, hanya `payment_status` yang ter-update. Admin A loses
+   changes silent.
+
+**Root cause:** Tidak ada optimistic locking (version column check-and-set) atau
+`SELECT ... FOR UPDATE` pada booking row di update path.
+
+**Fix target:** Future section — opsi:
+- (a) Add `version` column `bookings` + optimistic lock check di service
+- (b) `SELECT FOR UPDATE` di controller `findBooking()` sebelum masuk service
+
+**Status:** 🟡 OPEN — scheduled future section. Low priority untuk Fase 1A karena
+workflow admin biasanya sequential (tidak common 2 admin edit booking sama
+bersamaan dalam window sub-detik). Race ini tidak affect data integrity seat-level
+(sudah dihandle SeatLockService), hanya affect non-seat fields.
+
+**Di-defer dari Section M1 karena:** Scope creep — M1 fokus seat lock bypass fix
+(#21 + #29), booking-level race adalah separate bug class yang butuh migration
+(add version column) atau controller-level refactor.
+
+---
+
 ## Design Review Items (Non-Bug, Require Business Confirmation)
 
 ### DR-2. Service-Layer Refactor quickPackageStore
@@ -793,6 +903,62 @@ wizard "save + navigate back" semantic review, audit trail.
 - Sender Package yang juga customer Passenger (Regular/Dropping/Rental) = 2 profile terpisah di data, tidak ter-merge
 - Loyalty count skip kontribusi Package — customer yang sering kirim paket tidak ter-reward
 - Reporting: "Customer X punya berapa transaksi?" → hanya count passenger, miss parcel
+
+---
+
+### DR-4. Frontend 403 Handling untuk Update/Delete Booking API (`lock_release_not_allowed`)
+
+**Ditemukan saat:** Section M1 (bug #21 + #29 resolution).
+
+**Scope:** Frontend (React / Blade admin UI)
+
+**Trigger:**
+- `PUT /api/bookings/{id}` (admin update booking)
+- `DELETE /api/bookings/{id}` (admin delete booking)
+
+Return HTTP **403 Forbidden** dengan body:
+
+```json
+{
+  "error": "lock_release_not_allowed",
+  "message": "Kursi sudah terbayar (hard lock) — butuh proses refund untuk release",
+  "booking_id": <int>,
+  "hard_locked_seats": ["1A", "2B"]
+}
+```
+
+**Kapan trigger:** Kalau booking yang di-update/delete punya minimal 1 row `booking_seats`
+dengan `lock_type='hard'` (sudah terbayar penuh), dan operasi akan mengubah seat
+selection (update path) atau delete booking (delete path).
+
+**Required handling frontend:**
+- Detect `error === 'lock_release_not_allowed'` di response body
+- Show modal dengan pesan: "Booking sudah terbayar. Silakan gunakan proses refund
+  terlebih dahulu."
+- List seat yang hard-locked (dari `hard_locked_seats` array) — supaya admin tahu seat
+  mana yang block action
+- Link ke refund flow (belum di-implement Fase 1A — DR-4 placeholder untuk coordination
+  saat refund flow dikerjakan nanti)
+- Button alternatif: "Refund Dulu" (disabled sementara) + "Batalkan"
+
+**Related DR:**
+- DR-1: Package Booking tidak link Customer Record
+- DR-3: Frontend 409 Handling untuk quickPackage API (`seat_conflict`) — **berbeda**:
+  endpoint quickPackage + HTTP 409 + error code `seat_conflict`. DR-4 = endpoint
+  update/delete + HTTP 403 + error code `lock_release_not_allowed`.
+
+**Source backend:**
+- Exception: `App\Exceptions\SeatLockReleaseNotAllowedException`
+- Render: `render(Request)` method → `JsonResponse` 403 (file
+  `app/Exceptions/SeatLockReleaseNotAllowedException.php:44-52`)
+- Originator: `App\Services\SeatLockService::releaseSeats()` — throw saat detect
+  hard lock di booking yang di-request
+- Consumer (post-M1): `BookingManagementService::updateBooking()` +
+  `BookingManagementService::deleteBooking()` (sebelum M1 hanya endpoint release-seats
+  dedicated)
+
+**Status:** 🟡 OPEN — scheduled frontend work paralel Fase 1B. Tidak block backend
+M1 merge karena API contract stabil.
 
 ---
 
