@@ -167,3 +167,14 @@ routes/
 - Tanya dulu sebelum bikin perubahan besar (>3 file)
 - Kalau menyentuh `Booking` model atau migration kritis, konfirmasi dulu
 - Kalau butuh install package baru, jelaskan alasannya dan dampaknya
+
+## Progress Log
+
+### 2026-04-17 — Fase 1A-Pre selesai
+- Fix migration SQLite PRAGMA (2 archived oleh user sebelum sesi: `align_runtime_transport_tables`, `force_rebuild_empty_transport_tables`)
+- Fix MariaDB strict mode (2 migration: `ticket_backups.backed_up_at` + `customer_merges.merged_at` → `->useCurrent()`)
+- Cleanup test suite (9 file Breeze default dihapus — codebase pakai JWT custom)
+- Test baseline: 42 passed, 4 known Booking failures (disengaja tidak disentuh untuk Fase 1A)
+- Database `hitungan_lkt` clean dengan 23 tabel, `migrate:fresh` hijau
+- Ringkasan detail: `docs/phase-1a-pre-summary.md`
+- Fase selanjutnya: **Fase 1A proper** (seat locking + race condition fix) — plan sudah di-approve, Q1–Q8 klarifikasi perlu dijawab sebelum eksekusi Checkpoint 1
