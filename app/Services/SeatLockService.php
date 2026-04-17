@@ -234,6 +234,40 @@ class SeatLockService
     }
 
     /**
+     * Query seat yang masih aktif di-lock pada slot tertentu.
+     *
+     * Dipakai di endpoint GET /api/bookings/occupied-seats (Section F) untuk render
+     * seat map di frontend — seat yang occupied di-gray-out, user pilih seat available.
+     *
+     * Query path memanfaatkan composite index idx_booking_seats_slot_active (Section A):
+     *   WHERE trip_date=? AND trip_time=? AND from_city=? AND to_city=? AND armada_index=?
+     *     AND lock_released_at IS NULL
+     * Single index seek, no table scan.
+     *
+     * Parameter excludeBookingId untuk update flow (frontend edit booking existing —
+     * seat milik booking yang sedang di-edit tidak boleh tampak "occupied" ke diri
+     * sendiri, atau user tidak bisa confirm seat-nya).
+     *
+     * @param  array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int}  $slot
+     * @param  int|null  $excludeBookingId  Exclude seat milik booking ini dari hasil
+     * @return Collection<int, string>  Array seat_number unique, flat 0-indexed (JSON-ready)
+     */
+    public function getOccupiedSeats(array $slot, ?int $excludeBookingId = null): Collection
+    {
+        return BookingSeat::query()
+            ->active()
+            ->where('trip_date', $slot['trip_date'])
+            ->where('trip_time', $this->normalizeTripTime((string) $slot['trip_time']))
+            ->where('from_city', $slot['from_city'])
+            ->where('to_city', $slot['to_city'])
+            ->where('armada_index', $slot['armada_index'])
+            ->when($excludeBookingId, fn (Builder $q, int $id) => $q->where('booking_id', '!=', $id))
+            ->pluck('seat_number')
+            ->unique()
+            ->values();
+    }
+
+    /**
      * Helper (DRY): apply WHERE clause untuk match kombinasi slot+seat di $candidateRows.
      * Dipakai di pre-check (3a) dan fallback re-query (3c).
      */
