@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Services\SeatLockService;
+use Carbon\CarbonPeriod;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +16,7 @@ class RentalBookingPersistenceService
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
+        private readonly SeatLockService         $seatLockService,
     ) {}
 
     public function currentDraftBooking(Session $session, RentalBookingDraftService $drafts): ?Booking
@@ -121,6 +124,55 @@ class RentalBookingPersistenceService
             if ($primaryCustomer !== null) {
                 $booking->customer_id = $primaryCustomer->id;
                 $booking->saveQuietly();
+            }
+
+            // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+            // Rental multi-hari: cartesian N hari × 6 seat = N×M row di booking_seats.
+            // Caller bertanggung jawab expand date range per kontrak SeatLockService
+            // Section D (4 public method locked — tidak boleh tambah expandDateRange helper).
+            //
+            // Single lockSeats() call dengan N pre-built slot = 1 atomic DB::transaction
+            // di SeatLockService (bukan N panggilan = N transaksi terpisah). Kalau konflik
+            // di hari manapun dalam range, rollback penuh — tidak ada partial-commit state.
+            //
+            // CarbonPeriod::create($start, $end) inclusive both endpoints by default.
+            // Rental 1 hari (start == end) = 1 slot. Rental 3 hari = 3 slot × 6 seat = 18 row.
+            //
+            // persistDraft Rental selalu pre-payment (status Draft, payment_status Belum Bayar),
+            // jadi lockType selalu 'soft'. promoteToHard dipanggil saat payment confirmation
+            // (scope persistPaymentSelection — belum masuk Section F promote logic).
+            //
+            // 6 seat di-lock sesuai aturan bisnis Rental (armada di-reserve penuh per hari).
+            // Source 6 seat: $reviewState['selected_seats'] dari RentalBookingDraftService
+            // line 170 via $service->allSeatCodes() — identik pattern Dropping.
+            //
+            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan persistedBookingId
+            // session) skip seat locking via wasRecentlyCreated guard. Gap update path di-track
+            // sebagai bug #25 (parallel bug #22 Regular), scheduled Section M.
+            if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
+                $armadaIndex = max(1, (int) ($reviewState['armada_index'] ?? 1));
+                $pickup      = $reviewState['pickup_location'];
+                $destination = $reviewState['destination_location'];
+
+                $slots = [];
+                foreach (CarbonPeriod::create($tripDate, $endDate) as $date) {
+                    $slots[] = [
+                        'trip_date'    => $date->toDateString(),
+                        'trip_time'    => '00:00:00',
+                        'from_city'    => $pickup,
+                        'to_city'      => $destination,
+                        'armada_index' => $armadaIndex,
+                    ];
+                }
+
+                if (! empty($slots)) {
+                    $this->seatLockService->lockSeats(
+                        $booking,
+                        $slots,
+                        $reviewState['selected_seats'],
+                        'soft',
+                    );
+                }
             }
 
             $booking->passengers()->delete();
