@@ -77,7 +77,9 @@ return new class extends Migration
             // issued_at: kapan tiket DITERBITKAN (dari bookings.ticket_issued_at)
             $table->timestamp('issued_at')->nullable();
             // backed_up_at: kapan PDF di-generate dan disimpan ke storage
-            $table->timestamp('backed_up_at');
+            // useCurrent() untuk kompatibilitas MariaDB/MySQL strict mode —
+            // aplikasi selalu supply nilai eksplisit via now() di TicketBackupService.
+            $table->timestamp('backed_up_at')->useCurrent();
 
             // ── Operator ──────────────────────────────────────────────────────
             // foreignUuid karena users.id bertipe UUID
