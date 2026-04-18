@@ -88,7 +88,7 @@ Progress Fase 1A (per commit):
 - ⏳ Section K2: occupiedSeats refactor pakai SeatLockService::getOccupiedSeats (pending)
 - ⏳ Section K3: release endpoint baru pakai SeatLockService::releaseSeats (pending)
 - ✅ Section M1 (commit 812a67d + 080f542 + 68eec79 + c127289): BookingManagementService updateBooking + deleteBooking seat lock integration (bug #21 + #29 RESOLVED)
-- ⏳ Section M2: RegularBookingPersistenceService wizard re-invoke bypass (bug #22)
+- ✅ Section M2 (commit 9b2e551 + 2bd10af + f8a6b3a + 8304651 + d65c085): RegularBookingPersistenceService wizard re-invoke bypass (bug #22 RESOLVED) + WizardBackEditOnPaidBookingException infra + SeatConflictException dual-render
 - ⏳ Section M3: RentalBookingPersistenceService wizard back-edit bypass (bug #25)
 - ⏳ Section M4: PackageBookingPersistenceService wizard back-edit bypass (bug #27)
 
@@ -539,6 +539,11 @@ protection: hard lock detection, refund workflow, audit trail.
 **Follow-up:** Frontend perlu handle HTTP 403 `lock_release_not_allowed` untuk PUT
 `/api/bookings/{id}` — lihat DR-4.
 
+**Dependency note (post-M2):** Hard lock guard implementation di M1 correct, tapi efektivitas
+tergantung pada bug #31 (promoteToHard never called) fix. Sebelum bug #31 resolved, tidak ada
+booking yang punya `lock_type='hard'` di production — hard lock guard tidak akan pernah fire.
+Setelah bug #31 fix, hard lock guard akan protect proper untuk booking yang sudah terbayar.
+
 ---
 
 ### 22. Update Path RegularBookingPersistenceService Bypass Seat Locking
@@ -564,18 +569,48 @@ protection: hard lock detection, refund workflow, audit trail.
 **Fix target:** Section M — admin endpoint dedicated dengan protection: hard lock detection,
 wizard "save + navigate back" semantic review, audit trail.
 
-**Status:** 🔴 OPEN — scheduled Section M.
+**Status:** ✅ RESOLVED — Section M2 (commit f8a6b3a + 8304651 + d65c085).
 
-**Potensi dampak produksi:**
+**Resolusi Section M2:**
+- `persistDraft()` signature ditambah `User $actor` parameter (ke-5 positional).
+- Pattern C hybrid: compare old vs new `slot_key + selected_seats` (normalized + sorted).
+  Identical → no-op skip seat ops. Different → release+relock flow.
+- Guard baru: kalau booking existing punya `payment_status IN ['Dibayar', 'Dibayar Tunai']`,
+  throw `WizardBackEditOnPaidBookingException` → dual-render (JSON 409 API / redirect
+  withErrors wizard UX). Prevent existing quirk payment_status overwrite `Dibayar → Belum
+  Bayar` (di fill() hardcode).
+- Release flow: `releaseSeats($existing, $actor, 'wizard_review_resubmit_regular_{code}_by_user_{id}')`
+  SEBELUM fill() overwrite. Structured reason string untuk audit traceability (distinct dari
+  M1 admin API format).
+- Relock flow: `lockSeats($booking, [$newSlotKey], $newSeats, 'soft')` SETELAH save.
+  Hard-coded `'soft'` karena persistDraft selalu `payment_status='Belum Bayar'`
+  (promoteToHard future scope — lihat bug #31).
+- 3 helpers baru di service (duplicate dari M1, defer trait refactor Fase 1B per bug #28):
+  `buildSlotKey(Booking)`, `buildSlotKeyFromReviewState(array)`, `normalizeSeatList(array)`.
+- Controller wiring (commit 8304651): `RegularBookingPageController::storeReview` pass
+  `$request->user()` ke persistDraft + inline guard redirect login kalau null.
+- Test coverage (commit d65c085): 6 test smoke di
+  `tests/Unit/Services/RegularBookingPersistenceServiceTest.php` — create path regression +
+  no-op + seat change + slot change + paid guard + reason format.
+- Defensive comment di `$needsReLock` expression: `$existing` check LOAD-BEARING — kalau
+  remove, create path (`wasRecentlyCreated=true`) akan trigger M2 branch DI SAMPING Section G
+  branch → double lockSeats call. Future maintainer guard.
+
+**Potensi dampak produksi (pre-resolusi):**
 - User edit seat di wizard setelah review pertama → seat lama tetap lock
 - Kalau customer lain booking seat yang "lock tapi tidak di UI", konflik silent di hari-H
-- Workaround sementara: instruct admin/user jangan back-edit wizard setelah review save
+- Workaround sementara (pre-M2): instruct user jangan back-edit wizard setelah review save
 
 **Relationship dengan bug #21:**
 - Bug #21 (BookingManagementService update via API) dan bug #22 (RegularBookingPersistenceService
   re-invoke via wizard back-edit) adalah 2 manifestasi dari gap arsitektur yang sama:
   `SeatLockService` butuh "release + re-lock" helper dengan User context untuk update flow.
-- Fix pattern mirip: Section M admin endpoint + wizard UX guard.
+- Fix pattern mirip: M1 admin API dedicated method + M2 wizard inline branching persistDraft
+  (dengan Pattern C + paid guard + exception dual-render).
+
+**Follow-up:** Frontend handling HTTP 409 `wizard_back_edit_paid_blocked` untuk
+`/dashboard/regular-bookings/review` POST — lihat DR-4 (extended post-M2, covers both
+admin API + wizard Blade flows).
 
 ---
 
@@ -781,6 +816,12 @@ bypass SeatLockService integration.
 
 **Status:** ✅ RESOLVED Section M1.
 
+**Dependency note (post-M2):** Hard lock guard di `deleteBooking` correct, tapi efektivitas
+tergantung pada bug #31 (promoteToHard never called) fix. Sebelum bug #31 resolved, tidak ada
+booking yang punya `lock_type='hard'` di production — hard lock guard tidak akan pernah fire,
+admin bisa delete booking yang sudah terbayar tanpa refund flow block. Setelah bug #31 fix,
+guard akan enforce proper.
+
 ---
 
 ### 30. BookingManagementService Booking-Level Race Condition (Admin-Admin Concurrent Edit)
@@ -823,6 +864,54 @@ bersamaan dalam window sub-detik). Race ini tidak affect data integrity seat-lev
 **Di-defer dari Section M1 karena:** Scope creep — M1 fokus seat lock bypass fix
 (#21 + #29), booking-level race adalah separate bug class yang butuh migration
 (add version column) atau controller-level refactor.
+
+---
+
+### 31. `persistPaymentSelection` Never Promotes Soft Lock → Hard After Payment Confirmed (Pattern-Wide)
+
+**Ditemukan saat:** Section M2 investigasi bug #22 (sister bug finding Q3).
+
+**Pattern-wide di 3 service:**
+- `app/Services/RegularBookingPersistenceService.php::persistPaymentSelection()` (line 169)
+- `app/Services/DroppingBookingPersistenceService.php::persistPaymentSelection()` (per comment line 114)
+- `app/Services/RentalBookingPersistenceService.php::persistPaymentSelection()` (per comment line 142)
+
+**Detail:**
+- `SeatLockService::promoteToHard()` di-define di Section D (commit 63ce639) dengan intent
+  dipanggil saat payment confirmed (soft → hard transition)
+- Verified via grep: method hanya disebut di comment 3 service (placeholder "dipanggil saat
+  payment confirmation") + self-reference di SeatLockService
+- **Zero production call sites** — tidak pernah dipanggil di manapun di codebase
+- Result: setiap booking_seats row tetap `lock_type='soft'` sepanjang lifecycle, termasuk
+  setelah customer bayar lunas
+
+**Dampak:**
+- **Hard lock guard yang sudah di-implement di M1 (bug #21 + #29) + M2 (bug #22) tidak
+  akan pernah fire di production.**
+- Admin bisa edit/delete booking yang sudah terbayar tanpa warning 403 (seharusnya block
+  dengan `SeatLockReleaseNotAllowedException`)
+- Customer bisa booking seat yang sudah terbayar customer lain — karena seat `soft` tetap
+  bisa di-release oleh admin/customer lain via wizard re-invoke atau admin API update
+- Refund flow yang didesain Section A + Section D jadi non-enforceable (hard lock = contract
+  "jangan release tanpa refund" — tapi kalau never hard, contract tidak pernah active)
+
+**Root cause:** Section D implement promoteToHard lengkap tapi consumer integration
+(persistPaymentSelection) tidak pernah add call. Gap di scope Section K (payment
+validation) yang scheduled tapi belum implemented di Fase 1A.
+
+**Fix target:** Section terpisah (post-M4 atau standalone bug #31 fix). Scope:
+- Add `$this->seatLockService->promoteToHard($booking)` di persistPaymentSelection
+  setelah payment_status transition ke paid (`'Dibayar'`, `'Dibayar Tunai'`)
+- Pattern-wide 3 service (Regular + Dropping + Rental)
+- Package via `BookingController::quickPackageStore` (Section K1) sudah handle soft/hard
+  langsung via `$isPaid` branch (commit 36caded) — **tidak affected bug #31**
+- Test: verify booking_seats `lock_type='hard'` setelah payment confirmed
+
+**Status:** 🔴 OPEN — scheduled future section (blocker untuk efektivitas M1 + M2 + M3 + M4
+hard lock guards).
+
+**Sementara (workaround):** Admin harus disiplin manual — tidak edit/delete booking yang
+sudah terbayar. Hard lock guard ter-implement tapi tidak enforceable sampai #31 fix.
 
 ---
 
@@ -879,6 +968,17 @@ bersamaan dalam window sub-detik). Race ini tidak affect data integrity seat-lev
 **Impact kalau defer permanen:** UX admin degraded saat collision — tapi **data integrity preserved** (ini objektif utama K1). DR-3 adalah UX polish, bukan functional gap.
 
 **Context Section M reference:** DR-3 parallel dengan Section M Rental/Regular/Package wizard UX guard concern — kalau wizard back-edit bypass (bug #22/#25/#27) resolved via release+re-lock pattern, frontend juga butuh handle release operation status response. DR-3 scope terpisah tapi overlap architectural.
+
+**Section M2 update (commit 2bd10af):** `SeatConflictException::render()` sekarang dual-mode:
+- `wantsJson()` true (API consumer via Accept header): JSON 409 response unchanged (K1
+  quickPackage frontend via `apiRequest` helper di `resources/js/services/http.js:45` set
+  Accept: application/json automatic → behavior preserved, zero regression)
+- `wantsJson()` false (Blade wizard form POST): redirect()->back()->withErrors flash key
+  `wizard_seat_conflict` dengan pesan Bahasa Indonesia
+
+DR-3 scope expanded: frontend React admin tool tetap consume JSON 409 unchanged. Blade
+wizard (M2/M3/M4 future) automatic dapat UX-friendly redirect + session errors — tidak
+perlu JS handling. Flash key `wizard_seat_conflict` generic untuk cross-category reuse.
 
 ---
 
@@ -959,6 +1059,26 @@ selection (update path) atau delete booking (delete path).
 
 **Status:** 🟡 OPEN — scheduled frontend work paralel Fase 1B. Tidak block backend
 M1 merge karena API contract stabil.
+
+**Section M2 extension (commit 9b2e551):** Pattern DR-4 diperluas dengan exception baru
+`WizardBackEditOnPaidBookingException` — trigger saat wizard review re-submit pada booking
+terbayar. Dual-render:
+- API (`wantsJson()` true): HTTP 409 JSON
+  ```json
+  {
+    "error": "wizard_back_edit_paid_blocked",
+    "message": "Booking sudah terbayar, tidak bisa edit di wizard review",
+    "booking_id": <int>,
+    "booking_code": "<string>",
+    "category": "Regular" | "Rental" | "Package"
+  }
+  ```
+- Blade wizard (`wantsJson()` false): redirect()->back()->withErrors flash key
+  `wizard_back_edit_blocked`
+
+Generic exception untuk M2/M3/M4 wizard pattern. Frontend React SPA perlu handle `error =
+'wizard_back_edit_paid_blocked'` analog `lock_release_not_allowed`. Blade wizard automatic
+dapat UX redirect — no JS handling required.
 
 ---
 
