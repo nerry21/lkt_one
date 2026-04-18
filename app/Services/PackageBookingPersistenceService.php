@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
+use App\Models\User;
 use App\Services\SeatLockService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
@@ -31,18 +33,66 @@ class PackageBookingPersistenceService
         array $draft,
         PackageBookingService $service,
         PackageBookingDraftService $drafts,
+        User $actor,
     ): Booking {
         $reviewState = $drafts->buildReviewState($draft, $service);
         $persistedBookingId = $drafts->getPersistedBookingId($session);
 
-        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState) {
-            $booking = $persistedBookingId
+        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState, $actor) {
+            $existing = $persistedBookingId
                 ? Booking::query()->find($persistedBookingId)
                 : null;
 
-            if (! $booking) {
+            // M4 paid guard (bug #27 analog M2 #22, M3 #25): block re-invoke kalau
+            // booking existing sudah terbayar. Prevent payment_status overwrite Dibayar
+            // -> Belum Bayar via fill() hardcode + prevent release attempt hard-lock throw
+            // (SeatLockReleaseNotAllowedException post bug #31 fix).
+            if ($existing && in_array((string) $existing->payment_status, ['Dibayar', 'Dibayar Tunai'], true)) {
+                throw new WizardBackEditOnPaidBookingException(
+                    bookingId: (int) $existing->getKey(),
+                    bookingCode: (string) $existing->booking_code,
+                    category: 'Paket',
+                );
+            }
+
+            // Pattern A (tuple compare + full replace) — single-day Package dengan
+            // package_size dimension (BEDA dari M2 Regular 5-field, BEDA dari M3 Rental
+            // multi-day range tuple). Mode Besar = 1 seat, Mode Kecil/Sedang = 0 seat.
+            // 3-transition handling: T1 seat change Besar->Besar, T2 mode downgrade
+            // Besar->Kecil/Sedang (release only, no relock karena Kecil/Sedang no seat),
+            // T3 mode upgrade Kecil/Sedang->Besar (lock fresh, no release karena
+            // Kecil/Sedang had no seat), T4 identical (no-op).
+            $oldTuple = $existing ? $this->buildSlotKey($existing) : null;
+            $oldSeats = $existing ? $this->normalizeSeatList((array) ($existing->selected_seats ?? [])) : [];
+            $newTuple = $this->buildSlotKeyFromReviewState($reviewState);
+            $newSeats = $this->normalizeSeatList((array) ($reviewState['selected_seats'] ?? []));
+
+            $tupleChanged = $oldTuple !== null && $oldTuple !== $newTuple;
+            $seatsChanged = $oldSeats !== $newSeats;
+            // IMPORTANT: $existing check di $needsRelease + $needsRelock adalah LOAD-BEARING
+            // (analog M1/M2/M3 pattern). Kalau remove, create path (wasRecentlyCreated=true)
+            // akan TRIGGER M4 branch di samping existing create-path block -> double lockSeats
+            // call -> race condition introduced. $existing null untuk create -> $needsRelock
+            // false -> only create-path branch fires.
+            $needsRelease = $existing && ! empty($oldSeats) && ($tupleChanged || $seatsChanged);
+            $needsRelock = $existing && ! empty($newSeats) && ($tupleChanged || $seatsChanged || empty($oldSeats));
+
+            // M4 update path release: release old locks BEFORE fill() overwrite booking fields
+            // + BEFORE create-path lockSeats fires. Sequence matters (analog M2/M3).
+            if ($needsRelease) {
+                $reason = sprintf(
+                    'wizard_review_resubmit_package_%s_by_user_%s',
+                    $existing->booking_code,
+                    $actor->id,
+                );
+                $this->seatLockService->releaseSeats($existing, $actor, $reason);
+            }
+
+            if (! $existing) {
                 $booking = new Booking();
                 $booking->booking_code = $this->generateBookingCode();
+            } else {
+                $booking = $existing;
             }
 
             // Bug #26 fix: operator ?? pada line 54 original hanya catch null, bukan ''.
@@ -121,9 +171,9 @@ class PackageBookingPersistenceService
             // jadi lockType selalu 'soft'. quickPackageStore di BookingController yang direct-
             // confirmed kemungkinan 'hard' — scope Section K, belum masuk sekarang.
             //
-            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan persistedBookingId
-            // session) skip seat locking via wasRecentlyCreated guard. Gap update path di-track
-            // sebagai bug #27 (parallel bug #22 Regular dan bug #25 Rental), scheduled Section M.
+            // Update path (wizard back-edit) handled di M4 release+relock block — bug #27
+            // RESOLVED Section M4. Paid booking re-edit blocked via
+            // WizardBackEditOnPaidBookingException guard di awal closure.
             if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
                 $slot = [
                     'trip_date' => $tripDate,
@@ -136,6 +186,26 @@ class PackageBookingPersistenceService
                     $booking,
                     [$slot],
                     $reviewState['selected_seats'],
+                    'soft',
+                );
+            }
+
+            // M4 update path relock: only fires kalau $needsRelock (existing booking +
+            // tuple/seat changed + new seats not empty). Mutually exclusive dengan
+            // create-path block di atas (wasRecentlyCreated=true untuk new booking saja).
+            // $existing check di $needsRelock jaminan.
+            if ($needsRelock) {
+                $slot = [
+                    'trip_date' => $tripDate,
+                    'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
+                    'from_city' => $reviewState['pickup_city'],
+                    'to_city' => $reviewState['destination_city'],
+                    'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                ];
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $newSeats,
                     'soft',
                 );
             }
@@ -155,9 +225,10 @@ class PackageBookingPersistenceService
         PackageBookingService $service,
         PackageBookingDraftService $drafts,
         RegularBookingPaymentService $payments,
+        User $actor,
     ): Booking {
         $booking = $this->currentDraftBooking($session, $drafts)
-            ?? $this->persistDraft($session, $draft, $service, $drafts);
+            ?? $this->persistDraft($session, $draft, $service, $drafts, $actor);
 
         $previousPaymentMethod = (string) ($booking->payment_method ?? '');
         $bankAccount = $paymentData['payment_method'] === 'transfer'
@@ -228,5 +299,70 @@ class PackageBookingPersistenceService
     private function normalizeTripTime(string $value): string
     {
         return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+
+    /**
+     * Build single-day Package tuple key dari Booking existing.
+     *
+     * NOTE: 6-field tuple shape (trip_date, trip_time, from_city, to_city,
+     * armada_index, package_size) — BEDA dari M2 Regular 5-field (no package_size),
+     * BEDA dari M3 Rental tuple shape (no date range, package_size dimension).
+     * Package needs package_size dimension untuk capture mode transition
+     * Besar<->Kecil/Sedang sebagai "tuple changed" (T2/T3 handling).
+     *
+     * Field mapping Booking -> tuple:
+     *   booking_for -> package_size (Booking column repurposed per Package domain).
+     *
+     * @return array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int, package_size: string}
+     */
+    private function buildSlotKey(Booking $booking): array
+    {
+        return [
+            'trip_date' => $booking->trip_date instanceof \DateTimeInterface
+                ? $booking->trip_date->format('Y-m-d')
+                : (string) $booking->trip_date,
+            'trip_time' => $this->normalizeTripTime((string) ($booking->trip_time ?? '')),
+            'from_city' => trim((string) $booking->from_city),
+            'to_city' => trim((string) $booking->to_city),
+            'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
+            'package_size' => trim((string) ($booking->booking_for ?? '')),
+        ];
+    }
+
+    /**
+     * Build tuple key dari wizard reviewState. Shape identical dengan
+     * buildSlotKey(Booking) untuk compare. Field mapping reviewState -> tuple:
+     *   pickup_city -> from_city, destination_city -> to_city,
+     *   departure_time_value -> trip_time (normalized HH:MM:SS).
+     *
+     * @return array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int, package_size: string}
+     */
+    private function buildSlotKeyFromReviewState(array $reviewState): array
+    {
+        return [
+            'trip_date' => filled($reviewState['trip_date'] ?? null)
+                ? (string) $reviewState['trip_date']
+                : now()->toDateString(),
+            'trip_time' => $this->normalizeTripTime((string) ($reviewState['departure_time_value'] ?? '')),
+            'from_city' => trim((string) ($reviewState['pickup_city'] ?? '')),
+            'to_city' => trim((string) ($reviewState['destination_city'] ?? '')),
+            'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+            'package_size' => trim((string) ($reviewState['package_size'] ?? '')),
+        ];
+    }
+
+    /**
+     * Duplicate dari M2/M3 normalizeSeatList — trait/base class refactor defer
+     * ke Fase 1B per bug #28 pattern.
+     */
+    private function normalizeSeatList(array $seats): array
+    {
+        $clean = array_values(array_unique(array_map(
+            fn ($s): string => trim((string) $s),
+            $seats,
+        )));
+        sort($clean);
+
+        return $clean;
     }
 }
