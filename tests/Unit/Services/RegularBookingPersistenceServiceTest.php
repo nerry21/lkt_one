@@ -1,0 +1,269 @@
+<?php
+
+namespace Tests\Unit\Services;
+
+use App\Exceptions\WizardBackEditOnPaidBookingException;
+use App\Models\Booking;
+use App\Models\BookingSeat;
+use App\Models\User;
+use App\Services\RegularBookingDraftService;
+use App\Services\RegularBookingPersistenceService;
+use App\Services\RegularBookingService;
+use App\Services\SeatLockService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+/**
+ * Smoke coverage RegularBookingPersistenceService::persistDraft update path
+ * (Section M2: bug #22 wizard re-invoke bypass).
+ *
+ * 6 test case:
+ *   - Pattern C no-op (1)
+ *   - Re-invoke seat change release+relock (1)
+ *   - Re-invoke slot change release+relock (1)
+ *   - Re-invoke paid booking guard throws (1)
+ *   - Create path unaffected regression (1)
+ *   - Reason string format verify (1)
+ *
+ * Test bypass controller & Form Request — invoke persistDraft() langsung dengan
+ * session state + draft array yang mirror wizard flow.
+ */
+class RegularBookingPersistenceServiceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected RegularBookingPersistenceService $svc;
+    protected SeatLockService $lockSvc;
+    protected RegularBookingService $regularSvc;
+    protected RegularBookingDraftService $draftSvc;
+    protected User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->svc = $this->app->make(RegularBookingPersistenceService::class);
+        $this->lockSvc = $this->app->make(SeatLockService::class);
+        $this->regularSvc = $this->app->make(RegularBookingService::class);
+        $this->draftSvc = $this->app->make(RegularBookingDraftService::class);
+        $this->admin = User::factory()->create(['role' => 'Super Admin']);
+    }
+
+    protected function draftPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'trip_date' => '2026-04-20',
+            'booking_type' => 'self',
+            'pickup_location' => 'SKPD',
+            'destination_location' => 'Pekanbaru',
+            'departure_time' => '05:00',
+            'passenger_count' => 2,
+            'pickup_address' => 'Jl. Sudirman No. 123 Pekanbaru',
+            'dropoff_address' => 'Terminal Pekanbaru Kota',
+            'fare_amount' => 150000,
+            'additional_fare_per_passenger' => 0,
+            'armada_index' => 1,
+            'selected_seats' => ['1A', '2A'],
+            'passengers' => [
+                ['seat_no' => '1A', 'name' => 'Budi', 'phone' => '081234567890'],
+                ['seat_no' => '2A', 'name' => 'Siti', 'phone' => '081234567891'],
+            ],
+        ], $overrides);
+    }
+
+    protected function freshSession(): \Illuminate\Contracts\Session\Session
+    {
+        return $this->app['session']->driver();
+    }
+
+    // ── Create path regression guard ───────────────────────────────────────
+
+    public function test_persistDraft_create_path_unaffected_by_m2_changes(): void
+    {
+        $session = $this->freshSession();
+        $draft = $this->draftPayload();
+
+        $booking = $this->svc->persistDraft($session, $draft, $this->regularSvc, $this->draftSvc, $this->admin);
+
+        // Create path: Section G wasRecentlyCreated branch fires, locks 2 seats soft
+        $active = BookingSeat::query()->where('booking_id', $booking->id)->active()->get();
+        $this->assertCount(2, $active);
+        $this->assertEqualsCanonicalizing(['1A', '2A'], $active->pluck('seat_number')->all());
+        $this->assertTrue($active->every(fn (BookingSeat $r): bool => $r->lock_type === 'soft'));
+        $this->assertTrue($active->every(fn (BookingSeat $r): bool => $r->lock_released_at === null));
+    }
+
+    // ── Pattern C no-op ────────────────────────────────────────────────────
+
+    public function test_persistDraft_no_op_when_review_state_identical(): void
+    {
+        $session = $this->freshSession();
+        $draft = $this->draftPayload();
+
+        $first = $this->svc->persistDraft($session, $draft, $this->regularSvc, $this->draftSvc, $this->admin);
+        $this->assertSame(2, BookingSeat::query()->where('booking_id', $first->id)->active()->count());
+
+        // Re-invoke dengan draft identical — Pattern C detect no change, skip release+relock
+        $second = $this->svc->persistDraft($session, $draft, $this->regularSvc, $this->draftSvc, $this->admin);
+
+        $this->assertSame($first->id, $second->id);
+
+        // booking_seats state unchanged: no released rows, same 2 active rows
+        $rows = BookingSeat::query()->where('booking_id', $first->id)->get();
+        $this->assertCount(2, $rows);
+        $this->assertTrue($rows->every(fn (BookingSeat $r): bool => $r->lock_released_at === null));
+    }
+
+    // ── Re-invoke with seat change ─────────────────────────────────────────
+
+    public function test_persistDraft_re_invoke_with_seat_change_releases_and_relocks_soft(): void
+    {
+        $session = $this->freshSession();
+        $first = $this->svc->persistDraft(
+            $session,
+            $this->draftPayload(),
+            $this->regularSvc,
+            $this->draftSvc,
+            $this->admin,
+        );
+
+        $draftChanged = $this->draftPayload([
+            'selected_seats' => ['3A', '4A'],
+            'passengers' => [
+                ['seat_no' => '3A', 'name' => 'Budi', 'phone' => '081234567890'],
+                ['seat_no' => '4A', 'name' => 'Siti', 'phone' => '081234567891'],
+            ],
+        ]);
+
+        $this->svc->persistDraft($session, $draftChanged, $this->regularSvc, $this->draftSvc, $this->admin);
+
+        // Old rows released
+        $released = BookingSeat::query()
+            ->where('booking_id', $first->id)
+            ->whereIn('seat_number', ['1A', '2A'])
+            ->get();
+        $this->assertCount(2, $released);
+        $this->assertTrue($released->every(fn (BookingSeat $r): bool => $r->lock_released_at !== null));
+        $this->assertTrue($released->every(fn (BookingSeat $r): bool => $r->lock_released_by === $this->admin->id));
+
+        // New rows active + soft
+        $active = BookingSeat::query()->where('booking_id', $first->id)->active()->get();
+        $this->assertCount(2, $active);
+        $this->assertEqualsCanonicalizing(['3A', '4A'], $active->pluck('seat_number')->all());
+        $this->assertTrue($active->every(fn (BookingSeat $r): bool => $r->lock_type === 'soft'));
+    }
+
+    // ── Re-invoke with slot change ─────────────────────────────────────────
+
+    public function test_persistDraft_re_invoke_with_slot_change_releases_and_relocks_soft(): void
+    {
+        $session = $this->freshSession();
+        $first = $this->svc->persistDraft(
+            $session,
+            $this->draftPayload(),
+            $this->regularSvc,
+            $this->draftSvc,
+            $this->admin,
+        );
+
+        $draftChanged = $this->draftPayload(['trip_date' => '2026-04-25']);
+
+        $this->svc->persistDraft($session, $draftChanged, $this->regularSvc, $this->draftSvc, $this->admin);
+
+        // Old slot rows released
+        $oldSlotRows = BookingSeat::query()
+            ->where('booking_id', $first->id)
+            ->where('trip_date', '2026-04-20')
+            ->get();
+        $this->assertCount(2, $oldSlotRows);
+        $this->assertTrue($oldSlotRows->every(fn (BookingSeat $r): bool => $r->lock_released_at !== null));
+
+        // New slot rows active
+        $newSlotRows = BookingSeat::query()
+            ->where('booking_id', $first->id)
+            ->where('trip_date', '2026-04-25')
+            ->active()
+            ->get();
+        $this->assertCount(2, $newSlotRows);
+        $this->assertEqualsCanonicalizing(['1A', '2A'], $newSlotRows->pluck('seat_number')->all());
+    }
+
+    // ── Re-invoke paid booking guard ───────────────────────────────────────
+
+    public function test_persistDraft_re_invoke_throws_WizardBackEditOnPaidBookingException_when_booking_paid(): void
+    {
+        $session = $this->freshSession();
+        $booking = $this->svc->persistDraft(
+            $session,
+            $this->draftPayload(),
+            $this->regularSvc,
+            $this->draftSvc,
+            $this->admin,
+        );
+
+        // Simulate payment confirmation: booking ditandai Dibayar
+        $booking->update(['payment_status' => 'Dibayar']);
+
+        $draftChanged = $this->draftPayload([
+            'selected_seats' => ['3A', '4A'],
+            'passengers' => [
+                ['seat_no' => '3A', 'name' => 'Budi', 'phone' => '081234567890'],
+                ['seat_no' => '4A', 'name' => 'Siti', 'phone' => '081234567891'],
+            ],
+        ]);
+
+        try {
+            $this->svc->persistDraft($session, $draftChanged, $this->regularSvc, $this->draftSvc, $this->admin);
+            $this->fail('Expected WizardBackEditOnPaidBookingException');
+        } catch (WizardBackEditOnPaidBookingException $e) {
+            $this->assertSame($booking->id, $e->bookingId);
+            $this->assertSame($booking->booking_code, $e->bookingCode);
+            $this->assertSame('Regular', $e->category);
+        }
+
+        // Transaction rollback: booking state preserved (payment_status masih Dibayar,
+        // seats [1A,2A] masih active, no release markers)
+        $preserved = Booking::query()->find($booking->id);
+        $this->assertSame('Dibayar', $preserved->payment_status);
+
+        $active = BookingSeat::query()->where('booking_id', $booking->id)->active()->get();
+        $this->assertCount(2, $active);
+        $this->assertEqualsCanonicalizing(['1A', '2A'], $active->pluck('seat_number')->all());
+    }
+
+    // ── Reason string format verify ────────────────────────────────────────
+
+    public function test_persistDraft_re_invoke_actor_recorded_in_lock_release_reason(): void
+    {
+        $session = $this->freshSession();
+        $first = $this->svc->persistDraft(
+            $session,
+            $this->draftPayload(),
+            $this->regularSvc,
+            $this->draftSvc,
+            $this->admin,
+        );
+
+        $draftChanged = $this->draftPayload([
+            'selected_seats' => ['3A', '4A'],
+            'passengers' => [
+                ['seat_no' => '3A', 'name' => 'Budi', 'phone' => '081234567890'],
+                ['seat_no' => '4A', 'name' => 'Siti', 'phone' => '081234567891'],
+            ],
+        ]);
+
+        $this->svc->persistDraft($session, $draftChanged, $this->regularSvc, $this->draftSvc, $this->admin);
+
+        $released = BookingSeat::query()
+            ->where('booking_id', $first->id)
+            ->whereIn('seat_number', ['1A', '2A'])
+            ->first();
+
+        $this->assertNotNull($released);
+        $expectedPrefix = sprintf(
+            'wizard_review_resubmit_regular_%s_by_user_',
+            $first->booking_code,
+        );
+        $this->assertStringStartsWith($expectedPrefix, (string) $released->lock_release_reason);
+        $this->assertStringEndsWith($this->admin->id, (string) $released->lock_release_reason);
+    }
+}
