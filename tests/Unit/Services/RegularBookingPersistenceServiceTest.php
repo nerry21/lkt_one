@@ -266,4 +266,36 @@ class RegularBookingPersistenceServiceTest extends TestCase
         $this->assertStringStartsWith($expectedPrefix, (string) $released->lock_release_reason);
         $this->assertStringEndsWith($this->admin->id, (string) $released->lock_release_reason);
     }
+
+    // ── Bug #32 retroactive regression guard (M3) ─────────────────────────
+
+    public function test_persistPaymentSelection_fallback_to_persistDraft_passes_actor_when_session_lost(): void
+    {
+        // Pre-condition: fresh session TANPA persistedBookingId (simulate session expire
+        // / user direct-navigate ke payment without going through review step).
+        // Pre-fix (bug #32): fallback $this->persistDraft(...) call dengan 4 arg causes
+        // TypeError karena M2 f8a6b3a add User $actor sebagai 5th required positional.
+        // Post-fix (M3 atomic dengan bug #25): $actor di-propagate ke fallback.
+        $session = $this->freshSession();
+        $draft = $this->draftPayload();
+
+        $paymentData = ['payment_method' => 'cash', 'bank_account_code' => null];
+        $paymentSvc = $this->app->make(\App\Services\RegularBookingPaymentService::class);
+
+        $booking = $this->svc->persistPaymentSelection(
+            $session,
+            $draft,
+            $paymentData,
+            $this->regularSvc,
+            $this->draftSvc,
+            $paymentSvc,
+            $this->admin,
+        );
+
+        // Post-fix: booking created via fallback persistDraft create path (Section G)
+        $this->assertNotNull($booking);
+        $this->assertSame('Reguler', $booking->category);
+        // 2 active booking_seats rows (create path lockSeats fires via wasRecentlyCreated)
+        $this->assertSame(2, BookingSeat::query()->where('booking_id', $booking->id)->active()->count());
+    }
 }
