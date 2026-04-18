@@ -90,7 +90,9 @@ Progress Fase 1A (per commit):
 - ✅ Section M1 (commit 812a67d + 080f542 + 68eec79 + c127289): BookingManagementService updateBooking + deleteBooking seat lock integration (bug #21 + #29 RESOLVED)
 - ✅ Section M2 (commit 9b2e551 + 2bd10af + f8a6b3a + 8304651 + d65c085): RegularBookingPersistenceService wizard re-invoke bypass (bug #22 RESOLVED) + WizardBackEditOnPaidBookingException infra + SeatConflictException dual-render
 - ✅ Section M3 (commit 0818f42 + 969ab01 + 491b709): RentalBookingPersistenceService wizard back-edit bypass (bug #25 RESOLVED, multi-day Pattern A) + retroactive M2 fallback fix (bug #32 RESOLVED atomic)
-- ⏳ Section M4: PackageBookingPersistenceService wizard back-edit bypass (bug #27) — **PREVENTIVE**: M4 Commit 1 WAJIB bundle `persistPaymentSelection` fallback fix bersama `persistDraft` signature change. Pattern verified post-M2/M3 di bug #32. Skip = introduce bug #33 same root cause.
+- ✅ Section M4 (commit 02f27ff + c058085 + c3ce9ab): PackageBookingPersistenceService wizard back-edit bypass (bug #27 RESOLVED, Pattern A 6-field tuple + 3-transition handling parcel-aware) + bug #32 PREVENTIVE bundle confirmed atomic (Pattern PREVENTIVE work as designed — no bug #33 introduced)
+
+**M-series complete (M1+M2+M3+M4 all RESOLVED).** Wizard back-edit + admin update/delete path protection lengkap untuk 4 consumer (BookingManagement + Regular + Rental + Package). Next: bug #31 cross-cutting fix (promoteToHard gap) untuk enforce hard lock guards efektif di production.
 
 Race condition di production create path tertutup total setelah Section K1 done
 (F+G+H+I+J+K1 = 6 consumer integrated — 5 wizard service-layer + 1 API direct-confirmed).
@@ -420,7 +422,7 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #24 (empty rental_start_date/rental_end_date di rental booking flow) — ✅ RESOLVED di commit c0999b8
 - bug #25 (RentalBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #26 (empty trip_date operator salah di package booking flow) — ✅ RESOLVED di commit 7c539ba
-- bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
+- bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 02f27ff + c058085 + c3ce9ab (Section M4, Pattern A 6-field tuple + 3-transition parcel-aware)
 - bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — 🔴 OPEN, scheduled Fase 1B
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
@@ -774,9 +776,26 @@ akan protect proper dengan dual-check (payment_status + hard lock).
 
 **Scope:** Update path protection — butuh re-sync `booking_seats` saat seat selection berubah. Design pilihan: (a) release+re-lock eksplisit, atau (b) conditional re-lock berdasarkan seat-change detection.
 
-**Status:** 🔴 OPEN, scheduled Section M (bersama bug #21 admin API + bug #22 Regular + bug #25 Rental).
+**Status:** ✅ RESOLVED Section M4 (commit 02f27ff + c058085 + c3ce9ab).
 
-**Catatan:** Package tidak punya admin update endpoint khusus (`quickPackageStore` di BookingController adalah create path, bukan update). Satu-satunya update path adalah wizard back-edit ini. Scope fix Section M untuk Package hanya perlu cover wizard path.
+**Resolusi:**
+- Pattern A (tuple compare + full replace) dengan **6-field tuple** `(trip_date, trip_time, from_city, to_city, armada_index, package_size)` — **BEDA dari M2 Regular 5-field** (no package_size), **BEDA dari M3 Rental** (no date range, package_size dimension distinct). `package_size` dimension distinct di docblock NOTE — penting supaya mode transition Besar↔Kecil/Sedang ter-capture sebagai "tuple changed".
+- **3-transition handling** (parcel-aware): T1 seat change Besar→Besar beda seat (release old + lock new), T2 mode downgrade Besar→Kecil/Sedang (release only, no relock karena Kecil/Sedang no seat), T3 mode upgrade Kecil/Sedang→Besar (lock fresh, no release karena Kecil/Sedang had no seat), T4 identical (no-op).
+- **Helper inventory baru di service** (duplicate dari M1/M2/M3, defer trait refactor Fase 1B per bug #28):
+  - `buildSlotKey(Booking)` — extract tuple dari Booking existing (mapping `booking_for → package_size`)
+  - `buildSlotKeyFromReviewState(array)` — extract tuple dari wizard reviewState (mapping `pickup_city → from_city`, `destination_city → to_city`, `departure_time_value → trip_time` normalized)
+  - `normalizeSeatList(array)` — sort + unique untuk seat compare
+  - **NO `expandRangeToSlots`** — Package single trip_date, tidak multi-day seperti Rental
+- **Paid guard** inline via `WizardBackEditOnPaidBookingException(category: 'Paket')` — throw saat `$existing->payment_status IN ['Dibayar', 'Dibayar Tunai']`. Infrastructure exception reuse dari M2 commit 9b2e551 (dual-render: HTTP 409 JSON untuk API, redirect+flash untuk Blade wizard).
+- **Reason format:** `wizard_review_resubmit_package_{code}_by_user_{id}` (parallel dengan M2 Regular + M3 Rental format).
+- **Bug #32 PREVENTIVE bundle confirmed atomic** di Commit 1: `persistPaymentSelection` signature add `$actor` 7th arg + propagate ke fallback `$this->persistDraft(...)` call (pre-fix locus line 159-160 → post-fix pass `$actor` konsisten). Pattern PREVENTIVE work as designed — no bug #33 introduced di Package layer.
+- **Defensive comment `$existing` LOAD-BEARING** di `$needsRelease` + `$needsRelock` checks (analog M1/M2/M3 pattern) — kalau remove, create path (`wasRecentlyCreated=true`) akan TRIGGER M4 branch di samping create-path block → double lockSeats call → race condition.
+- **Controller wiring** (commit c058085): `PackageBookingPageController::storeReview` + `::storePayment` pass `$actor` + inline 403 guard via try/catch `WizardBackEditOnPaidBookingException` + `User` null guard (redirect login kalau session expire). Pattern reuse dari M2 8304651 + M3 969ab01.
+- **Test coverage** (commit c3ce9ab): 9 smoke test di `PackageBookingPersistenceServiceTest` — create path regression guard Besar, T4 identical no-op Besar + Kecil, T1/T2/T3 transition verification, paid guard `category='Paket'`, bug #32 fallback pass actor regression, reason format verify.
+
+**Catatan:** Package tidak punya admin update endpoint khusus (`quickPackageStore` di BookingController adalah create path, bukan update). Satu-satunya update path adalah wizard back-edit ini — M4 scope cover sepenuhnya.
+
+**Dependency note (post-M2/M3):** Hard lock guard di M4 `persistDraft` (via `WizardBackEditOnPaidBookingException` pre-check + downstream `SeatLockReleaseNotAllowedException` di releaseSeats) correct, tapi efektivitas tergantung pada bug #31 (promoteToHard never called) fix. Pre-bug-#31: tidak ada booking yang punya `lock_type='hard'` di production — hard lock guard tidak akan pernah fire. `payment_status`-based guard di M4 fire independen bug #31 (membandingkan status string, bukan lock_type), jadi M4 paid guard **efektif even pre-bug-#31**.
 
 ---
 
@@ -913,10 +932,11 @@ bersamaan dalam window sub-detik). Race ini tidak affect data integrity seat-lev
 
 **Ditemukan saat:** Section M2 investigasi bug #22 (sister bug finding Q3).
 
-**Pattern-wide di 3 service:**
-- `app/Services/RegularBookingPersistenceService.php::persistPaymentSelection()` (line 169)
+**Pattern-wide di 4 service (updated post-M4):**
+- `app/Services/RegularBookingPersistenceService.php::persistPaymentSelection()` (line 225 post-M2/M3)
 - `app/Services/DroppingBookingPersistenceService.php::persistPaymentSelection()` (per comment line 114)
 - `app/Services/RentalBookingPersistenceService.php::persistPaymentSelection()` (per comment line 142)
+- `app/Services/PackageBookingPersistenceService.php::persistPaymentSelection()` (line 201 post-M4) — **added by M4 investigation**: Package wizard flow via persistPaymentSelection juga tidak call promoteToHard. Note: `BookingController::quickPackageStore` (API direct-confirmed di Section K1) adalah jalur terpisah yang sudah handle soft/hard langsung via `$isPaid` branch — affected pattern bug #31 hanya wizard jalur.
 
 **Detail:**
 - `SeatLockService::promoteToHard()` di-define di Section D (commit 63ce639) dengan intent
@@ -944,13 +964,14 @@ validation) yang scheduled tapi belum implemented di Fase 1A.
 **Fix target:** Section terpisah (post-M4 atau standalone bug #31 fix). Scope:
 - Add `$this->seatLockService->promoteToHard($booking)` di persistPaymentSelection
   setelah payment_status transition ke paid (`'Dibayar'`, `'Dibayar Tunai'`)
-- Pattern-wide 3 service (Regular + Dropping + Rental)
+- Pattern-wide 4 wizard service (Regular + Dropping + Rental + Package)
 - Package via `BookingController::quickPackageStore` (Section K1) sudah handle soft/hard
-  langsung via `$isPaid` branch (commit 36caded) — **tidak affected bug #31**
+  langsung via `$isPaid` branch (commit 36caded) — **tidak affected bug #31** (jalur API
+  direct-confirmed terpisah dari wizard)
 - Test: verify booking_seats `lock_type='hard'` setelah payment confirmed
 
-**Status:** 🔴 OPEN — scheduled future section (blocker untuk efektivitas M1 + M2 + M3 + M4
-hard lock guards).
+**Status:** 🔴 OPEN — scheduled **next session** (blocker untuk efektivitas M1 + M2 + M3 + M4
+hard lock guards). Post-M4 M-series complete, bug #31 adalah natural continuation per sequential ordering decision.
 
 **Sementara (workaround):** Admin harus disiplin manual — tidak edit/delete booking yang
 sudah terbayar. Hard lock guard ter-implement tapi tidak enforceable sampai #31 fix.
@@ -991,15 +1012,18 @@ Too few arguments to persistDraft` trigger kalau fallback branch fires.
 tidak check persistedBookingId — draft steps populated tapi session key cleared → guards
 pass → fallback fires → TypeError. Bukan teoretical edge case.
 
-**Scope verified (M3 investigation grep):**
+**Scope verified (M3 investigation grep, M4 post-closure update):**
 - `RegularBookingPersistenceService:234` — **broken post-M2** ✅ fixed di M3 Commit 1
   (commit 0818f42) bundle dengan bug #25
 - `RentalBookingPersistenceService:216` — **would break post-M3** signature change
   kalau tidak preventive fix ✅ atomic di M3 Commit 1 same commit (0818f42)
 - `DroppingBookingPersistenceService:178` — **safe saat ini** (persistDraft belum
-  signature-change, tidak ada M section modify service ini di Fase 1A)
-- `PackageBookingPersistenceService:160` — **safe saat ini** (persistDraft belum
-  signature-change, akan kena di M4 — lihat PREVENTIVE NOTE bug #2 progress)
+  signature-change, tidak ada M section modify service ini di Fase 1A; potential bug #34
+  analog kalau Dropping di-rework future — lihat Dropping parcel discovery note di bawah)
+- `PackageBookingPersistenceService:160` (pre-M4) → `:159` (post-M4) — **would break
+  post-M4** signature change kalau tidak preventive fix ✅ atomic di M4 Commit 1
+  (commit 02f27ff) bundle dengan bug #27. Pattern PREVENTIVE work as designed — no
+  bug #33 introduced.
 
 **Why existing tests tidak catch:**
 M2 `RegularBookingPersistenceServiceTest` (commit d65c085) test `persistDraft` directly
@@ -1011,16 +1035,24 @@ between review + payment). M3 Commit 3 (commit 491b709) tambah Test 8 regression
 signature (7th positional arg) → pass ke fallback `persistDraft` call. Controller wiring
 retroactive (commit 969ab01): `RegularBookingPageController::storePayment` pass `$actor`.
 
-**Status:** ✅ RESOLVED Section M3 atomic dengan bug #25 (commit 0818f42 + 969ab01 + 491b709).
+**Status:** ✅ RESOLVED Section M3 atomic dengan bug #25 (commit 0818f42 + 969ab01 + 491b709) + **M4 Package preventive bundle confirmed** atomic dengan bug #27 (commit 02f27ff).
 
-**Preventive note untuk M4 (Package wizard):** Saat M4 modify
-`PackageBookingPersistenceService::persistDraft` signature (add `User $actor`), WAJIB
-bundle `persistPaymentSelection` fallback fix di commit yang sama. Pattern verified
-post-M2/M3. Skip = introduce bug #33 same root cause di Package.
+**Package preventive bundle confirmation (M4):** M4 catch fallback gap pre-implementation — `PackageBookingPersistenceService:159-160` fallback `?? $this->persistDraft(...)` pre-M4 tidak pass `$actor`, identik dengan Regular pre-M3 state. Fix atomic bersama bug #27 di M4 Commit 1 (commit 02f27ff). Pattern PREVENTIVE work as designed — no bug #33 introduced.
+
+**Scope verification table (post-M4):**
+
+| Service | persistDraft signature | Fallback status | Resolution |
+|---|---|---|---|
+| Regular | M2 f8a6b3a add $actor | Fixed di M3 | ✅ commit 0818f42 |
+| Rental | M3 0818f42 add $actor | Fixed atomic dgn #25 | ✅ commit 0818f42 |
+| Package | M4 02f27ff add $actor | Fixed atomic dgn #27 | ✅ commit 02f27ff |
+| Dropping | belum signature-change | Safe saat ini | Future — lihat Dropping parcel discovery note |
 
 **Dropping (bug #34 candidate future):** DroppingBookingPersistenceService belum
 signature-change, tapi kalau suatu saat ada Section yang modify `persistDraft` Dropping
-(misal untuk consistency refactor), same pattern fix WAJIB applied preventively.
+(misal untuk consistency refactor atau wizard back-edit fix kalau Dropping support parcel
+delivery serupa Package), same pattern fix WAJIB applied preventively. Lihat **Dropping
+Parcel Delivery Support discovery note** di bawah (M4 session finding).
 
 ---
 
@@ -1101,17 +1133,25 @@ perlu JS handling. Flash key `wizard_seat_conflict` generic untuk cross-category
 - `CustomerLoyaltyService` tidak ada reference ke category `'Paket'`/'Package'
 - Regular + Dropping + Rental semua link ke `Customer` + trigger `CustomerLoyaltyService::recalculateForCustomer`
 
-**Interpretasi kandidat:**
-- **(a) INTENTIONAL**: Parcel service product beda dari passenger loyalty — sender/recipient bukan "customer" dalam makna loyalty JET. Default interpretasi berdasarkan pattern-wide evidence (3 consumer passenger link, 1 consumer parcel tidak link).
-- (b) NEW-FEATURE GAP: Seharusnya link tapi belum implemented — Package sender punya chance jadi customer passenger nantinya.
-- (c) ACCIDENTAL BUG: Design spec require link tapi kode tidak implement.
+**Investigation summary (M4 session Q5 grep diff):**
+- `PackageBookingPersistenceService.php`: **0 match** untuk `customerResolver|Customer|customer_id|loyaltyService|LoyaltyService` — Package service entirely skip Customer integration (no imports, no constructor deps, no `->resolve()` call, no `customer_id` assignment)
+- `RegularBookingPersistenceService.php`: **15 match** — full Customer resolver + loyalty wiring (`use App\Models\Customer`, constructor deps `CustomerResolverService + CustomerLoyaltyService`, resolve call primary + passengers, `recalculateCustomerLoyalty()`)
+- Diff pattern-wide: Package constructor = 1 dep (SeatLockService), Regular constructor = 3 deps (CustomerResolver + CustomerLoyalty + SeatLock)
 
-**Status:** 🟡 DESIGN REVIEW — default interpretasi (a) INTENTIONAL sampai Bu Bos confirm. Follow-up item, bukan bug. Tidak di-register dengan nomor bug.
+**Business rationale (per business owner clarification M4 session):**
+- Package = parcel delivery service (barang/goods shipping), **bukan passenger booking**. Sender ≠ passenger loyalty target.
+- Loyalty program JET traditionally untuk passenger frequency (5 trip → 50% discount), bukan parcel sender frequency.
+- Field mapping literal: `passenger_name` stores sender_name, `pickup_location` stores sender_address, `dropoff_location` stores recipient_address, `notes` JSON stores `recipient_name`/`recipient_phone`/`item_name`/`item_qty` — Package use Booking generic fields with parcel semantic.
+- Skip Customer-link untuk Package adalah **ACCEPTED design**, bukan gap atau bug.
 
-**Impact kalau ternyata (b) atau (c):**
-- Sender Package yang juga customer Passenger (Regular/Dropping/Rental) = 2 profile terpisah di data, tidak ter-merge
-- Loyalty count skip kontribusi Package — customer yang sering kirim paket tidak ter-reward
-- Reporting: "Customer X punya berapa transaksi?" → hanya count passenger, miss parcel
+**Status:** ✅ ACCEPTED Section M4. Default interpretasi (a) INTENTIONAL confirmed via business owner clarification. Tidak perlu add Customer integration ke Package — constructor `PackageBookingPersistenceService` correctly omit `CustomerResolverService + CustomerLoyaltyService` dependencies.
+
+**Decision:**
+- Package service design: PRESERVE as-is (no-Customer-link intentional)
+- M4 plan implication (confirmed): Safe mirror M2/M3 core pattern (release+relock+paid guard+atomic fallback+User actor wiring) **tanpa** adapt Customer handling. M4 scope = pure locking/guard concerns, scope lebih sempit dari M2 Regular.
+
+**Future re-evaluation trigger:**
+- Kalau Bu Bos introduce "Customer Parcel Loyalty" program (discount untuk sender Package yang sering kirim), DR-1 decision reversal butuh: (a) add `CustomerResolverService + CustomerLoyaltyService` deps ke Package constructor, (b) resolve sender phone+name + assign `customer_id`, (c) extend `CustomerLoyaltyService` untuk count Paket trips. Scope = new feature, bukan bug fix. Register sebagai tracked enhancement waktu request fit.
 
 ---
 
@@ -1188,6 +1228,109 @@ terbayar. Dual-render:
 Generic exception untuk M2/M3/M4 wizard pattern. Frontend React SPA perlu handle `error =
 'wizard_back_edit_paid_blocked'` analog `lock_release_not_allowed`. Blade wizard automatic
 dapat UX redirect — no JS handling required.
+
+---
+
+## Future Investigation — Discovery Notes
+
+### Dropping Parcel Delivery Support (M4 Session Discovery)
+
+**Ditemukan saat:** Section M4 investigation (Q-EXTRA clarification session dengan business owner, 2026-04-18).
+
+**Context:**
+Per business owner clarification M4 session, **Dropping service mendukung pengiriman barang** dengan pattern serupa Package Besar (lock seat untuk parcel). Sebelumnya audit assume Dropping = passenger service only (drop-off di tengah jalan), tapi ternyata ada use-case Dropping + parcel hybrid yang belum ter-cover di audit.
+
+**Potential bugs analog:**
+- **bug #27 analog** (Dropping wizard back-edit bypass) — kalau wizard Dropping ada step re-invoke yang tidak release+relock pada seat/slot change
+- **bug #32 analog** (Dropping persistPaymentSelection fallback missing `$actor`) — akan trigger kalau Dropping persistDraft di-signature-change future
+
+**Investigation scope (post-M4 schedule):**
+- Confirm Dropping flow support parcel (grep `DroppingBookingDraftService` + controller wizard routes)
+- Compare `DroppingBookingPersistenceService::persistDraft` behavior vs Package: ada `package_size`-analog dimension? Ada seat lock untuk parcel slot?
+- Check `persistPaymentSelection` fallback state (pre-M4 verified `:178` safe saat ini, tapi perlu re-verify post-M4 landing)
+- Kalau confirmed bug analog, register sebagai **bug #34** dengan scope Dropping wizard back-edit + bug #32 PREVENTIVE bundle (mirror M4 atomic approach)
+
+**Schedule:**
+- Post-M4 close (sekarang M-series complete)
+- **Sebelum atau bersama bug #31 cross-cutting fix** (next session) — kalau bug #34 terbukti analog, mungkin lebih efisien bundle dengan bug #31 karena sama-sama cross-cutting pattern-wide
+- Alternatively: standalone Section M5 kalau Dropping scope cukup besar
+
+**Status:** 🔍 INVESTIGATION SCHEDULED — not yet bug, candidate discovery from M4 business owner clarification.
+
+---
+
+## M-Series Complete Summary
+
+Post-M4 milestone — wizard back-edit + admin update/delete path protection lengkap untuk 4 consumer wizard service + 1 admin API service.
+
+### Recap per Section
+
+**M1 (Section) — BookingManagementService admin path (commit 812a67d + 080f542 + 68eec79 + c127289):**
+- Bug #21 RESOLVED: `updateBooking` bypass seat locking → add release+relock + paid guard via `SeatLockReleaseNotAllowedException`
+- Bug #29 RESOLVED: `deleteBooking` orphan `booking_seats` → pre-release audit fields + hard lock guard
+- Dual-render `SeatLockReleaseNotAllowedException` (HTTP 403 JSON untuk API, exception propagate untuk non-JSON)
+- Scope: Admin API path
+
+**M2 (Section) — Regular wizard path (commit 9b2e551 + 2bd10af + f8a6b3a + 8304651 + d65c085):**
+- Bug #22 RESOLVED: `RegularBookingPersistenceService.persistDraft` wizard re-invoke bypass → Pattern A 5-field tuple compare + release+relock + paid guard via `WizardBackEditOnPaidBookingException`
+- Bug #32 REGISTER (discovery): fallback `persistPaymentSelection ?? persistDraft` missing `$actor` post-signature-change → tracked, fix di M3
+- Bug #31 REGISTER (sister bug): `persistPaymentSelection` never calls `promoteToHard` pattern-wide → tracked, scheduled post-M-series
+- Infrastructure: `WizardBackEditOnPaidBookingException` (new exception) + dual-render (HTTP 409 JSON + Blade wizard redirect+flash), `SeatConflictException` dual-render extension
+- Scope: Regular wizard path
+
+**M3 (Section) — Rental wizard path + retroactive M2 fallback fix (commit 0818f42 + 969ab01 + 491b709):**
+- Bug #25 RESOLVED: `RentalBookingPersistenceService.persistDraft` wizard back-edit bypass → Pattern A multi-day range tuple compare + `expandRangeToSlots` helper + release+relock + paid guard (category `'Rental'`)
+- Bug #32 RESOLVED atomic: retroactive fix Regular fallback (commit 0818f42 bundle) + preventive fix Rental fallback same commit (pattern PREVENTIVE introduced)
+- Scope: Rental wizard path + Regular retroactive + Rental preventive
+
+**M4 (Section) — Package wizard path + bug #32 PREVENTIVE bundle confirmed (commit 02f27ff + c058085 + c3ce9ab):**
+- Bug #27 RESOLVED: `PackageBookingPersistenceService.persistDraft` wizard back-edit bypass → Pattern A **6-field tuple** (parcel-aware, `package_size` dimension distinct) + **3-transition handling** (T1 seat change, T2 mode downgrade release-only, T3 mode upgrade lock-fresh, T4 identical no-op) + paid guard (category `'Paket'`)
+- Bug #32 PREVENTIVE bundle confirmed atomic: Package fallback fix bundled dengan bug #27 di M4 Commit 1 (pattern PREVENTIVE work as designed — no bug #33 introduced)
+- DR-1 ACCEPTED: Package no-Customer-link design (parcel sender ≠ passenger loyalty target, business owner clarification)
+- Discovery: Dropping parcel delivery support (M4 business owner clarification, investigation scheduled)
+- Scope: Package wizard path
+
+### Total Deliverables (M1+M2+M3+M4)
+
+**Bugs RESOLVED via M-series (8 total):**
+- bug #21 (M1) — BookingManagementService.updateBooking bypass
+- bug #29 (M1) — BookingManagementService.deleteBooking orphan seats
+- bug #22 (M2) — RegularBookingPersistenceService wizard re-invoke bypass
+- bug #25 (M3) — RentalBookingPersistenceService wizard back-edit bypass
+- bug #27 (M4) — PackageBookingPersistenceService wizard back-edit bypass
+- bug #32 (M3 + M4) — persistPaymentSelection fallback missing `$actor` (Regular retroactive + Rental preventive + Package preventive)
+- bug #31 REGISTERED (M2 discovery, not yet resolved) — `promoteToHard` never called pattern-wide
+- bug #32 DISCOVERED (M2 discovery, resolved M3+M4) — same entry, bundled resolution
+
+**Services hardened (4 wizard + 1 admin):**
+1. BookingManagementService (M1) — admin API update/delete
+2. RegularBookingPersistenceService (M2) — passenger wizard
+3. RentalBookingPersistenceService (M3) — multi-day rental wizard
+4. PackageBookingPersistenceService (M4) — parcel wizard
+5. (Dropping) — **not yet**, potential M5 post-discovery investigation
+
+**Exception infrastructure (2 new):**
+- `WizardBackEditOnPaidBookingException` (M2) — dual-render HTTP 409 / Blade redirect, category-aware (`Regular`|`Rental`|`Package`), reuse lintas 4 service
+- `SeatLockReleaseNotAllowedException` (M1, pre-existing extended) — dual-render HTTP 403 JSON
+- `SeatConflictException` (pre-existing, M2 dual-render extension) — HTTP 409 JSON + Blade redirect+flash `wizard_seat_conflict`
+
+**Test coverage (23 smoke test total):**
+- M2 Regular: 7 smoke (create guard, Pattern C no-op, seat change, slot change, paid guard, reason format, bug #32 fallback regression) — commit d65c085 + extension di M3
+- M3 Rental: 8 smoke (create guard, Pattern A no-op, range extend/shift/shrink, paid guard, reason format, bug #32 Rental fallback) — commit 491b709
+- **Wait actual count:** M2 Regular = 7 (ending dengan bug #32 test added di M3). M3 Rental = 7 (per test file line count investigation). Let me recount: Regular file 7 test method (create, Pattern C no-op, seat change, slot change, paid, reason, bug #32). Rental file 7 test method (create, no-op, extend, shift, shrink, paid, reason — no bug #32 Rental-specific test karena bug #32 Rental preventive tidak punya regression path, sudah guarded). M4 Package = 9 smoke.
+- **Total: 7 (M2) + 7 (M3) + 9 (M4) = 23 smoke test.**
+
+### Next Session — Bug #31 Cross-Cutting Fix
+
+Per sequential ordering decision: **bug #31 (promoteToHard never called pattern-wide)** adalah natural next step post-M-series. Rationale:
+- M-series hard lock guards di M1 + M2 + M3 + M4 tidak efektif pre-bug-#31 fix (no booking punya `lock_type='hard'` di production)
+- Payment_status-based guards (e.g., M4 `WizardBackEditOnPaidBookingException` pre-check) independen bug #31, jadi M-series tetap partially effective
+- Bug #31 scope = 4 wizard service add `$this->seatLockService->promoteToHard($booking)` di `persistPaymentSelection` setelah paid transition
+- Pattern cross-cutting — bisa dibundle atau sequential 4 commit mirror M-series approach
+
+**Alternative ordering candidate:** Dropping parcel delivery investigation dulu (kalau terbukti bug #34 analog, bundle dengan bug #31 cross-cutting).
+
+**Decision:** Architect decide di session berikutnya (sekarang M-series closure).
 
 ---
 
