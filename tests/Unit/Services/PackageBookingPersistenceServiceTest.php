@@ -382,4 +382,60 @@ class PackageBookingPersistenceServiceTest extends TestCase
         $this->assertStringStartsWith($expectedPrefix, (string) $released->lock_release_reason);
         $this->assertStringEndsWith($this->admin->id, (string) $released->lock_release_reason);
     }
+
+    // ── Bug #31: promoteToHard activation ─────────────────────────────────
+
+    public function test_persistPaymentSelection_cash_promotes_seats_to_hard(): void
+    {
+        $session = $this->freshSession();
+        $draft = $this->draftPayload();   // Besar + 5A (1 seat)
+        $paymentData = ['payment_method' => 'cash', 'bank_account_code' => null];
+        $paymentSvc = $this->app->make(RegularBookingPaymentService::class);
+
+        $booking = $this->svc->persistPaymentSelection(
+            $session,
+            $draft,
+            $paymentData,
+            $this->packageSvc,
+            $this->draftSvc,
+            $paymentSvc,
+            $this->admin,
+        );
+
+        $this->assertSame('Dibayar Tunai', $booking->payment_status);
+
+        $active = BookingSeat::query()->where('booking_id', $booking->id)->active()->get();
+        $this->assertSame(1, $active->count());
+        $this->assertTrue(
+            $active->every(fn (BookingSeat $r): bool => $r->lock_type === 'hard'),
+            'Package Besar seat must be promoted to hard after cash payment (bug #31 fix).',
+        );
+    }
+
+    public function test_persistPaymentSelection_transfer_keeps_seats_soft(): void
+    {
+        $session = $this->freshSession();
+        $draft = $this->draftPayload();   // Besar + 5A
+        $paymentData = ['payment_method' => 'transfer', 'bank_account_code' => null];
+        $paymentSvc = $this->app->make(RegularBookingPaymentService::class);
+
+        $booking = $this->svc->persistPaymentSelection(
+            $session,
+            $draft,
+            $paymentData,
+            $this->packageSvc,
+            $this->draftSvc,
+            $paymentSvc,
+            $this->admin,
+        );
+
+        $this->assertSame('Menunggu Verifikasi', $booking->payment_status);
+
+        $active = BookingSeat::query()->where('booking_id', $booking->id)->active()->get();
+        $this->assertSame(1, $active->count());
+        $this->assertTrue(
+            $active->every(fn (BookingSeat $r): bool => $r->lock_type === 'soft'),
+            'Transfer payment must NOT promote to hard (defer ke admin verification, bug #31 scope).',
+        );
+    }
 }

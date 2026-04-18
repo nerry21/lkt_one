@@ -114,7 +114,7 @@ class BookingController extends Controller
         return response()->json(['occupied_seats' => $occupied]);
     }
 
-    public function validatePayment(Request $request, string $booking): JsonResponse
+    public function validatePayment(Request $request, string $booking, SeatLockService $seatLockService): JsonResponse
     {
         $user   = $this->actor($request);
         $record = $this->findBooking($booking);
@@ -138,6 +138,15 @@ class BookingController extends Controller
             'validated_at'     => now(),
             'validation_notes' => $notes !== '' ? $notes : null,
         ]))->save();
+
+        // Bug #31 fix: admin transfer verification path — promote soft -> hard
+        // saat admin konfirmasi payment lunas (unconditional, promoteToHard idempotent).
+        // Wizard path handle qris/cash promote via $marksAsPaid conditional di
+        // {Regular,Dropping,Rental,Package}BookingPersistenceService::persistPaymentSelection.
+        // Admin lunas = explicit commitment → locks jadi hard (refund flow required).
+        if ($action === 'lunas') {
+            $seatLockService->promoteToHard($record);
+        }
 
         // Saat pembayaran dikonfirmasi lunas → pastikan customer record ada dan
         // hitung ulang loyalty (total_trip_count) agar Data Pelanggan langsung update.

@@ -425,7 +425,9 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #26 (empty trip_date operator salah di package booking flow) — ✅ RESOLVED di commit 7c539ba
 - bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 02f27ff + c058085 + c3ce9ab (Section M4, Pattern A 6-field tuple + 3-transition parcel-aware)
 - bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — 🔴 OPEN, scheduled Fase 1B
+- bug #31 (persistPaymentSelection never promotes soft → hard pattern-wide) — ✅ RESOLVED post-M5 (5-insertion cross-cutting fix: 4 wizard `persistPaymentSelection` conditional + `BookingController::validatePayment action='lunas'` unconditional)
 - bug #34 (DroppingBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 1f400ab + 8986599 + 9f799e6 (Section M5, Pattern A 5-field tuple analog M2 Regular)
+- bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard — M-series wizard back-edit guard tidak match 'Lunas') — 🔴 OPEN, discovered Phase 0 bug #31 session, defer ke follow-up
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -974,11 +976,36 @@ validation) yang scheduled tapi belum implemented di Fase 1A.
   direct-confirmed terpisah dari wizard)
 - Test: verify booking_seats `lock_type='hard'` setelah payment confirmed
 
-**Status:** 🔴 OPEN — scheduled **next session** (blocker untuk efektivitas M1 + M2 + M3 + M4 + M5
-hard lock guards). Post-M5 M-series complete, bug #31 adalah natural continuation per sequential ordering decision. Scope sekarang 5 wizard+admin service pattern-wide fix.
+**Status:** ✅ RESOLVED via 5-insertion-point cross-cutting fix (post-M5 session).
 
-**Sementara (workaround):** Admin harus disiplin manual — tidak edit/delete booking yang
-sudah terbayar. Hard lock guard ter-implement tapi tidak enforceable sampai #31 fix.
+**Resolusi:**
+- **4 wizard services (conditional promote via `$marksAsPaid = $payments->marksPaymentAsPaid($paymentMethod)`):**
+  - `RegularBookingPersistenceService::persistPaymentSelection` — promote setelah `$booking->save()`, sebelum `recalculateCustomerLoyalty`
+  - `DroppingBookingPersistenceService::persistPaymentSelection` — same pattern
+  - `RentalBookingPersistenceService::persistPaymentSelection` — same pattern
+  - `PackageBookingPersistenceService::persistPaymentSelection` — same pattern (no `recalculateCustomerLoyalty` per DR-1 M4)
+  - Logic: `if ($marksAsPaid) { $this->seatLockService->promoteToHard($booking); }` — qris/cash promote immediate, transfer defer
+- **1 admin path (unconditional):**
+  - `BookingController::validatePayment` `action='lunas'` branch — SeatLockService di-inject via method param (mirror `quickPackageStore` pattern line 286), promoteToHard di-call sebelum customer loyalty try/catch. Admin `action='lunas'` = explicit commitment to paid state regardless of payment_method.
+- **Method `promoteToHard` idempotent** (per Section D commit 63ce639 contract) — aman kalau booking sudah hard, jadi no-op.
+
+**Transfer defer rationale:** Wizard transfer submit hanya commitment to payment (status `'Menunggu Verifikasi'`), bukan confirmed paid. Admin verify manual via `validatePayment action='lunas'` yang trigger promote. Align dengan bisnis flow: transfer refund-able sebelum admin konfirmasi, hard lock reserved untuk post-admin-verification.
+
+**Test coverage:** +8 smoke test (2 per wizard service):
+- `test_persistPaymentSelection_cash_promotes_seats_to_hard` — assert `lock_type='hard'` post-cash
+- `test_persistPaymentSelection_transfer_keeps_seats_soft` — assert `lock_type='soft'` post-transfer
+- Regular/Dropping/Rental/Package × 2 test = 8 test total
+- Admin path (`BookingController::validatePayment`) test **DEFERRED** — `tests/Feature/Api/BookingControllerTest.php` tidak exist, scaffolding baru butuh session terpisah. Tracked di follow-up section.
+
+**Known-gap post-fix:**
+- **Admin test coverage:** `BookingController::validatePayment` promoteToHard integration tidak di-test. Feature test scaffolding baru butuh auth + route testing infrastructure. Defer ke follow-up section.
+- **Semantic mismatch 'Lunas' vs 'Dibayar':** Admin `validatePayment action='lunas'` set `payment_status='Lunas'`, sedangkan M2-M5 wizard back-edit paid guard (`WizardBackEditOnPaidBookingException`) check list `['Dibayar', 'Dibayar Tunai']` — tidak match 'Lunas'. Tracked sebagai **bug #35** di bug tracker list di bawah (separate scope, separate session).
+
+**Production behavior post-fix:**
+- qris/cash wizard: booking langsung `lock_type='hard'` → M1 + M2-M5 paid guards efektif enforce (admin update/delete 403, wizard back-edit 409)
+- Transfer wizard: booking tetap soft sampai admin verify lunas → admin path trigger promote → transition ke hard enforcement
+- Admin `validatePayment action='belum_lunas'`/`'ditolak'`: no promote, booking tetap soft state lama
+- Refund flow contract active: hard locks require explicit release via refund workflow (future scope)
 
 ---
 
@@ -1098,6 +1125,55 @@ Semua 4 wizard persistence service sekarang signature-change applied + preventiv
 **Catatan:** Dropping tidak punya admin update endpoint khusus (per existing Dropping analysis). Satu-satunya update path adalah wizard back-edit ini — M5 scope cover sepenuhnya.
 
 **Dependency note (post-M2/M3/M4):** Hard lock guard di M5 `persistDraft` (via `WizardBackEditOnPaidBookingException` pre-check + downstream `SeatLockReleaseNotAllowedException` di releaseSeats) correct, tapi efektivitas tergantung pada bug #31 (promoteToHard never called) fix. Pre-bug-#31: tidak ada booking yang punya `lock_type='hard'` di production — hard lock guard tidak akan pernah fire. `payment_status`-based guard di M5 fire independen bug #31 (membandingkan status string, bukan lock_type), jadi M5 paid guard **efektif even pre-bug-#31**. Identical behavior dengan M1-M4 paid guards.
+
+---
+
+### 35. Semantic Mismatch `payment_status='Lunas'` (Admin) vs `'Dibayar'`/`'Dibayar Tunai'` (Wizard) di M-Series Paid Guard
+
+**Ditemukan saat:** Phase 0 investigation bug #31 fix session (post-M5), orthogonal finding saat audit `BookingController::validatePayment action='lunas'` branch.
+
+**Severity:** MEDIUM — bukan data-integrity bug, tapi business logic inconsistency yang bypass M2-M5 wizard back-edit paid guard untuk booking transfer yang admin-confirmed.
+
+**Detail:**
+- `BookingController::validatePayment` action='lunas' set `$record->payment_status = 'Lunas'` (line 131 post-fix) — admin verification path untuk transfer
+- Wizard `persistPaymentSelection` via `RegularBookingPaymentService::paymentStatusForMethod`:
+  - `'qris'` → `'Dibayar'` (line 119 `paidPaymentStatus()`)
+  - `'cash'` → `'Dibayar Tunai'` (line 123 `cashPaymentStatus()`)
+  - `'transfer'` → `'Menunggu Verifikasi'` (line 114 `waitingVerificationPaymentStatus()`)
+- M2-M5 wizard back-edit paid guard di 4 `persistDraft` service check list `['Dibayar', 'Dibayar Tunai']` untuk trigger `WizardBackEditOnPaidBookingException`:
+  - `RegularBookingPersistenceService:57`
+  - `DroppingBookingPersistenceService:53`
+  - `RentalBookingPersistenceService:53`
+  - `PackageBookingPersistenceService:50`
+- **`'Lunas'` tidak ada di list** — booking transfer yang admin-confirmed tetap bisa wizard back-edit (guard tidak fire)
+
+**Skenario konkret:**
+1. Customer transfer booking, wizard → `payment_status='Menunggu Verifikasi'`, seats soft
+2. Admin verify lunas via API `validatePayment action='lunas'` → `payment_status='Lunas'`, seats promoted hard (post-bug-#31)
+3. Customer somehow reach wizard review lagi (session preserved atau back button sebelum cookie expire)
+4. Customer submit review → `persistDraft` → paid guard check `in_array('Lunas', ['Dibayar', 'Dibayar Tunai'])` = **false** → guard tidak fire → proceed release+relock
+5. Release attempt → `SeatLockService::releaseSeats` → detect hard locks → throw `SeatLockReleaseNotAllowedException` → HTTP 403
+6. **Result:** UX confusing — customer dapat 403 generic (seat lock), bukan 409 paid guard yang lebih specific message
+
+**Impact:**
+- Post-bug-#31: hard lock guard akan catch scenario ini via 403 (defense-in-depth, no data loss)
+- Pre-bug-#31: bisa silent bypass (booking stuck soft, release+relock succeed, payment_status overwrite ke 'Belum Bayar')
+- **Post bug #31 fix applied (current state):** 403 hard-lock guard fires as safety net, tapi UX message mismatch (generic 403 "kursi sudah terbayar" vs specific 409 "booking sudah terbayar, tidak bisa edit")
+
+**Root cause:**
+- Historical convention mismatch: admin UI menggunakan istilah 'Lunas' (legacy), wizard menggunakan 'Dibayar'/'Dibayar Tunai' (Fase 1A Section C+ convention)
+- `BookingManagementService` dropdown (line 82) list both 'Lunas' dan 'Dibayar' sebagai valid `payment_status` — coexistence intentional atau legacy drift
+
+**Fix candidates (pick di follow-up):**
+- **(a) Align admin 'Lunas' → 'Dibayar':** Rewrite `validatePayment action='lunas'` set `payment_status='Dibayar'` (bukan 'Lunas'). Risk: break existing dashboard filter kalau hardcode 'Lunas'.
+- **(b) Extend guard list:** Tambah `'Lunas'` ke 4 paid guard array. Trivial fix, minimal risk.
+- **(c) Unify via helper constant:** Create `Booking::PAID_STATUSES = ['Dibayar', 'Dibayar Tunai', 'Lunas']` atau similar, refactor 4 guard + downstream queries. Scope lebih besar tapi canonical.
+
+**Scope:** Defer ke follow-up session — bukan bug #31 scope, bukan M-series scope. Butuh grep pattern-wide untuk identify `'Lunas'` usage + business decision canonical naming.
+
+**Status:** 🔴 OPEN — scheduled follow-up. Low priority karena bug #31 fix already provides defense-in-depth (hard lock guard fires as safety net, data integrity preserved).
+
+**Workaround pre-fix:** Admin disiplin — tidak delete/ubah booking yang sudah `payment_status='Lunas'` (seats hard-locked via bug #31 fix akan block admin operation otomatis).
 
 ---
 

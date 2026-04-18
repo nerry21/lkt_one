@@ -259,6 +259,14 @@ class PackageBookingPersistenceService
 
         $booking->save();
 
+        // Bug #31 fix: promote soft -> hard saat pembayaran instant confirmed
+        // (qris/cash). Transfer tetap soft sampai admin validatePayment action=lunas
+        // (path terpisah di BookingController::validatePayment). Method promoteToHard
+        // idempotent (aman even kalau sudah hard, no-op).
+        if ($marksAsPaid) {
+            $this->seatLockService->promoteToHard($booking);
+        }
+
         return $booking->fresh();
     }
 
