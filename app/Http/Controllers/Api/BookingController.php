@@ -15,6 +15,7 @@ use App\Services\CustomerResolverService;
 use App\Services\PackageBookingService;
 use App\Services\RegularBookingPaymentService;
 use App\Services\SeatLockService;
+use App\Traits\NormalizesTripTime;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class BookingController extends Controller
 {
+    use NormalizesTripTime;
+
     public function index(Request $request, BookingManagementService $service): JsonResponse
     {
         $page = max(1, (int) $request->query('page', 1));
@@ -476,11 +479,6 @@ class BookingController extends Controller
         } while (Booking::query()->where($column, $code)->exists());
 
         return $code;
-    }
-
-    private function normalizeTripTime(string $value): string
-    {
-        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
     public function destroy(Request $request, string $booking, BookingManagementService $service): JsonResponse

@@ -7,6 +7,7 @@ use App\Exceptions\SeatLockReleaseNotAllowedException;
 use App\Models\Booking;
 use App\Models\BookingSeat;
 use App\Models\User;
+use App\Traits\NormalizesTripTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SeatLockService
 {
+    use NormalizesTripTime;
+
     /**
      * Lock seat set untuk booking pada slot(s) yang ditentukan.
      *
@@ -301,16 +304,5 @@ class SeatLockService
         $mysqlCode = $errorInfo[1] ?? null;
 
         return $sqlState === '23000' && $mysqlCode === 1062;
-    }
-
-    /**
-     * Normalisasi trip_time ke format HH:MM:00 (ensure seconds component).
-     * Defense-in-depth sebelum build WHERE clause — caller juga normalisasi upstream.
-     */
-    private function normalizeTripTime(string $time): string
-    {
-        $trimmed = trim($time);
-
-        return strlen($trimmed) === 5 ? "{$trimmed}:00" : $trimmed;
     }
 }
