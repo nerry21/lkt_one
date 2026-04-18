@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\SeatLockService;
 use Carbon\CarbonPeriod;
 use Illuminate\Contracts\Session\Session;
@@ -35,18 +37,58 @@ class RentalBookingPersistenceService
         array $draft,
         RentalBookingService $service,
         RentalBookingDraftService $drafts,
+        User $actor,
     ): Booking {
         $reviewState        = $drafts->buildReviewState($draft, $service);
         $persistedBookingId = $drafts->getPersistedBookingId($session);
 
-        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState) {
-            $booking = $persistedBookingId
+        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState, $actor): Booking {
+            $existing = $persistedBookingId
                 ? Booking::query()->find($persistedBookingId)
                 : null;
 
-            if (! $booking) {
+            // M3 guard (bug #25 analog M2 bug #22): block re-invoke kalau booking existing
+            // sudah terbayar. Prevent payment_status overwrite Dibayar -> Belum Bayar via
+            // fill() hardcode + prevent release attempt hard-lock throw.
+            if ($existing && in_array((string) $existing->payment_status, ['Dibayar', 'Dibayar Tunai'], true)) {
+                throw new WizardBackEditOnPaidBookingException(
+                    bookingId: (int) $existing->getKey(),
+                    bookingCode: (string) $existing->booking_code,
+                    category: 'Rental',
+                );
+            }
+
+            // Pattern A (tuple compare + full replace). Multi-day rental: compare 5-field
+            // range tuple (start, end, from, to, armada) + normalized seat set. Identical
+            // -> no-op. Different -> full release all N×6 rows + full lock new N'×6 rows.
+            // Trade-off: wasteful untuk partial change tapi reuses SeatLockService tanpa
+            // mod — partial-efficient variant (Pendekatan B) defer ke future section.
+            $oldRangeKey = $existing ? $this->buildSlotKey($existing) : null;
+            $oldSeats = $existing ? $this->normalizeSeatList((array) ($existing->selected_seats ?? [])) : [];
+            $newRangeKey = $this->buildSlotKeyFromReviewState($reviewState);
+            $newSeats = $this->normalizeSeatList((array) ($reviewState['selected_seats'] ?? []));
+
+            $rangeChanged = $oldRangeKey !== null && $oldRangeKey !== $newRangeKey;
+            $seatsChanged = $oldSeats !== $newSeats;
+            // IMPORTANT: $existing check di $needsReLock adalah LOAD-BEARING (analog M2 M1).
+            // Kalau remove, create path (wasRecentlyCreated=true) akan TRIGGER M3 branch di
+            // samping Section I create-path branch -> double lockSeats call -> race condition.
+            $needsReLock = $existing && ($rangeChanged || $seatsChanged);
+
+            if ($needsReLock && ! empty($oldSeats)) {
+                $reason = sprintf(
+                    'wizard_review_resubmit_rental_%s_by_user_%s',
+                    $existing->booking_code,
+                    $actor->id,
+                );
+                $this->seatLockService->releaseSeats($existing, $actor, $reason);
+            }
+
+            if (! $existing) {
                 $booking = new Booking();
                 $booking->booking_code = $this->generateBookingCode();
+            } else {
+                $booking = $existing;
             }
 
             $primaryPassenger = $reviewState['passengers'][0] ?? [
@@ -146,30 +188,47 @@ class RentalBookingPersistenceService
             // Source 6 seat: $reviewState['selected_seats'] dari RentalBookingDraftService
             // line 170 via $service->allSeatCodes() — identik pattern Dropping.
             //
-            // Update path (wizard back-edit: persistDraft dipanggil ulang dengan persistedBookingId
-            // session) skip seat locking via wasRecentlyCreated guard. Gap update path di-track
-            // sebagai bug #25 (parallel bug #22 Regular), scheduled Section M.
+            // Update path (wizard back-edit) handled di release+relock block M3 di atas/bawah
+            // — bug #25 RESOLVED Section M3 via Pattern A (tuple compare full replace).
+            // Paid booking re-edit blocked via WizardBackEditOnPaidBookingException guard di
+            // awal closure.
             if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
-                $armadaIndex = max(1, (int) ($reviewState['armada_index'] ?? 1));
-                $pickup      = $reviewState['pickup_location'];
-                $destination = $reviewState['destination_location'];
-
-                $slots = [];
-                foreach (CarbonPeriod::create($tripDate, $endDate) as $date) {
-                    $slots[] = [
-                        'trip_date'    => $date->toDateString(),
-                        'trip_time'    => '00:00:00',
-                        'from_city'    => $pickup,
-                        'to_city'      => $destination,
-                        'armada_index' => $armadaIndex,
-                    ];
-                }
+                $slots = $this->expandRangeToSlots(
+                    $tripDate,
+                    $endDate,
+                    $reviewState['pickup_location'],
+                    $reviewState['destination_location'],
+                    max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                );
 
                 if (! empty($slots)) {
                     $this->seatLockService->lockSeats(
                         $booking,
                         $slots,
                         $reviewState['selected_seats'],
+                        'soft',
+                    );
+                }
+            }
+
+            // M3 update path relock: only fires kalau $needsReLock (existing + range/seat
+            // changed). Mutually exclusive dengan Section I create-path branch di atas
+            // (wasRecentlyCreated=true untuk new booking saja). $existing check di
+            // $needsReLock jaminan.
+            if ($needsReLock && ! empty($newSeats)) {
+                $slots = $this->expandRangeToSlots(
+                    $tripDate,
+                    $endDate,
+                    $reviewState['pickup_location'],
+                    $reviewState['destination_location'],
+                    max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                );
+
+                if (! empty($slots)) {
+                    $this->seatLockService->lockSeats(
+                        $booking,
+                        $slots,
+                        $newSeats,
                         'soft',
                     );
                 }
@@ -211,9 +270,10 @@ class RentalBookingPersistenceService
         RentalBookingService $service,
         RentalBookingDraftService $drafts,
         RegularBookingPaymentService $payments,
+        User $actor,
     ): Booking {
         $booking = $this->currentDraftBooking($session, $drafts)
-            ?? $this->persistDraft($session, $draft, $service, $drafts);
+            ?? $this->persistDraft($session, $draft, $service, $drafts, $actor);
 
         $previousPaymentMethod = (string) ($booking->payment_method ?? '');
         $bankAccount = $paymentData['payment_method'] === 'transfer'
@@ -371,5 +431,101 @@ class RentalBookingPersistenceService
     private function isDiscountEligible(int $scanCount, int $loyaltyTripCount): bool
     {
         return max($scanCount, $loyaltyTripCount) >= 5;
+    }
+
+    /**
+     * Build multi-day range tuple key dari Booking existing.
+     *
+     * NOTE: TUPLE shape (rental_start_date, rental_end_date, from_city, to_city, armada_index)
+     * — BEDA dari M1/M2 Regular/Dropping/Package single-slot key (trip_date, trip_time,
+     * from_city, to_city, armada_index). Multi-day rental needs DATE RANGE dimension
+     * untuk capture start+end, bukan single trip_date.
+     *
+     * @return array{rental_start_date: string, rental_end_date: string, from_city: string, to_city: string, armada_index: int}
+     */
+    private function buildSlotKey(Booking $booking): array
+    {
+        return [
+            'rental_start_date' => $booking->trip_date instanceof \DateTimeInterface
+                ? $booking->trip_date->format('Y-m-d')
+                : (string) $booking->trip_date,
+            'rental_end_date' => $booking->rental_end_date instanceof \DateTimeInterface
+                ? $booking->rental_end_date->format('Y-m-d')
+                : (string) $booking->rental_end_date,
+            'from_city' => trim((string) $booking->from_city),
+            'to_city' => trim((string) $booking->to_city),
+            'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
+        ];
+    }
+
+    /**
+     * Build range tuple key dari wizard reviewState. Shape identical dengan
+     * buildSlotKey(Booking) untuk compare.
+     *
+     * 1-day rental edge case: kalau rental_end_date kosong, fallback ke rental_start_date
+     * supaya tuple invariant end >= start terjaga + identical detect preserved.
+     *
+     * @return array{rental_start_date: string, rental_end_date: string, from_city: string, to_city: string, armada_index: int}
+     */
+    private function buildSlotKeyFromReviewState(array $reviewState): array
+    {
+        $start = filled($reviewState['rental_start_date'] ?? null)
+            ? (string) $reviewState['rental_start_date']
+            : now()->toDateString();
+        $end = filled($reviewState['rental_end_date'] ?? null)
+            ? (string) $reviewState['rental_end_date']
+            : $start;
+
+        return [
+            'rental_start_date' => $start,
+            'rental_end_date' => $end,
+            'from_city' => trim((string) ($reviewState['pickup_location'] ?? '')),
+            'to_city' => trim((string) ($reviewState['destination_location'] ?? '')),
+            'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+        ];
+    }
+
+    /**
+     * Duplicate dari M1/M2 normalizeSeatList — trait/base class refactor defer ke Fase 1B
+     * per bug #28 pattern.
+     */
+    private function normalizeSeatList(array $seats): array
+    {
+        $clean = array_values(array_unique(array_map(
+            fn ($s): string => trim((string) $s),
+            $seats,
+        )));
+        sort($clean);
+
+        return $clean;
+    }
+
+    /**
+     * Expand multi-day range ke array of slot keys (cartesian N hari × 6 seat = N×6 row
+     * saat lock). Refactor dari inline CarbonPeriod loop Section I commit 2bfcbac
+     * (line 158-166) ke helper. Behavior identical — regression guard via Test 1
+     * di RentalBookingPersistenceServiceTest.
+     *
+     * @return array<int, array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int}>
+     */
+    private function expandRangeToSlots(
+        string $startDate,
+        string $endDate,
+        string $fromCity,
+        string $toCity,
+        int $armadaIndex,
+    ): array {
+        $slots = [];
+        foreach (CarbonPeriod::create($startDate, $endDate) as $date) {
+            $slots[] = [
+                'trip_date' => $date->toDateString(),
+                'trip_time' => '00:00:00',
+                'from_city' => $fromCity,
+                'to_city' => $toCity,
+                'armada_index' => $armadaIndex,
+            ];
+        }
+
+        return $slots;
     }
 }

@@ -229,9 +229,10 @@ class RegularBookingPersistenceService
         RegularBookingService $service,
         RegularBookingDraftService $drafts,
         RegularBookingPaymentService $payments,
+        User $actor,
     ): Booking {
         $booking = $this->currentDraftBooking($session, $drafts)
-            ?? $this->persistDraft($session, $draft, $service, $drafts);
+            ?? $this->persistDraft($session, $draft, $service, $drafts, $actor);
 
         $previousPaymentMethod = (string) ($booking->payment_method ?? '');
         $bankAccount = $paymentData['payment_method'] === 'transfer'
