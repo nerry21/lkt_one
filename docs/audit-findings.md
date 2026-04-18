@@ -427,7 +427,7 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — 🔴 OPEN, scheduled Fase 1B
 - bug #31 (persistPaymentSelection never promotes soft → hard pattern-wide) — ✅ RESOLVED post-M5 (5-insertion cross-cutting fix: 4 wizard `persistPaymentSelection` conditional + `BookingController::validatePayment action='lunas'` unconditional)
 - bug #34 (DroppingBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 1f400ab + 8986599 + 9f799e6 (Section M5, Pattern A 5-field tuple analog M2 Regular)
-- bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard — M-series wizard back-edit guard tidak match 'Lunas') — 🔴 OPEN, discovered Phase 0 bug #31 session, defer ke follow-up
+- bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard) — ✅ RESOLVED via Candidate A alignment (validatePayment write 'Dibayar' + drop 'Lunas' dropdown/guard + data migration + bundled bug #31 test coverage)
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -1171,9 +1171,26 @@ Semua 4 wizard persistence service sekarang signature-change applied + preventiv
 
 **Scope:** Defer ke follow-up session — bukan bug #31 scope, bukan M-series scope. Butuh grep pattern-wide untuk identify `'Lunas'` usage + business decision canonical naming.
 
-**Status:** 🔴 OPEN — scheduled follow-up. Low priority karena bug #31 fix already provides defense-in-depth (hard lock guard fires as safety net, data integrity preserved).
+**Status:** ✅ RESOLVED via Candidate A (align 'Lunas' → 'Dibayar') — atomic fix post-bug-#31.
 
-**Workaround pre-fix:** Admin disiplin — tidak delete/ubah booking yang sudah `payment_status='Lunas'` (seats hard-locked via bug #31 fix akan block admin operation otomatis).
+**Resolusi:**
+- **BookingController::validatePayment line 131:** `action='lunas'` branch now writes `payment_status='Dibayar'` (canonical) instead of `'Lunas'` (legacy retired). Admin API response juga return `'Dibayar'`.
+- **BookingManagementService::paymentStatusOptions line 85:** Drop `['value' => 'Lunas', 'label' => 'Lunas']` entry dari dropdown. Admin dropdown post-fix hanya expose canonical statuses.
+- **BookingManagementService::statusBadgeClass line 592:** Drop `'Lunas'` dari emerald badge list. Status list post-fix: `['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit']`.
+- **resources/views/bookings/show.blade.php line 307-313:** Replace `'Lunas'` key di `badgeClassMap` dengan `'Dibayar'` + `'Dibayar Tunai'` entries (both emerald). Preserves paid-state visual semantic post-migration + fixes pre-existing gap (map previously missing canonical keys).
+- **Data migration** `2026_04_18_073028_migrate_lunas_payment_status_to_dibayar.php`: `UPDATE bookings SET payment_status='Dibayar' WHERE payment_status='Lunas'`. Idempotent (safe re-run), irreversible down (prevent 'Lunas' reintroduction).
+- **Test regression guard** (tests/Feature/BookingManagementPageTest.php): +1 test `test_validatePayment_action_lunas_writes_Dibayar_not_Lunas` — asserts canonical 'Dibayar' + bundled bug #31 hard promote side effect.
+
+**Bonus latent fix:** Dashboard `paid` count aggregation di `DroppingBookingDataPageController:52` + `RentalDataPageController:52` via `whereIn('payment_status', ['Dibayar', 'Dibayar Tunai'])` **previously MISSED 'Lunas' rows**. Post-migration, all previously-'Lunas' rows now 'Dibayar' → auto-counted. Zero controller edits needed per Q3=C decision.
+
+**Post-fix semantic:**
+- Admin `validatePayment action='lunas'` → `payment_status='Dibayar'` (canonical, matches wizard qris flow)
+- M2-M5 wizard back-edit paid guard list `['Dibayar', 'Dibayar Tunai']` sekarang catch admin-confirmed transfer bookings correctly → specific 409 `WizardBackEditOnPaidBookingException` fires instead of generic 403 hard-lock error
+- Bug #31 defense-in-depth tetap aktif (hard locks prevent data loss regardless of payment_status semantic)
+
+**Orthogonal concern (kept open):** `Keberangkatan.php:35` const `STATUS_LUNAS = 'Lunas'` — separate model (departure aggregate status), bukan Booking payment_status. Out-of-scope bug #35. Kalau Keberangkatan status juga perlu rename future, register sebagai bug baru.
+
+**Commit:** 1 atomic commit (post-803ee61, hash post-execution — see M-series progression di bug #2 log).
 
 ---
 

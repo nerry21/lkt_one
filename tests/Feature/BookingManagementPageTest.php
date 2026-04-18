@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\BookingSeat;
 use App\Models\PaymentAccount;
 use App\Models\User;
+use App\Services\SeatLockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -432,6 +434,60 @@ class BookingManagementPageTest extends TestCase
         $this->actingAs($user)
             ->get('/dashboard/bookings/' . $booking->id)
             ->assertForbidden();
+    }
+
+    public function test_validatePayment_action_lunas_writes_Dibayar_not_Lunas(): void
+    {
+        // Bug #35 fix regression guard: admin validatePayment action='lunas' harus write
+        // payment_status='Dibayar' (canonical) — BUKAN 'Lunas' (legacy, retired).
+        // Plus bundled bug #31 regression: action='lunas' branch trigger promoteToHard.
+        $admin = User::factory()->create(['role' => 'Admin']);
+
+        $booking = $this->createBooking([
+            'booking_code' => 'RBK-260418-LUN1',
+            'payment_method' => 'transfer',
+            'payment_status' => 'Menunggu Verifikasi',
+            'booking_status' => 'Menunggu Verifikasi Pembayaran',
+            'selected_seats' => ['1A', '2A'],
+            'trip_date' => '2026-04-20',
+            'trip_time' => '08:00:00',
+        ]);
+
+        $lockSvc = $this->app->make(SeatLockService::class);
+        $slot = [
+            'trip_date' => '2026-04-20',
+            'trip_time' => '08:00:00',
+            'from_city' => 'SKPD',
+            'to_city' => 'Pekanbaru',
+            'armada_index' => 1,
+        ];
+        $lockSvc->lockSeats($booking, [$slot], ['1A', '2A'], 'soft');
+
+        $this->assertSame(
+            2,
+            BookingSeat::query()->where('booking_id', $booking->id)->active()->softLocks()->count(),
+            'Pre-condition: 2 soft seat locks must exist before admin validation.',
+        );
+
+        $this->actingAs($admin)
+            ->patchJson('/api/bookings/' . $booking->id . '/validate-payment', [
+                'action' => 'lunas',
+            ])
+            ->assertOk()
+            ->assertJsonFragment([
+                'payment_status' => 'Dibayar',
+                'booking_status' => 'Diproses',
+            ]);
+
+        // Bug #35 assertion: payment_status persisted as 'Dibayar' (canonical, NOT 'Lunas')
+        $booking->refresh();
+        $this->assertSame('Dibayar', $booking->payment_status);
+        $this->assertNotSame('Lunas', $booking->payment_status);
+
+        // Bug #31 assertion: seats promoted ke hard setelah admin konfirmasi lunas
+        $hardCount = BookingSeat::query()->where('booking_id', $booking->id)->active()->hardLocks()->count();
+        $this->assertSame(2, $hardCount, 'All 2 active seats must be promoted to hard post-validation (bug #31 regression).');
+        $this->assertSame(0, BookingSeat::query()->where('booking_id', $booking->id)->active()->softLocks()->count());
     }
 
     private function bookingPayload(array $overrides = []): array

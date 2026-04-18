@@ -128,7 +128,7 @@ class BookingController extends Controller
         }
 
         $updates = match ($action) {
-            'lunas'       => ['payment_status' => 'Lunas',     'booking_status' => 'Diproses', 'paid_at' => now()],
+            'lunas'       => ['payment_status' => 'Dibayar',   'booking_status' => 'Diproses', 'paid_at' => now()],
             'belum_lunas' => ['payment_status' => 'Belum Bayar', 'booking_status' => 'Draft',  'paid_at' => null],
             'ditolak'     => ['payment_status' => 'Ditolak',   'booking_status' => 'Draft',    'paid_at' => null],
         };

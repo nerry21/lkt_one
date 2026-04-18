@@ -82,7 +82,6 @@ class BookingManagementService
             ['value' => 'Menunggu Verifikasi', 'label' => 'Menunggu Verifikasi'],
             ['value' => 'Dibayar', 'label' => 'Dibayar'],
             ['value' => 'Dibayar Tunai', 'label' => 'Dibayar Tunai'],
-            ['value' => 'Lunas', 'label' => 'Lunas'],
             ['value' => 'Ditolak', 'label' => 'Ditolak'],
         ];
     }
@@ -589,7 +588,7 @@ class BookingManagementService
             return 'stock-value-badge stock-value-badge-red';
         }
 
-        return in_array($status, ['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit', 'Lunas'], true)
+        return in_array($status, ['Diproses', 'Dibayar', 'Dibayar Tunai', 'Siap Terbit'], true)
             ? 'stock-value-badge stock-value-badge-emerald'
             : 'stock-value-badge stock-value-badge-blue';
     }
