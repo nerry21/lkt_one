@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\RegularBookings;
 
 use App\Models\Booking;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegularBooking\StoreRegularBookingInformationRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingPassengersRequest;
@@ -273,6 +274,11 @@ class RegularBookingPageController extends Controller
         RegularBookingDraftService $drafts,
         RegularBookingPersistenceService $persistence,
     ): RedirectResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum menyimpan review pemesanan.')) {
@@ -292,6 +298,7 @@ class RegularBookingPageController extends Controller
             $draft,
             $service,
             $drafts,
+            $actor,
         );
 
         return redirect()
