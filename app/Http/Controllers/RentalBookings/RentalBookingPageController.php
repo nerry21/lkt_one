@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\RentalBookings;
 
 use App\Models\Booking;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RentalBooking\StoreRentalBookingInformationRequest;
 use App\Http\Requests\RentalBooking\StoreRentalBookingPassengersRequest;
@@ -151,6 +152,11 @@ class RentalBookingPageController extends Controller
         RentalBookingDraftService $drafts,
         RentalBookingPersistenceService $persistence,
     ): RedirectResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan rental terlebih dahulu sebelum menyimpan review.')) {
@@ -161,7 +167,7 @@ class RentalBookingPageController extends Controller
             return $redirect;
         }
 
-        $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts);
+        $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts, $actor);
 
         return redirect()
             ->route('rental-bookings.payment')
@@ -219,6 +225,11 @@ class RentalBookingPageController extends Controller
         RentalBookingPersistenceService $persistence,
         RegularBookingPaymentService $payments,
     ): RedirectResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan rental terlebih dahulu sebelum memilih metode pembayaran.')) {
@@ -236,6 +247,7 @@ class RentalBookingPageController extends Controller
             $service,
             $drafts,
             $payments,
+            $actor,
         );
 
         return redirect()

@@ -363,6 +363,11 @@ class RegularBookingPageController extends Controller
         RegularBookingPersistenceService $persistence,
         RegularBookingPaymentService $payments,
     ): RedirectResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan terlebih dahulu sebelum memilih metode pembayaran.')) {
@@ -384,6 +389,7 @@ class RegularBookingPageController extends Controller
             $service,
             $drafts,
             $payments,
+            $actor,
         );
 
         return redirect()
