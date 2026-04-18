@@ -430,7 +430,7 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #25 (RentalBookingPersistenceService wizard back-edit bypass seat locking) — 🔴 OPEN, scheduled Section M
 - bug #26 (empty trip_date operator salah di package booking flow) — ✅ RESOLVED di commit 7c539ba
 - bug #27 (PackageBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 02f27ff + c058085 + c3ce9ab (Section M4, Pattern A 6-field tuple + 3-transition parcel-aware)
-- bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — 🔴 OPEN, scheduled Fase 1B
+- bug #28 (normalizeTripTime return empty string untuk empty input, pattern-wide 6 lokasi) — ✅ RESOLVED via trait `NormalizesTripTime` (feat/bug-28-normalize-trip-time: 685c0fd + 4f7f600 + 48ca2a1, 2026-04-19)
 - bug #31 (persistPaymentSelection never promotes soft → hard pattern-wide) — ✅ RESOLVED post-M5 (5-insertion cross-cutting fix: 4 wizard `persistPaymentSelection` conditional + `BookingController::validatePayment action='lunas'` unconditional)
 - bug #34 (DroppingBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 1f400ab + 8986599 + 9f799e6 (Section M5, Pattern A 5-field tuple analog M2 Regular)
 - bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard) — ✅ RESOLVED via Candidate A alignment (validatePayment write 'Dibayar' + drop 'Lunas' dropdown/guard + data migration + bundled bug #31 test coverage)
@@ -822,30 +822,41 @@ akan protect proper dengan dual-check (payment_status + hard lock).
 - Integrity issue: `booking_seats` slot key matching gagal karena `trip_time` kosong → dua booking Package dengan `trip_time=''` di slot key "sama" masih UNIQUE-trigger (semantik correct defensive), tapi slot key undefined secara bisnis
 - Upstream guard `hasCompleteInformation:193` via `in_array(departure_time, ...)` block normal flow — silent di production saat guard jalan
 
-**Audit pattern-wide update (Section K1 investigation verified, 2026-04-18):**
+**Audit pattern-wide update (Section K1 investigation verified, 2026-04-18; line numbers re-verified 2026-04-19 pre-resolution):**
 
 6 implementations total ditemukan di codebase:
 
 | # | Location | `trim()` variant? |
 |---|---|---|
-| 1 | `BookingManagementService:574` | ✅ trim first |
+| 1 | `BookingManagementService:621` | ✅ trim first |
 | 2 | `SeatLockService:310` | ✅ trim first |
-| 3 | `PackageBookingPersistenceService:228` | ❌ no trim |
-| 4 | `DroppingBookingPersistenceService:338` | ❌ no trim |
-| 5 | `RegularBookingPersistenceService:289` | ❌ no trim |
-| 6 | `BookingController:421` (quickPackageStore) | ❌ no trim |
+| 3 | `PackageBookingPersistenceService:307` | ❌ no trim |
+| 4 | `DroppingBookingPersistenceService:417` | ❌ no trim |
+| 5 | `RegularBookingPersistenceService:354` | ❌ no trim |
+| 6 | `Api/BookingController:481` (quickPackageStore) | ❌ no trim |
 
-**Behavior convergence untuk empty input:** Semua 6 return `''` untuk input `''` (bug #28 pattern confirmed di semua lokasi).
+Controller path corrected from previous audit entry: `BookingController` → `Api/BookingController` (actual file `app/Http/Controllers/Api/BookingController.php`).
 
-**Variance minor:** 4 non-trim vs 2 trim-first. Edge case `" 08:00 "` (padded input) → trim-ing variant normalize ke `'08:00:00'`, non-trimming variant return `" 08:00 "` unchanged → slot key mismatch lintas tabel.
+**Behavior convergence untuk empty input (pre-resolution):** Semua 6 return `''` untuk input `''` (bug #28 pattern confirmed di semua lokasi).
 
-**Scope fix Fase 1B:**
-- (a) Konsolidasi ke 1 helper canonical (trait, BaseService, atau dedicated utility class)
-- (b) Decide canonical behavior: trim-first atau no-trim?
-- (c) Migrate 6 callsite ke canonical
-- (d) Defensive fallback `'00:00:00'` untuk empty input
+**Variance minor (pre-resolution):** 4 non-trim vs 2 trim-first. Edge case `" 08:00 "` (padded input) → trim-ing variant normalize ke `'08:00:00'`, non-trimming variant return `" 08:00 "` unchanged → slot key mismatch lintas tabel.
 
-**Status:** 🔴 OPEN, scheduled Fase 1B. Audit scope expand berdasarkan Section K1 verifikasi — bukan lagi "kemungkinan ada di service lain", tapi **confirmed 6 lokasi dengan variance**.
+**Resolution (2026-04-19, Fase 1B branch `feat/bug-28-normalize-trip-time`):**
+
+- **Canonical helper:** `app/Traits/NormalizesTripTime.php` — new trait; first usage of `app/Traits/` directory.
+- **Canonical behavior:** trim-first + `'00:00:00'` fallback untuk empty/null/whitespace input.
+- **Signature widened:** `protected function normalizeTripTime(?string $value): string` (accepts null).
+- **6 services migrated, 21 callsites unified:** 6 private duplicates removed, each class now `use NormalizesTripTime;`.
+- **Test coverage:** 9 unit tests di `tests/Unit/Traits/NormalizesTripTimeTest.php` (empty, null, whitespace, padded, length variants). Indirect coverage via 50+ integration tests di persistence services (128 total pass, 0 fail, 605 assertions).
+
+**Resolution commits (feature branch `feat/bug-28-normalize-trip-time`):**
+- `685c0fd` feat: add NormalizesTripTime trait with unit tests
+- `4f7f600` (WIP checkpoint — contains Api/BookingController + SeatLockService + RegularBookingPersistenceService migrations; akan di-squash saat merge ke main)
+- `48ca2a1` refactor: migrate BMS + PBPS + DBPS to NormalizesTripTime trait (bug #28)
+
+**Deferred follow-up (named, not urgent):** Smoke Feature test untuk `Api\BookingController::quickPackageStore` — callsite tidak punya dedicated Feature test (Phase 0 recon gap). Deferred karena bug #28 impact at this endpoint already neutralized upstream via `StoreQuickPackageBookingRequest::prepareForValidation()` (trims `trip_time`) + validation rule `['required', 'string', Rule::in($regularService->departureScheduleValues())]` (allowlist). Net effect: empty / padded / invalid-format input reject 422 sebelum reach controller — fallback path unreachable via HTTP. Trait migration functional correctness covered by indirect integration tests + unit trait tests. Feature test value rendah; schedule kalau bug lain muncul di endpoint ini atau saat `prepareForValidation` diubah.
+
+**Status:** ✅ RESOLVED (2026-04-19) via canonical trait `NormalizesTripTime` + 6 service migration.
 
 **Catatan:** Tidak di-bundle di Section J atau K1 Commit 1 karena scope discipline — bug #26 fokus hanya `trip_date`, K1 fokus wrap transaction + lockSeats integration. Expand scope ke `trip_time` = scope creep. Pattern-wide fix butuh canonical decision + migration 6 callsite = scope sendiri di Fase 1B.
 
