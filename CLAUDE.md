@@ -153,6 +153,13 @@ routes/
 3. **Commit kecil, sering** — jangan 500 perubahan dalam 1 commit
 4. **Backup database sebelum migrate** — selalu
 5. **Stuck > 1 jam di 1 masalah** → pause, review approach, jangan brute force
+6. **Jangan commit parallel dari VS Code/editor lain di tengah sesi Claude Code CLI** —
+   - Kalau butuh save-point sementara: pakai `git stash`, bukan commit
+   - Kalau memang perlu commit manual: bilang Claude Code di chat ("saya barusan commit X
+     dengan message Y") supaya state sinkronisasi
+   - Lebih baik: minta Claude Code yang commit dengan message convention yang proper
+   - Dummy message (`asdfgh`, `test123`, `iuiujiujuj`, dll) harus di-reword sebelum branch
+     di-push, atau langsung di-reword di commit berikutnya
 
 ## File yang SANGAT PENTING (Jangan Break)
 - `app/Services/BookingManagementService.php` — inti logika booking

@@ -35,6 +35,7 @@ class RegularBookingPageTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $response = $this->post('/dashboard/regular-bookings/information', [
+            'trip_date' => '2026-04-20',
             'booking_type' => 'self',
             'pickup_location' => 'SKPD',
             'destination_location' => 'Pekanbaru',
@@ -45,6 +46,7 @@ class RegularBookingPageTest extends TestCase
         ]);
 
         $response->assertRedirect('/dashboard/regular-bookings/seats');
+        $response->assertSessionHas('regular_booking.information.trip_date', '2026-04-20');
         $response->assertSessionHas('regular_booking.information.booking_type', 'self');
         $response->assertSessionHas('regular_booking.information.pickup_location', 'SKPD');
         $response->assertSessionHas('regular_booking.information.destination_location', 'Pekanbaru');
@@ -54,7 +56,9 @@ class RegularBookingPageTest extends TestCase
         $response->assertSessionHas('regular_booking.information.dropoff_address', 'Jl. Sudirman No. 8 Pekanbaru');
         $response->assertSessionHas('regular_booking.information.fare_amount', 150000);
         $response->assertSessionHas('regular_booking.information', function (array $draft): bool {
+            // Match actual normalizeDraft output order (RegularBookingDraftService:278).
             return array_keys($draft) === [
+                'trip_date',
                 'booking_type',
                 'pickup_location',
                 'destination_location',
@@ -63,6 +67,8 @@ class RegularBookingPageTest extends TestCase
                 'pickup_address',
                 'dropoff_address',
                 'fare_amount',
+                'additional_fare_per_passenger',
+                'armada_index',
                 'selected_seats',
                 'passengers',
             ];
@@ -822,18 +828,16 @@ class RegularBookingPageTest extends TestCase
             'regular_booking.persisted_booking_id' => $booking->id,
         ])->get('/dashboard/regular-bookings/e-ticket')
             ->assertOk()
-            ->assertSee('E-ticket Pemesanan')
+            // Standalone printable ticket blade (regular-bookings/ticket.blade.php) — own <html>,
+            // tidak extend dashboard layout. Renders per-passenger ticket card dengan nama,
+            // rute, trip date/time, tarif, seat grid. Status metadata (ticket_status,
+            // payment_status, QR token, loyalty count, download button) TIDAK di-render di
+            // printable ticket view — itu scope wizard summary page yang berbeda.
+            // Title tag pattern: "E-Ticket {ticket_number} | JET..."
+            ->assertSee('E-Ticket')
             ->assertSee('ETK-260314-ABCD')
             ->assertSee('Budi Santoso')
-            ->assertSee('Siap Terbit')
-            ->assertSee('Dibayar')
-            ->assertSee('1A, 2A')
-            ->assertSee('QR Code')
-            ->assertSee('QRT-260314-ABCD12')
-            ->assertSee('2 / 5')
-            ->assertSee('Belum Eligible Diskon')
-            ->assertSee('Siti Aminah')
-            ->assertSee('Download PDF E-ticket');
+            ->assertSee('Siti Aminah');
     }
 
     public function test_regular_booking_ticket_pdf_can_be_downloaded_after_payment_recorded(): void

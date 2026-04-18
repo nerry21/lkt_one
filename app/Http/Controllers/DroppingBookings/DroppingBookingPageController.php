@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\DroppingBookings;
 
+use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DroppingBooking\StoreDroppingBookingInformationRequest;
 use App\Http\Requests\DroppingBooking\StoreDroppingBookingPassengersRequest;
@@ -13,6 +15,7 @@ use App\Services\DroppingBookingService;
 use App\Services\RegularBookingPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -150,7 +153,12 @@ class DroppingBookingPageController extends Controller
         DroppingBookingService $service,
         DroppingBookingDraftService $drafts,
         DroppingBookingPersistenceService $persistence,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan dropping terlebih dahulu sebelum menyimpan review.')) {
@@ -161,7 +169,16 @@ class DroppingBookingPageController extends Controller
             return $redirect;
         }
 
-        $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts);
+        try {
+            $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts, $actor);
+        } catch (WizardBackEditOnPaidBookingException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'booking_id' => $e->bookingId,
+                'booking_code' => $e->bookingCode,
+                'category' => $e->category,
+            ], 403);
+        }
 
         return redirect()
             ->route('dropping-bookings.payment')
@@ -218,7 +235,12 @@ class DroppingBookingPageController extends Controller
         DroppingBookingDraftService $drafts,
         DroppingBookingPersistenceService $persistence,
         RegularBookingPaymentService $payments,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts, 'Lengkapi informasi pemesanan dropping terlebih dahulu sebelum memilih metode pembayaran.')) {
@@ -229,14 +251,24 @@ class DroppingBookingPageController extends Controller
             return $redirect;
         }
 
-        $booking = $persistence->persistPaymentSelection(
-            $request->session(),
-            $draft,
-            $request->validated(),
-            $service,
-            $drafts,
-            $payments,
-        );
+        try {
+            $booking = $persistence->persistPaymentSelection(
+                $request->session(),
+                $draft,
+                $request->validated(),
+                $service,
+                $drafts,
+                $payments,
+                $actor,
+            );
+        } catch (WizardBackEditOnPaidBookingException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'booking_id' => $e->bookingId,
+                'booking_code' => $e->bookingCode,
+                'category' => $e->category,
+            ], 403);
+        }
 
         return redirect()
             ->route('dropping-bookings.invoice')

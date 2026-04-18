@@ -2,11 +2,15 @@
 
 namespace App\Services;
 
+use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\CustomerLoyaltyService;
+use App\Services\SeatLockService;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class RegularBookingPersistenceService
@@ -14,6 +18,7 @@ class RegularBookingPersistenceService
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
+        private readonly SeatLockService         $seatLockService,
     ) {}
 
     public function currentDraftBooking(Session $session, RegularBookingDraftService $drafts): ?Booking
@@ -34,18 +39,60 @@ class RegularBookingPersistenceService
         array $draft,
         RegularBookingService $service,
         RegularBookingDraftService $drafts,
+        User $actor,
     ): Booking {
         $reviewState = $drafts->buildReviewState($draft, $service);
         $persistedBookingId = $drafts->getPersistedBookingId($session);
 
-        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState) {
-            $booking = $persistedBookingId
+        $booking = DB::transaction(function () use ($persistedBookingId, $reviewState, $actor): Booking {
+            $existing = $persistedBookingId
                 ? Booking::query()->find($persistedBookingId)
                 : null;
 
-            if (! $booking) {
+            // M2 guard (bug #22): block re-invoke kalau booking existing sudah terbayar.
+            // Prevent payment_status overwrite Dibayar -> Belum Bayar (existing quirk di
+            // fill() line yang hardcode 'payment_status' => 'Belum Bayar') + prevent
+            // release attempt yang bakal throw SeatLockReleaseNotAllowedException juga
+            // (hard lock guard post bug #31 fix).
+            if ($existing && in_array((string) $existing->payment_status, ['Dibayar', 'Dibayar Tunai'], true)) {
+                throw new WizardBackEditOnPaidBookingException(
+                    bookingId: (int) $existing->getKey(),
+                    bookingCode: (string) $existing->booking_code,
+                    category: 'Regular',
+                );
+            }
+
+            // Pattern C compare — capture old slot+seats SEBELUM fill() overwrite booking fields
+            $oldSlotKey = $existing ? $this->buildSlotKey($existing) : null;
+            $oldSeats = $existing ? $this->normalizeSeatList((array) ($existing->selected_seats ?? [])) : [];
+            $newSlotKey = $this->buildSlotKeyFromReviewState($reviewState);
+            $newSeats = $this->normalizeSeatList((array) ($reviewState['selected_seats'] ?? []));
+
+            $slotChanged = $oldSlotKey !== null && $oldSlotKey !== $newSlotKey;
+            $seatsChanged = $oldSeats !== $newSeats;
+            // IMPORTANT: $existing check di $needsReLock adalah LOAD-BEARING.
+            // Kalau remove, create path (wasRecentlyCreated=true) akan TRIGGER M2 branch
+            // di samping Section G branch -> DOUBLE lockSeats call -> race condition
+            // introduced. $existing null untuk create -> $needsReLock false -> only
+            // Section G branch fires.
+            $needsReLock = $existing && ($slotChanged || $seatsChanged);
+
+            // M2 update path release: release old locks BEFORE fill() overwrite booking fields
+            // + BEFORE Section G lockSeats fires. Sequence matters.
+            if ($needsReLock && ! empty($oldSeats)) {
+                $reason = sprintf(
+                    'wizard_review_resubmit_regular_%s_by_user_%s',
+                    $existing->booking_code,
+                    $actor->id,
+                );
+                $this->seatLockService->releaseSeats($existing, $actor, $reason);
+            }
+
+            if (! $existing) {
                 $booking = new Booking();
                 $booking->booking_code = $this->generateBookingCode();
+            } else {
+                $booking = $existing;
             }
 
             $primaryPassenger = $reviewState['passengers'][0] ?? [
@@ -53,11 +100,26 @@ class RegularBookingPersistenceService
                 'phone' => '-',
             ];
 
+            // Bug #20 fix: filled() catch both null & empty string. Null-coalesce ??
+            // tidak catch '' yang dihasilkan normalizeDraft saat trip_date missing di
+            // session/payload. Fallback ke today konsisten dengan buildFormState line 87.
+            // Log::warning trail supaya production bug serupa tidak silent.
+            if (filled($reviewState['trip_date'] ?? null)) {
+                $tripDate = $reviewState['trip_date'];
+            } else {
+                $tripDate = now()->toDateString();
+                Log::warning('Regular booking persist: trip_date empty, fallback ke today', [
+                    'raw_value' => $reviewState['trip_date'] ?? null,
+                    'fallback' => $tripDate,
+                    'context' => 'RegularBookingPersistenceService::persistDraft',
+                ]);
+            }
+
             $booking->fill([
                 'category' => 'Reguler',
                 'from_city' => $reviewState['pickup_location'],
                 'to_city' => $reviewState['destination_location'],
-                'trip_date' => $reviewState['trip_date'] ?? now()->toDateString(),
+                'trip_date' => $tripDate,
                 'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for' => $reviewState['booking_type'],
                 'passenger_name' => $primaryPassenger['name'],
@@ -96,6 +158,42 @@ class RegularBookingPersistenceService
                 $booking->saveQuietly();
             }
 
+            // Integrate SeatLockService untuk create path (Fase 1A bug #2 race condition fix).
+            // persistDraft selalu pre-payment (status Draft, payment_status Belum Bayar),
+            // jadi lockType selalu 'soft'. promoteToHard dipanggil saat payment confirmation
+            // (scope persistPaymentSelection — lihat bug #31 untuk promote gap).
+            //
+            // Update path (wizard back-edit) handled di release+relock block M2 di atas/bawah —
+            // bug #22 RESOLVED Section M2. Paid booking re-edit blocked via
+            // WizardBackEditOnPaidBookingException guard di awal closure.
+            if ($booking->wasRecentlyCreated && ! empty($reviewState['selected_seats'])) {
+                $slot = [
+                    'trip_date' => $tripDate,
+                    'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
+                    'from_city' => $reviewState['pickup_location'],
+                    'to_city' => $reviewState['destination_location'],
+                    'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                ];
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$slot],
+                    $reviewState['selected_seats'],
+                    'soft',
+                );
+            }
+
+            // M2 update path relock: only fires kalau $needsReLock (existing booking +
+            // slot/seat changed). Mutually exclusive dengan create-path Section G branch
+            // di atas (wasRecentlyCreated=true untuk new booking saja).
+            if ($needsReLock && ! empty($newSeats)) {
+                $this->seatLockService->lockSeats(
+                    $booking,
+                    [$newSlotKey],
+                    $newSeats,
+                    'soft',
+                );
+            }
+
             $booking->passengers()->delete();
             $booking->passengers()->createMany(
                 collect($reviewState['passengers'])
@@ -131,9 +229,10 @@ class RegularBookingPersistenceService
         RegularBookingService $service,
         RegularBookingDraftService $drafts,
         RegularBookingPaymentService $payments,
+        User $actor,
     ): Booking {
         $booking = $this->currentDraftBooking($session, $drafts)
-            ?? $this->persistDraft($session, $draft, $service, $drafts);
+            ?? $this->persistDraft($session, $draft, $service, $drafts, $actor);
 
         $previousPaymentMethod = (string) ($booking->payment_method ?? '');
         $bankAccount = $paymentData['payment_method'] === 'transfer'
@@ -173,6 +272,14 @@ class RegularBookingPersistenceService
         ]);
 
         $booking->save();
+
+        // Bug #31 fix: promote soft -> hard saat pembayaran instant confirmed
+        // (qris/cash). Transfer tetap soft sampai admin validatePayment action=lunas
+        // (path terpisah di BookingController::validatePayment). Method promoteToHard
+        // idempotent (aman even kalau sudah hard, no-op).
+        if ($marksAsPaid) {
+            $this->seatLockService->promoteToHard($booking);
+        }
 
         // Hitung ulang loyalty customer saat pembayaran dikonfirmasi.
         // booking_status berubah ke Diproses / Menunggu Verifikasi → trip count berubah.
@@ -247,6 +354,43 @@ class RegularBookingPersistenceService
     private function normalizeTripTime(string $value): string
     {
         return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+
+    private function buildSlotKey(Booking $booking): array
+    {
+        return [
+            'trip_date' => $booking->trip_date instanceof \DateTimeInterface
+                ? $booking->trip_date->format('Y-m-d')
+                : (string) $booking->trip_date,
+            'trip_time' => $this->normalizeTripTime((string) $booking->trip_time),
+            'from_city' => trim((string) $booking->from_city),
+            'to_city' => trim((string) $booking->to_city),
+            'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
+        ];
+    }
+
+    private function buildSlotKeyFromReviewState(array $reviewState): array
+    {
+        return [
+            'trip_date' => filled($reviewState['trip_date'] ?? null)
+                ? (string) $reviewState['trip_date']
+                : now()->toDateString(),
+            'trip_time' => $this->normalizeTripTime((string) ($reviewState['departure_time_value'] ?? '')),
+            'from_city' => trim((string) ($reviewState['pickup_location'] ?? '')),
+            'to_city' => trim((string) ($reviewState['destination_location'] ?? '')),
+            'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+        ];
+    }
+
+    private function normalizeSeatList(array $seats): array
+    {
+        $clean = array_values(array_unique(array_map(
+            fn ($s): string => trim((string) $s),
+            $seats,
+        )));
+        sort($clean);
+
+        return $clean;
     }
 
     private function generateInvoiceNumber(): string

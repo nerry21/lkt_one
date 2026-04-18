@@ -305,11 +305,12 @@
         };
 
         var badgeClassMap = {
-            'Lunas':     'stock-value-badge stock-value-badge-emerald',
-            'Ditolak':   'stock-value-badge stock-value-badge-red',
-            'Diproses':  'stock-value-badge stock-value-badge-emerald',
-            'Draft':     'stock-value-badge stock-value-badge-blue',
-            'Belum Bayar': 'stock-value-badge stock-value-badge-blue'
+            'Dibayar':       'stock-value-badge stock-value-badge-emerald',
+            'Dibayar Tunai': 'stock-value-badge stock-value-badge-emerald',
+            'Ditolak':       'stock-value-badge stock-value-badge-red',
+            'Diproses':      'stock-value-badge stock-value-badge-emerald',
+            'Draft':         'stock-value-badge stock-value-badge-blue',
+            'Belum Bayar':   'stock-value-badge stock-value-badge-blue'
         };
 
         document.querySelectorAll('.pay-validate-btn').forEach(function (btn) {
