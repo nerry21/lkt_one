@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\PackageBookings;
 
+use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PackageBooking\StorePackageBookingInformationRequest;
 use App\Http\Requests\PackageBooking\StorePackageBookingPackageRequest;
@@ -13,6 +15,7 @@ use App\Services\PackageBookingService;
 use App\Services\RegularBookingPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -195,7 +198,12 @@ class PackageBookingPageController extends Controller
         PackageBookingService $service,
         PackageBookingDraftService $drafts,
         PackageBookingPersistenceService $persistence,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts)) {
@@ -206,7 +214,16 @@ class PackageBookingPageController extends Controller
             return $redirect;
         }
 
-        $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts);
+        try {
+            $booking = $persistence->persistDraft($request->session(), $draft, $service, $drafts, $actor);
+        } catch (WizardBackEditOnPaidBookingException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'booking_id' => $e->bookingId,
+                'booking_code' => $e->bookingCode,
+                'category' => $e->category,
+            ], 403);
+        }
 
         return redirect()
             ->route('package-bookings.payment')
@@ -263,7 +280,12 @@ class PackageBookingPageController extends Controller
         PackageBookingDraftService $drafts,
         PackageBookingPersistenceService $persistence,
         RegularBookingPaymentService $payments,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            return redirect()->route('login')->with('error', 'Sesi habis, silakan login ulang.');
+        }
+
         $draft = $drafts->get($request->session());
 
         if ($redirect = $this->ensureInformationStepIsComplete($draft, $service, $drafts)) {
@@ -274,14 +296,24 @@ class PackageBookingPageController extends Controller
             return $redirect;
         }
 
-        $booking = $persistence->persistPaymentSelection(
-            $request->session(),
-            $draft,
-            $request->validated(),
-            $service,
-            $drafts,
-            $payments,
-        );
+        try {
+            $booking = $persistence->persistPaymentSelection(
+                $request->session(),
+                $draft,
+                $request->validated(),
+                $service,
+                $drafts,
+                $payments,
+                $actor,
+            );
+        } catch (WizardBackEditOnPaidBookingException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'booking_id' => $e->bookingId,
+                'booking_code' => $e->bookingCode,
+                'category' => $e->category,
+            ], 403);
+        }
 
         return redirect()
             ->route('package-bookings.invoice')
