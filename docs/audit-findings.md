@@ -322,21 +322,27 @@ Level auth di `/api/*` routes tidak konsisten:
 | Kolom | UNIQUE Constraint | Status |
 |---|---|---|
 | `booking_code` | ✅ UNIQUE | Race-protected sejak migration `2026_03_13_000001_create_bookings_table.php:13` (`->unique()`) |
-| `invoice_number` | ❌ INDEX only | NO UNIQUE constraint. Migration `2026_03_14_000010_add_regular_booking_payment_progress_fields_to_bookings_table.php:12` declare nullable tanpa `->unique()`. Later migration `2026_03_14_000013_finalize_booking_schema_for_payment_ticket_and_loyalty.php:36` add INDEX untuk lookup perf, bukan UNIQUE. Race window pre-existing. |
-| `ticket_number` | ❌ INDEX only | NO UNIQUE constraint. Same pattern dengan `invoice_number` — nullable declaration + INDEX only (migration `2026_03_14_000013:37`). Race window pre-existing. |
+| `invoice_number` | ✅ UNIQUE | Section L migration `2026_04_18_080009_add_unique_to_booking_identifiers.php` — drop lookup INDEX + add UNIQUE |
+| `ticket_number` | ✅ UNIQUE | Section L migration `2026_04_18_080009_add_unique_to_booking_identifiers.php` — drop lookup INDEX + add UNIQUE |
+| `qr_token` | ✅ UNIQUE | Section L migration `2026_04_18_080009_add_unique_to_booking_identifiers.php` — bundled per Q1=B canonical scope |
 
 **K1 context:** Section K1 (commit `36caded`) verifikasi pre-commit reveal `invoice_number` gap. Verify 4 confirm `ticket_number` same gap pattern. K1 tidak introduce race (gap pre-existing sejak 2026_03_14), hanya surface via documentation process. K1 ship dengan acceptable risk scope:
 - `quickPackageStore` generate `invoice_number` (race window 1) — duplicate PDF document, recoverable via manual fix
 - `quickPackageStore` TIDAK generate `ticket_number` — K1 race boundary tidak expand ke ticket_number kolom
 - Race seat booking (K1 fixes via bug #2 + #6) prioritas > invoice_number race
 
-**Status:** 🔴 OPEN — partially addressed (1/3 kolom ✅ UNIQUE), scope sisa 2/3 kolom (`invoice_number` + `ticket_number`) belum resolved.
+**Status:** ✅ RESOLVED via Section L atomic migration.
 
-**Fix target:** Section L atau Fase 2. Migration sequence bundled 2 kolom:
-1. Audit existing data — query `SELECT {col}, COUNT(*) FROM bookings GROUP BY {col} HAVING COUNT(*) > 1` untuk BOTH `invoice_number` + `ticket_number`
-2. Deduplication kalau ada duplicate di production data (manual atau scripted)
-3. Migration `add_unique_to_invoice_number_and_ticket_number_to_bookings_table` — bundle 2 kolom single migration
-4. Test concurrent call scenario (Section L test gap registry): same-prefix random seed collision untuk kedua kolom
+**Resolusi:**
+- **Migration** `2026_04_18_080009_add_unique_to_booking_identifiers.php`: drop pre-existing lookup indexes (`bookings_invoice_number_lookup_index`, `bookings_ticket_number_lookup_index`, `bookings_qr_token_lookup_index`) + add UNIQUE constraints pada 3 kolom (`invoice_number`, `ticket_number`, `qr_token`). Q1=B decision: `qr_token` bundled untuk canonical "all booking identifiers UNIQUE" scope — same race window semantic dengan invoice/ticket.
+- **DB-level guarantee post-fix:** TOCTOU race window di `generateInvoiceNumber` / `generateTicketNumber` / `generateQrToken` helpers (4 persistence services: Regular/Dropping/Rental/Package) sekarang manifest as `SQLSTATE[23000] Duplicate entry` instead of silent duplicate. Keyspace management:
+  - invoice_number + ticket_number: `do { ... } while (exists)` loop, 4-char random = 14.7M keyspace per prefix per day
+  - qr_token: same loop pattern, 6-char random = 2.2B keyspace per prefix per day (larger keyspace)
+  - At JET Travel scale (~dozens bookings/day), collision probability astronomically low
+- **Test regression guard** (`tests/Feature/BookingUniqueConstraintTest.php`): +3 tests (one per column) assert UNIQUE violation raises `QueryException` via `$this->expectException(QueryException::class)` + second `Booking::factory()->create` with duplicate identifier.
+- **Production deploy SOP** (embedded di migration docblock): audit duplicate rows pre-migration via `SELECT {col}, COUNT(*) FROM bookings GROUP BY {col} HAVING COUNT(*) > 1`, dedupe sebelum migrate kalau duplicate found di production data.
+
+**Follow-up (registered bug #36):** TOCTOU retry handling — 4 persistence services' `do { ... } while (exists)` loops tetap TOCTOU-prone post-UNIQUE (pre-check `exists()` di Transaction A + insert collision di Transaction B = 23000 exception, no automatic retry). Currently rely on keyspace statistical safety. Pattern-wide trait refactor `GeneratesUniqueBookingCodes` candidate dengan catch-retry wrapper, deferred Fase 1B atau observed-collision-triggered.
 
 ---
 
@@ -428,6 +434,8 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #31 (persistPaymentSelection never promotes soft → hard pattern-wide) — ✅ RESOLVED post-M5 (5-insertion cross-cutting fix: 4 wizard `persistPaymentSelection` conditional + `BookingController::validatePayment action='lunas'` unconditional)
 - bug #34 (DroppingBookingPersistenceService wizard back-edit bypass seat locking) — ✅ RESOLVED di commit 1f400ab + 8986599 + 9f799e6 (Section M5, Pattern A 5-field tuple analog M2 Regular)
 - bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard) — ✅ RESOLVED via Candidate A alignment (validatePayment write 'Dibayar' + drop 'Lunas' dropdown/guard + data migration + bundled bug #31 test coverage)
+- bug #13 (TOCTOU `generateUniqueCode` — invoice_number + ticket_number + qr_token INDEX only, no UNIQUE) — ✅ RESOLVED via Section L migration (drop lookup indexes + add UNIQUE 3 kolom, +3 regression tests)
+- bug #36 (TOCTOU retry handling post-UNIQUE — 4 persistence services' `do { ... } while (exists)` loops tetap TOCTOU-prone, rely on keyspace statistical safety) — 🔴 OPEN, registered post-Section L, low priority (trait refactor Fase 1B atau observed-collision-triggered)
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -1191,6 +1199,34 @@ Semua 4 wizard persistence service sekarang signature-change applied + preventiv
 **Orthogonal concern (kept open):** `Keberangkatan.php:35` const `STATUS_LUNAS = 'Lunas'` — separate model (departure aggregate status), bukan Booking payment_status. Out-of-scope bug #35. Kalau Keberangkatan status juga perlu rename future, register sebagai bug baru.
 
 **Commit:** 1 atomic commit (post-803ee61, hash post-execution — see M-series progression di bug #2 log).
+
+---
+
+### 36. TOCTOU Retry Handling Post-UNIQUE di `generateInvoiceNumber` / `generateTicketNumber` / `generateQrToken`
+
+**Status:** 🔴 OPEN — registered post-Section L (bug #13 resolution).
+
+**Context:** Bug #13 Section L added DB-level UNIQUE constraint untuk `invoice_number` + `ticket_number` + `qr_token`. Pre-UNIQUE TOCTOU race (`do { ... } while (exists)` loop di 4 persistence services — Regular/Dropping/Rental/Package — plus `BookingManagementService::generateUniqueCode`) sekarang manifest as `SQLSTATE[23000] Duplicate entry` pada concurrent collision (rare, astronomically low di JET Travel scale).
+
+**Race mechanism post-UNIQUE:**
+1. Transaction A `exists()` check (returns false — new random)
+2. Transaction B `exists()` check (returns false — same random, different transaction snapshot)
+3. Transaction A INSERT — succeed
+4. Transaction B INSERT — fail with SQLSTATE 23000 (UNIQUE violation)
+5. Current code: exception propagates — HTTP 500 generic error
+6. Desired: catch 23000 → re-attempt generate random + insert (max N attempts)
+
+**Scope candidate:**
+- **Per-service inline retry** (6 helpers: 4 × `generateInvoiceNumber` + 3 × `generateTicketNumber` + 3 × `generateQrToken` + 1 × `BookingManagementService::generateUniqueCode`) — wrapping each with try/catch + max 3 attempts retry.
+- **OR trait refactor `GeneratesUniqueBookingCodes`** dengan canonical retry logic — analog bug #28 normalizeTripTime pattern-wide.
+
+**Priority: LOW** — 14.7M keyspace × 4-char random + 2.2B keyspace × 6-char random × low booking volume (~dozens bookings/day JET Travel scale) = collision astronomically unlikely. Accept rare HTTP 500 kalau collision observed di production.
+
+**Fix trigger:**
+- **(a) production collision observed** — customer or admin report duplicate-entry 500 error, ops team capture SQLSTATE 23000 trace
+- **(b) Fase 1B scope expand** — bundle bug #28 + bug #36 trait refactor sekaligus
+
+**Pattern reference:** analog bug #28 normalizeTripTime pattern-wide (6 duplicate locations). Both candidate untuk trait consolidation Fase 1B.
 
 ---
 
