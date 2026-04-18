@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Services\CustomerLoyaltyService;
 use App\Services\SeatLockService;
+use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class RegularBookingPersistenceService
 {
+    use NormalizesTripTime;
+
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
@@ -349,11 +352,6 @@ class RegularBookingPersistenceService
         } while (Booking::query()->where('booking_code', $bookingCode)->exists());
 
         return $bookingCode;
-    }
-
-    private function normalizeTripTime(string $value): string
-    {
-        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
     private function buildSlotKey(Booking $booking): array

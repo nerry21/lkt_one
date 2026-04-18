@@ -6,6 +6,7 @@ use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
 use App\Models\User;
 use App\Services\SeatLockService;
+use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,8 @@ use Illuminate\Support\Str;
 
 class PackageBookingPersistenceService
 {
+    use NormalizesTripTime;
+
     public function __construct(
         private readonly SeatLockService $seatLockService,
     ) {}
@@ -302,11 +305,6 @@ class PackageBookingPersistenceService
         } while (Booking::query()->where('payment_reference', $paymentReference)->exists());
 
         return $paymentReference;
-    }
-
-    private function normalizeTripTime(string $value): string
-    {
-        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
     /**

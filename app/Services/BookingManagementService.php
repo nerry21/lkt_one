@@ -13,9 +13,12 @@ use Illuminate\Support\Str;
 use App\Services\CustomerLoyaltyService;
 use App\Services\CustomerResolverService;
 use App\Services\SeatLockService;
+use App\Traits\NormalizesTripTime;
 
 class BookingManagementService
 {
+    use NormalizesTripTime;
+
     public function __construct(
         protected RegularBookingService $regularBookingService,
         protected RegularBookingPaymentService $paymentService,
@@ -616,13 +619,6 @@ class BookingManagementService
             'cash' => 'cash',
             default => '',
         };
-    }
-
-    private function normalizeTripTime(string $value): string
-    {
-        $trimmed = trim($value);
-
-        return strlen($trimmed) === 5 ? $trimmed . ':00' : $trimmed;
     }
 
     private function ticketStatusFromPaymentStatus(string $paymentStatus): string

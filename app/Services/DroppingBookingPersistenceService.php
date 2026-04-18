@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\SeatLockService;
+use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,8 @@ use Illuminate\Support\Str;
 
 class DroppingBookingPersistenceService
 {
+    use NormalizesTripTime;
+
     public function __construct(
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
@@ -412,11 +415,6 @@ class DroppingBookingPersistenceService
     private function isDiscountEligible(int $scanCount, int $loyaltyTripCount): bool
     {
         return max($scanCount, $loyaltyTripCount) >= 5;
-    }
-
-    private function normalizeTripTime(string $value): string
-    {
-        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
     /**
