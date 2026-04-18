@@ -5,6 +5,7 @@ namespace App\Exceptions;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 
 /**
@@ -54,21 +55,32 @@ class SeatConflictException extends Exception
         parent::__construct($message, $code, $previous);
     }
 
-    public function render(Request $request): JsonResponse
+    public function render(Request $request): SymfonyResponse
     {
-        return response()->json([
-            'error' => 'seat_conflict',
-            'message' => 'Satu atau lebih kursi sudah dibooking oleh customer lain',
-            'conflicts' => array_map(
-                fn (array $c): array => [
-                    'date' => $c['date'] ?? null,
-                    'time' => $c['time'] ?? null,
-                    'seat' => $c['seat'] ?? null,
-                    'booking_id' => $c['booking_id'] ?? null,
-                ],
-                $this->conflicts,
+        if ($request->wantsJson()) {
+            return response()->json([
+                'error' => 'seat_conflict',
+                'message' => 'Satu atau lebih kursi sudah dibooking oleh customer lain',
+                'conflicts' => array_map(
+                    fn (array $c): array => [
+                        'date' => $c['date'] ?? null,
+                        'time' => $c['time'] ?? null,
+                        'seat' => $c['seat'] ?? null,
+                        'booking_id' => $c['booking_id'] ?? null,
+                    ],
+                    $this->conflicts,
+                ),
+            ], 409);
+        }
+
+        $conflictSeats = implode(', ', array_filter(array_column($this->conflicts, 'seat')));
+
+        return redirect()->back()->withErrors([
+            'wizard_seat_conflict' => sprintf(
+                'Kursi %s sudah dibooking customer lain. Silakan pilih kursi lain.',
+                $conflictSeats !== '' ? $conflictSeats : 'yang dipilih',
             ),
-        ], 409);
+        ]);
     }
 
     /**
