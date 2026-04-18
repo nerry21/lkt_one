@@ -89,8 +89,8 @@ Progress Fase 1A (per commit):
 - ⏳ Section K3: release endpoint baru pakai SeatLockService::releaseSeats (pending)
 - ✅ Section M1 (commit 812a67d + 080f542 + 68eec79 + c127289): BookingManagementService updateBooking + deleteBooking seat lock integration (bug #21 + #29 RESOLVED)
 - ✅ Section M2 (commit 9b2e551 + 2bd10af + f8a6b3a + 8304651 + d65c085): RegularBookingPersistenceService wizard re-invoke bypass (bug #22 RESOLVED) + WizardBackEditOnPaidBookingException infra + SeatConflictException dual-render
-- ⏳ Section M3: RentalBookingPersistenceService wizard back-edit bypass (bug #25)
-- ⏳ Section M4: PackageBookingPersistenceService wizard back-edit bypass (bug #27)
+- ✅ Section M3 (commit 0818f42 + 969ab01 + 491b709): RentalBookingPersistenceService wizard back-edit bypass (bug #25 RESOLVED, multi-day Pattern A) + retroactive M2 fallback fix (bug #32 RESOLVED atomic)
+- ⏳ Section M4: PackageBookingPersistenceService wizard back-edit bypass (bug #27) — **PREVENTIVE**: M4 Commit 1 WAJIB bundle `persistPaymentSelection` fallback fix bersama `persistDraft` signature change. Pattern verified post-M2/M3 di bug #32. Skip = introduce bug #33 same root cause.
 
 Race condition di production create path tertutup total setelah Section K1 done
 (F+G+H+I+J+K1 = 6 consumer integrated — 5 wizard service-layer + 1 API direct-confirmed).
@@ -683,9 +683,51 @@ admin API + wizard Blade flows).
 
 **Scope:** Update path protection — butuh re-sync `booking_seats` saat range berubah. Design pilihan: (a) release+re-lock eksplisit via `SeatLockService` di update path, atau (b) pattern conditional re-lock berdasarkan range-change detection.
 
-**Status:** 🔴 OPEN, scheduled Section M (bersama bug #21 admin API + bug #22 Regular wizard).
+**Status:** ✅ RESOLVED — Section M3 (commit 0818f42 + 969ab01 + 491b709).
 
-**Catatan:** Rental tidak punya admin update endpoint (confirmed Section I investigation), jadi satu-satunya update path adalah wizard back-edit ini. Scope fix Section M untuk Rental hanya perlu cover wizard path, tidak perlu API path.
+**Resolusi Section M3:**
+- `persistDraft()` signature ditambah `User $actor` parameter (ke-5 positional)
+- `persistPaymentSelection()` signature ditambah `User $actor` parameter (ke-7 positional)
+  + propagate `$actor` ke fallback `$this->persistDraft(...)` call (bug #32 pattern)
+- Pattern A multi-day: compare 5-field range tuple (rental_start_date, rental_end_date,
+  from_city, to_city, armada_index) + normalized seat set. Identical → no-op. Different
+  → full release all N×6 rows + full lock new N'×6 rows via `releaseSeats($booking, $actor, $reason)`
+  + `lockSeats($booking, $slots, $seats, 'soft')`.
+- Trade-off: wasteful untuk partial range change (extend/shrink 1 day) tapi reuses
+  SeatLockService tanpa mod — partial-efficient variant (Pendekatan B) defer ke future
+  section kalau profiling justify.
+- Guard paid booking via `WizardBackEditOnPaidBookingException` dengan `category='Rental'`
+  (reuse M2 generic exception — validates M2 architecture decision payoff).
+- Release reason format `wizard_review_resubmit_rental_{code}_by_user_{id}` — distinct
+  dari M2 Regular format (wizard_review_resubmit_regular_{...}) untuk audit traceability.
+- 4 helpers baru di `RentalBookingPersistenceService`:
+  - `buildSlotKey(Booking)` — range tuple shape (BEDA dari M1/M2 single-slot key,
+    documented docblock NOTE). Multi-day rental needs DATE RANGE dimension.
+  - `buildSlotKeyFromReviewState(array)` — shape identical untuk compare
+  - `normalizeSeatList(array)` — duplicate dari M1/M2 (trait refactor defer Fase 1B
+    per bug #28)
+  - `expandRangeToSlots(start, end, from, to, armada)` — refactor inline CarbonPeriod
+    loop dari Section I commit 2bfcbac ke helper. Behavior identical (regression
+    guard via Test 1 di `RentalBookingPersistenceServiceTest`).
+- Defensive comment `$existing` LOAD-BEARING di `$needsReLock` expression (analog
+  M1 M2 pattern) — prevent future inline-removal yang bisa trigger double lockSeats
+  call di create path.
+- Controller wiring (commit 969ab01): `RentalBookingPageController::storeReview` +
+  `::storePayment` pass `$actor` ke service call + inline User null guard (redirect
+  login kalau session expired). `RegularBookingPageController::storePayment` juga
+  di-wire retroactive (bug #32 controller layer).
+- Test coverage (commit 491b709): 7 test smoke di
+  `tests/Unit/Services/RentalBookingPersistenceServiceTest.php` (create regression +
+  no-op + range extend/shift/shrink edge cases + paid guard + reason format) + 1 test
+  extension di `RegularBookingPersistenceServiceTest` untuk bug #32 fallback regression.
+
+**Catatan:** Rental tidak punya admin update endpoint (confirmed Section I investigation), jadi satu-satunya update path adalah wizard back-edit ini. Scope M3 hanya wire wizard path (`storeReview` + `storePayment`) — no `BookingController` API endpoint wiring.
+
+**Dependency note (post-M3):** Hard lock guard implementation correct, tapi efektivitas
+tergantung pada bug #31 (promoteToHard never called) fix. Pre-bug-#31: tidak ada booking
+Rental yang punya `lock_type='hard'` di production — paid guard tetap fire via
+`payment_status='Dibayar'` check (ini orthogonal dari hard lock). Post-bug-#31: guard
+akan protect proper dengan dual-check (payment_status + hard lock).
 
 ---
 
@@ -912,6 +954,73 @@ hard lock guards).
 
 **Sementara (workaround):** Admin harus disiplin manual — tidak edit/delete booking yang
 sudah terbayar. Hard lock guard ter-implement tapi tidak enforceable sampai #31 fix.
+
+---
+
+### 32. `persistPaymentSelection` Fallback Missing `$actor` After M2 `persistDraft` Signature Change
+
+**Ditemukan saat:** Section M3 investigasi (retroactive analysis post-M2 signature change).
+
+**Honest framing:** M2 introduced, M3 catch + atomic fix. Bug ini adalah side-effect
+latent dari M2 commit f8a6b3a yang mengubah `persistDraft` signature (add `User $actor`
+required positional) tanpa update internal fallback call site di `persistPaymentSelection`.
+M3 investigation catch pattern ini saat audit `persistPaymentSelection` di Rental, lalu
+fix atomic bersama bug #25 (sama root cause pattern: signature change propagation).
+
+**Root cause:**
+`RegularBookingPersistenceService::persistPaymentSelection` line 233-234 (post-M2, pre-M3):
+
+```php
+$booking = $this->currentDraftBooking($session, $drafts)
+    ?? $this->persistDraft($session, $draft, $service, $drafts);  // ← missing 5th arg
+```
+
+M2 commit f8a6b3a menambah `User $actor` sebagai 5th required positional parameter ke
+`persistDraft()`, tapi internal fallback call **tidak di-update** — runtime `TypeError:
+Too few arguments to persistDraft` trigger kalau fallback branch fires.
+
+**Trigger condition (edge case reachable di production):**
+1. User submit review → `storeReview` → `persistDraft` creates booking + session store persistedBookingId
+2. Session expire / user clear cookies / direct-navigate ke `/regular-bookings/payment`
+3. `storePayment` → `persistPaymentSelection`
+4. `currentDraftBooking` returns null (session has no persistedBookingId)
+5. Fallback `?? $this->persistDraft(...)` fires tanpa `$actor` argument
+6. **`TypeError: Too few arguments` → HTTP 500 page** (bukan graceful redirect)
+
+**Verified reachable:** Regular `storePayment` 3 pre-flight guards (info + seat + passenger)
+tidak check persistedBookingId — draft steps populated tapi session key cleared → guards
+pass → fallback fires → TypeError. Bukan teoretical edge case.
+
+**Scope verified (M3 investigation grep):**
+- `RegularBookingPersistenceService:234` — **broken post-M2** ✅ fixed di M3 Commit 1
+  (commit 0818f42) bundle dengan bug #25
+- `RentalBookingPersistenceService:216` — **would break post-M3** signature change
+  kalau tidak preventive fix ✅ atomic di M3 Commit 1 same commit (0818f42)
+- `DroppingBookingPersistenceService:178` — **safe saat ini** (persistDraft belum
+  signature-change, tidak ada M section modify service ini di Fase 1A)
+- `PackageBookingPersistenceService:160` — **safe saat ini** (persistDraft belum
+  signature-change, akan kena di M4 — lihat PREVENTIVE NOTE bug #2 progress)
+
+**Why existing tests tidak catch:**
+M2 `RegularBookingPersistenceServiceTest` (commit d65c085) test `persistDraft` directly
+dengan actor; none exercise `persistPaymentSelection` fallback edge case (session lost
+between review + payment). M3 Commit 3 (commit 491b709) tambah Test 8 regression guard:
+`test_persistPaymentSelection_fallback_to_persistDraft_passes_actor_when_session_lost`.
+
+**Fix:** M3 Commit 1 (commit 0818f42). Propagate `User $actor` ke `persistPaymentSelection`
+signature (7th positional arg) → pass ke fallback `persistDraft` call. Controller wiring
+retroactive (commit 969ab01): `RegularBookingPageController::storePayment` pass `$actor`.
+
+**Status:** ✅ RESOLVED Section M3 atomic dengan bug #25 (commit 0818f42 + 969ab01 + 491b709).
+
+**Preventive note untuk M4 (Package wizard):** Saat M4 modify
+`PackageBookingPersistenceService::persistDraft` signature (add `User $actor`), WAJIB
+bundle `persistPaymentSelection` fallback fix di commit yang sama. Pattern verified
+post-M2/M3. Skip = introduce bug #33 same root cause di Package.
+
+**Dropping (bug #34 candidate future):** DroppingBookingPersistenceService belum
+signature-change, tapi kalau suatu saat ada Section yang modify `persistDraft` Dropping
+(misal untuk consistency refactor), same pattern fix WAJIB applied preventively.
 
 ---
 
