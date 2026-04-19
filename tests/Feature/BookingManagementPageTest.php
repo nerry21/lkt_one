@@ -464,6 +464,7 @@ class BookingManagementPageTest extends TestCase
         $this->actingAs($admin)
             ->patchJson('/api/bookings/' . $booking->id . '/validate-payment', [
                 'action' => 'lunas',
+                'version' => $booking->fresh()->version,
             ])
             ->assertOk()
             ->assertJsonFragment([
