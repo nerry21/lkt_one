@@ -238,7 +238,8 @@
                         </div>
                     @endif
 
-                    <div id="pay-validate-form" data-booking-id="{{ $detail['id'] }}">
+                    {{-- Bug #30: data-booking-version for optimistic lock (design §9.4). --}}
+                    <div id="pay-validate-form" data-booking-id="{{ $detail['id'] }}" data-booking-version="{{ $detail['version'] ?? 0 }}">
                         <div id="pay-validate-actions" class="pay-validate-actions">
                             <button type="button" class="pay-validate-btn pay-validate-btn--lunas" data-action="lunas">
                                 Lunas
@@ -286,6 +287,8 @@
         if (! form) return;
 
         var bookingId = form.dataset.bookingId;
+        // Bug #30: version from data attribute (design §9.4).
+        var bookingVersion = parseInt(form.dataset.bookingVersion, 10) || 0;
         var token     = localStorage.getItem('transit_token') || '';
 
         var actionsEl  = document.getElementById('pay-validate-actions');
@@ -347,7 +350,7 @@
                         'Authorization': 'Bearer ' + token,
                         'X-CSRF-TOKEN': csrfMeta ? csrfMeta.content : ''
                     },
-                    body: JSON.stringify({ action: pendingAction, validation_notes: notes })
+                    body: JSON.stringify({ action: pendingAction, validation_notes: notes, version: bookingVersion })
                 });
 
                 var data = await res.json();
