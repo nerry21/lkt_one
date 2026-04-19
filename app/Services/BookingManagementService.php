@@ -347,9 +347,15 @@ class BookingManagementService
         });
     }
 
-    public function deleteBooking(Booking $booking, User $actor): void
+    public function deleteBooking(Booking $booking, User $actor, int $expectedVersion): void
     {
-        DB::transaction(function () use ($booking, $actor): void {
+        DB::transaction(function () use ($booking, $actor, $expectedVersion): void {
+            // Optimistic lock gate (bug #30): fail fast on stale read before any mutation.
+            // No post-save bump needed — row deleted, version tracking ends here.
+            if ($booking->version !== $expectedVersion) {
+                throw new BookingVersionConflictException($booking->id, $expectedVersion);
+            }
+
             $hasActiveSeats = BookingSeat::query()
                 ->where('booking_id', $booking->id)
                 ->active()

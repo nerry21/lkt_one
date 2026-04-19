@@ -230,7 +230,7 @@ class BookingManagementServiceTest extends TestCase
 
         $bookingId = $booking->id;
 
-        $this->svc->deleteBooking($booking->fresh(), $this->admin);
+        $this->svc->deleteBooking($booking->fresh(), $this->admin, $booking->fresh()->version);
 
         // Booking row gone.
         $this->assertNull(Booking::query()->find($bookingId));
@@ -249,7 +249,7 @@ class BookingManagementServiceTest extends TestCase
         $bookingId = $booking->id;
 
         try {
-            $this->svc->deleteBooking($booking->fresh(), $this->admin);
+            $this->svc->deleteBooking($booking->fresh(), $this->admin, $booking->fresh()->version);
             $this->fail('Expected SeatLockReleaseNotAllowedException');
         } catch (SeatLockReleaseNotAllowedException $e) {
             $this->assertSame($bookingId, $e->bookingId);

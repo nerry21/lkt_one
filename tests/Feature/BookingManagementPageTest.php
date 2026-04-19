@@ -356,7 +356,7 @@ class BookingManagementPageTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->deleteJson('/api/bookings/' . $booking->id)
+            ->deleteJson('/api/bookings/' . $booking->id . '?version=' . $booking->fresh()->version)
             ->assertOk()
             ->assertJson([
                 'message' => 'Data pemesanan berhasil dihapus',

@@ -492,7 +492,17 @@ class BookingController extends Controller
     {
         $actor = $this->actor($request);
 
-        $service->deleteBooking($this->findBooking($booking), $actor);
+        // Guard: version required via query string (bug #30 Q2 decision — ?version=N).
+        $versionRaw = $request->query('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return response()->json([
+                'error' => 'version_required',
+                'message' => 'Parameter version wajib dikirim (query string).',
+            ], 422);
+        }
+        $expectedVersion = (int) $versionRaw;
+
+        $service->deleteBooking($this->findBooking($booking), $actor, $expectedVersion);
 
         return response()->json([
             'message' => 'Data pemesanan berhasil dihapus',
