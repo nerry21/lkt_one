@@ -85,6 +85,7 @@ class Booking extends Model
         'eligible_discount'        => 'boolean',
         'ticket_pdf_generated_at'  => 'datetime',
         'rental_end_date'          => 'date',
+        'version'                  => 'integer',
     ];
 
     protected static function booted(): void
@@ -111,6 +112,36 @@ class Booking extends Model
                 $booking->driver_name = null;
             }
         });
+    }
+
+    /**
+     * Atomic version-checked update. Returns true if update landed on expected version,
+     * false if version mismatch (caller should throw BookingVersionConflictException).
+     *
+     * Bypasses Eloquent events via direct query builder — mirrors saveQuietly() philosophy
+     * for atomic concurrency control operations.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  int  $expectedVersion
+     * @return bool
+     */
+    public function updateWithVersionCheck(array $attributes, int $expectedVersion): bool
+    {
+        $affected = static::query()
+            ->where('id', $this->getKey())
+            ->where('version', $expectedVersion)
+            ->update(array_merge($attributes, ['version' => $expectedVersion + 1]));
+
+        if ($affected > 0) {
+            $this->version = $expectedVersion + 1;
+            foreach ($attributes as $key => $value) {
+                $this->setAttribute($key, $value);
+            }
+            $this->syncOriginal();
+            return true;
+        }
+
+        return false;
     }
 
     public function customer(): BelongsTo

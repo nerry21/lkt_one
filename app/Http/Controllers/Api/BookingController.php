@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\BookingVersionConflictException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Requests\Booking\StoreQuickPackageBookingRequest;
@@ -73,8 +74,15 @@ class BookingController extends Controller
     public function update(UpdateBookingRequest $request, string $booking, BookingManagementService $service): JsonResponse
     {
         $actor = $this->actor($request);
+        $validated = $request->validated();
+        $expectedVersion = (int) $validated['version'];
 
-        $updatedBooking = $service->updateBooking($this->findBooking($booking), $request->validated(), $actor);
+        $updatedBooking = $service->updateBooking(
+            $this->findBooking($booking),
+            $validated,
+            $actor,
+            $expectedVersion,
+        );
 
         return response()->json($service->detailPayload($updatedBooking));
     }
@@ -130,17 +138,33 @@ class BookingController extends Controller
             return response()->json(['message' => 'Aksi validasi tidak valid'], 422);
         }
 
+        // Guard: version required in request body (bug #30, PATCH carries body).
+        $versionRaw = $request->input('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return response()->json([
+                'error' => 'version_required',
+                'message' => 'Parameter version wajib dikirim.',
+            ], 422);
+        }
+        $expectedVersion = (int) $versionRaw;
+
         $updates = match ($action) {
             'lunas'       => ['payment_status' => 'Dibayar',   'booking_status' => 'Diproses', 'paid_at' => now()],
             'belum_lunas' => ['payment_status' => 'Belum Bayar', 'booking_status' => 'Draft',  'paid_at' => null],
             'ditolak'     => ['payment_status' => 'Ditolak',   'booking_status' => 'Draft',    'paid_at' => null],
         };
 
-        $record->fill(array_merge($updates, [
+        // Atomic check-and-set replacement for fill()->save() (bug #30, design §7.4).
+        // Single UPDATE with WHERE id = ? AND version = ? — elegant, no DB::transaction needed.
+        $success = $record->updateWithVersionCheck(array_merge($updates, [
             'validated_by'     => $user->id,
             'validated_at'     => now(),
             'validation_notes' => $notes !== '' ? $notes : null,
-        ]))->save();
+        ]), $expectedVersion);
+
+        if (! $success) {
+            throw new BookingVersionConflictException($record->id, $expectedVersion);
+        }
 
         // Bug #31 fix: admin transfer verification path — promote soft -> hard
         // saat admin konfirmasi payment lunas (unconditional, promoteToHard idempotent).
@@ -209,7 +233,26 @@ class BookingController extends Controller
             return response()->json(['message' => 'Status keberangkatan tidak valid'], 422);
         }
 
-        $record->update(['departure_status' => $status !== '' ? $status : null]);
+        // Guard: version required in request body (bug #30, PATCH carries body).
+        $versionRaw = $request->input('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return response()->json([
+                'error' => 'version_required',
+                'message' => 'Parameter version wajib dikirim.',
+            ], 422);
+        }
+        $expectedVersion = (int) $versionRaw;
+
+        // Atomic check-and-set replacement for $record->update() (bug #30, design §7.4).
+        // Single UPDATE with WHERE id = ? AND version = ? — elegant, no DB::transaction needed.
+        $success = $record->updateWithVersionCheck(
+            ['departure_status' => $status !== '' ? $status : null],
+            $expectedVersion,
+        );
+
+        if (! $success) {
+            throw new BookingVersionConflictException($record->id, $expectedVersion);
+        }
 
         return response()->json(['message' => 'Status keberangkatan berhasil diperbarui', 'departure_status' => $status]);
     }
@@ -485,7 +528,17 @@ class BookingController extends Controller
     {
         $actor = $this->actor($request);
 
-        $service->deleteBooking($this->findBooking($booking), $actor);
+        // Guard: version required via query string (bug #30 Q2 decision — ?version=N).
+        $versionRaw = $request->query('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return response()->json([
+                'error' => 'version_required',
+                'message' => 'Parameter version wajib dikirim (query string).',
+            ], 422);
+        }
+        $expectedVersion = (int) $versionRaw;
+
+        $service->deleteBooking($this->findBooking($booking), $actor, $expectedVersion);
 
         return response()->json([
             'message' => 'Data pemesanan berhasil dihapus',

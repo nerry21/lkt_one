@@ -144,7 +144,11 @@ class SeatLockService
             //     per-date lock info query booking_seats langsung via
             //     BookingSeat::active()->where('booking_id', ...) — bukan via
             //     $booking->selected_seats yang tidak bawa konteks tanggal.
-            $booking->update([
+            //
+            // Bug #30 internal mutator policy (design §10): use updateQuietly to
+            // bypass booted() saving listener + version check. This write is a
+            // cache sync from admin seat-lock action, not a competing admin edit.
+            $booking->updateQuietly([
                 'selected_seats' => array_values(array_unique($seatNumbers)),
             ]);
 
@@ -230,7 +234,12 @@ class SeatLockService
 
             // 3. Sync cache selected_seats ke empty — booking ini tidak punya
             //    seat aktif lagi setelah release.
-            $booking->update(['selected_seats' => []]);
+            //
+            // Bug #30 internal mutator policy (design §10): use updateQuietly to
+            // bypass booted() saving listener + version check. Release triggered
+            // by admin action already version-checked upstream (updateBooking or
+            // deleteBooking); this is consequential cache cleanup, not competing edit.
+            $booking->updateQuietly(['selected_seats' => []]);
 
             return $count;
         });

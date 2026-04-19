@@ -308,6 +308,7 @@ class BookingManagementPageTest extends TestCase
             'payment_method' => 'cash',
             'payment_status' => 'Dibayar Tunai',
             'booking_status' => 'Diproses',
+            'version' => $booking->version,
         ]);
 
         $response = $this->actingAs($admin)->putJson('/api/bookings/' . $booking->id, $payload);
@@ -355,7 +356,7 @@ class BookingManagementPageTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->deleteJson('/api/bookings/' . $booking->id)
+            ->deleteJson('/api/bookings/' . $booking->id . '?version=' . $booking->fresh()->version)
             ->assertOk()
             ->assertJson([
                 'message' => 'Data pemesanan berhasil dihapus',
@@ -463,6 +464,7 @@ class BookingManagementPageTest extends TestCase
         $this->actingAs($admin)
             ->patchJson('/api/bookings/' . $booking->id . '/validate-payment', [
                 'action' => 'lunas',
+                'version' => $booking->fresh()->version,
             ])
             ->assertOk()
             ->assertJsonFragment([
@@ -522,7 +524,7 @@ class BookingManagementPageTest extends TestCase
 
     private function createBooking(array $overrides = []): Booking
     {
-        return Booking::query()->create(array_merge([
+        $booking = Booking::query()->create(array_merge([
             'booking_code' => 'RBK-260314-TEST',
             'category' => 'Reguler',
             'from_city' => 'SKPD',
@@ -544,5 +546,9 @@ class BookingManagementPageTest extends TestCase
             'ticket_status' => 'Draft',
             'notes' => 'Booking test untuk manajemen pemesanan.',
         ], $overrides));
+
+        $booking->refresh();
+
+        return $booking;
     }
 }

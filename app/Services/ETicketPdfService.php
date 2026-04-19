@@ -46,9 +46,13 @@ class ETicketPdfService
         // Simpan ke storage/app/public/etickets/...
         Storage::put($pdfPath, $pdf->output());
 
-        // Update path di database
+        // Update path di database.
+        //
+        // Bug #30 internal mutator policy (design §10): use saveQuietly to
+        // bypass booted() saving listener + version check. PDF generation is
+        // a consequential side effect of ticket issuance, not competing edit.
         $booking->ticket_pdf_path = $pdfPath;
-        $booking->save();
+        $booking->saveQuietly();
 
         return $pdfPath;
     }
@@ -162,7 +166,8 @@ class ETicketPdfService
         }
 
         $booking->ticket_pdf_path = null;
-        $booking->save();
+        // Bug #30 internal mutator policy (design §10): saveQuietly bypass.
+        $booking->saveQuietly();
     }
 
     // =========================================================================

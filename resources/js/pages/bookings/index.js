@@ -1,7 +1,7 @@
 import { apiRequest } from '../../services/http';
 import { escapeHtml, formatCurrency, setButtonBusy, todayString } from '../../services/helpers';
 import { closeModal, openModal } from '../../ui/modal';
-import { toastError, toastSuccess } from '../../ui/toast';
+import { handleVersionConflict, toastError, toastSuccess } from '../../ui/toast';
 
 // ─── Schedules ────────────────────────────────────────────────────────────────
 
@@ -1206,9 +1206,11 @@ export default function initBookingsPage({ user } = {}) {
                     dropdown.querySelector('.bpg-depart-menu')?.setAttribute('hidden', '');
                 }
 
+                // Bug #30: include version for optimistic lock (design §7.4).
+                const deptBooking = state.bookings.find((b) => String(b.id) === String(bookingId));
                 await apiRequest(`/bookings/${bookingId}/departure-status`, {
                     method: 'PATCH',
-                    body: { departure_status: statusToSet },
+                    body: { departure_status: statusToSet, version: deptBooking?.version ?? 0 },
                 });
 
                 return;
@@ -1311,6 +1313,8 @@ export default function initBookingsPage({ user } = {}) {
                 return;
             }
         } catch (error) {
+            // Bug #30: intercept 409 version conflict (departure-status path) before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Gagal memuat data pemesanan');
         }
     });
@@ -1580,7 +1584,9 @@ export default function initBookingsPage({ user } = {}) {
             const payload = buildPayload();
 
             if (state.editItem) {
-                await apiRequest(`/bookings/${state.editItem.id}`, { method: 'PUT', body: payload });
+                // Bug #30: include version for optimistic lock (design §9.2).
+                const editPayload = { ...payload, version: state.editItem.version };
+                await apiRequest(`/bookings/${state.editItem.id}`, { method: 'PUT', body: editPayload });
                 toastSuccess('Data pemesanan berhasil diperbarui');
             } else {
                 await apiRequest('/bookings', { method: 'POST', body: payload });
@@ -1591,6 +1597,8 @@ export default function initBookingsPage({ user } = {}) {
             resetForm();
             await fetchAndRender();
         } catch (error) {
+            // Bug #30: intercept 409 version conflict before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Silakan periksa kembali data yang diinput', 'Gagal menyimpan data pemesanan');
         } finally {
             setButtonBusy(submitButton, false, 'Menyimpan...');
@@ -1604,12 +1612,15 @@ export default function initBookingsPage({ user } = {}) {
         setButtonBusy(deleteButton, true, 'Menghapus...');
 
         try {
-            await apiRequest(`/bookings/${state.deleteItem.id}`, { method: 'DELETE' });
+            // Bug #30: version in query string per design §7.3 Q2 decision.
+            await apiRequest(`/bookings/${state.deleteItem.id}?version=${state.deleteItem.version}`, { method: 'DELETE' });
             toastSuccess('Data pemesanan berhasil dihapus');
             closeModal('booking-delete-modal');
             state.deleteItem = null;
             await fetchAndRender();
         } catch (error) {
+            // Bug #30: intercept 409 version conflict before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Gagal menghapus data pemesanan');
         } finally {
             setButtonBusy(deleteButton, false, 'Menghapus...');
