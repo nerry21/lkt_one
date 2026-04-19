@@ -176,6 +176,32 @@ class BookingVersionConflictHttpTest extends TestCase
      * with optional override merge. Returns booking with version=0 (refreshed
      * via afterCreating hook).
      */
+
+    /**
+     * Regression guard for bug #46: DELETE without version query string returns 422.
+     *
+     * Scenario: frontend openDeleteDialog caller forgot to lookup version from
+     * state.bookings (line 1235 index.js missed version field at Step 12 wiring).
+     * Result: client DELETE request URL omits ?version=N → BookingUpsertRequest
+     * version validation rule fires → 422 Unprocessable Entity.
+     *
+     * This test guards against frontend regression by asserting backend correctly
+     * rejects version-less DELETE with explicit 422 error.
+     */
+    public function test_delete_without_version_query_returns_422(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $booking = $this->makeBooking();
+
+        $response = $this->actingAs($admin)
+            ->deleteJson('/api/bookings/' . $booking->id);
+
+        $response->assertStatus(422);
+
+        // DB-unchanged proof: booking row still exists.
+        $this->assertDatabaseHas('bookings', ['id' => $booking->id]);
+    }
+
     private function makeBooking(array $overrides = []): Booking
     {
         return Booking::factory()->create(array_merge([

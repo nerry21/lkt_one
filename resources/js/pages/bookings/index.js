@@ -1233,9 +1233,14 @@ export default function initBookingsPage({ user } = {}) {
             }
 
             if (deleteBtn) {
+                // Bug #46 hotfix: lookup version from state.bookings (mirror line 1185+1209 pattern).
+                // Without version, DELETE request omits ?version=N query string → 422 from backend.
+                const delBookingId = deleteBtn.dataset.bookingDelete;
+                const delBooking = state.bookings.find((b) => String(b.id) === String(delBookingId));
                 openDeleteDialog({
-                    id: deleteBtn.dataset.bookingDelete,
+                    id: delBookingId,
                     nama: deleteBtn.dataset.bookingName,
+                    version: delBooking?.version ?? 0,
                 });
                 return;
             }
