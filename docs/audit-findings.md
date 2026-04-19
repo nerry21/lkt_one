@@ -436,6 +436,10 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #35 (payment_status semantic mismatch 'Lunas' admin vs 'Dibayar'/'Dibayar Tunai' wizard) — ✅ RESOLVED via Candidate A alignment (validatePayment write 'Dibayar' + drop 'Lunas' dropdown/guard + data migration + bundled bug #31 test coverage)
 - bug #13 (TOCTOU `generateUniqueCode` — invoice_number + ticket_number + qr_token INDEX only, no UNIQUE) — ✅ RESOLVED via Section L migration (drop lookup indexes + add UNIQUE 3 kolom, +3 regression tests)
 - bug #36 (TOCTOU retry handling post-UNIQUE — 4 persistence services' `do { ... } while (exists)` loops tetap TOCTOU-prone, rely on keyspace statistical safety) — 🔴 OPEN, registered post-Section L, low priority (trait refactor Fase 1B atau observed-collision-triggered)
+- bug #30 (BookingManagementService booking-level race condition admin-admin concurrent edit) — ✅ RESOLVED via Phase 2 optimistic locking (branch `feat/phase-2-bug-30-optimistic-lock`, 17 commits `5d661ae` → `779e5bf`, deploy pending). Design doc §17 closure. +14 tests / +77 assertions.
+- bug #43 (validatePayment customer-resolve `saveQuietly()` bypasses version check — same pattern as design §10 Internal Mutator Policy but inside customer auto-resolve branch) — 🔴 OPEN, defer stakeholder review (business call on whether customer-merge side-effect should respect optimistic lock or run quiet)
+- bug #44 (polish 409 conflict UX from MVP toast + 3sec auto-reload to full modal with `[Refresh]/[Cancel]` buttons per bug #30 design §9.3 aspiration) — 🟡 OPEN, defer post-deploy stakeholder feedback (Bu Bos + Admin Zizi)
+- bug #45 (departure-status PATCH endpoint had no dedicated 409 catch site, relied on outer catch) — ✅ RESOLVED atomic in Phase 2 Step 14 EDIT 2d outer catch wiring (commit `bcd2bd6`)
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -940,14 +944,32 @@ guard akan enforce proper.
 - (a) Add `version` column `bookings` + optimistic lock check di service
 - (b) `SELECT FOR UPDATE` di controller `findBooking()` sebelum masuk service
 
-**Status:** 🟡 OPEN — scheduled future section. Low priority untuk Fase 1A karena
-workflow admin biasanya sequential (tidak common 2 admin edit booking sama
-bersamaan dalam window sub-detik). Race ini tidak affect data integrity seat-level
-(sudah dihandle SeatLockService), hanya affect non-seat fields.
+**Status:** ✅ RESOLVED via Phase 2 (branch `feat/phase-2-bug-30-optimistic-lock`,
+17 commits `5d661ae` → `779e5bf`, deploy pending Step 20+).
+
+**Resolution:** Optimistic locking via `version` column on `bookings` table + atomic
+`UPDATE WHERE id=? AND version=?` via `Booking::updateWithVersionCheck()`. Stale
+version on 4 admin mutation paths (PUT update, DELETE destroy, PATCH validatePayment,
+PATCH updateDepartureStatus) → `BookingVersionConflictException` 409 → frontend
+toast + 3-second auto-reload.
+
+**Test coverage:** +14 tests / +77 assertions across 3 test steps:
+- Step 15 unit (`Booking::updateWithVersionCheck`, 5 tests)
+- Step 16 unit (`BookingVersionConflictException::render`, 5 tests)
+- Step 17 feature (`BookingVersionConflictHttpTest` 4 endpoints E2E + DB-unchanged proof, 4 tests)
+
+**Design doc:** `docs/bug-30-design.md` §17 Phase 2 Closure.
+
+**Phase-discovered follow-ups:** bug #43 (validatePayment customer-resolve saveQuietly
+bypass, defer stakeholder), bug #44 (polish 409 UX MVP toast → full modal),
+bug #45 (departure-status outer catch — RESOLVED atomic in Step 14).
+
+**Sibling scope (separate bug):** bug #38 (4 web edit paths dropping-data + rental-data,
+sibling pattern, separate Phase). Not addressed by Phase 2.
 
 **Di-defer dari Section M1 karena:** Scope creep — M1 fokus seat lock bypass fix
 (#21 + #29), booking-level race adalah separate bug class yang butuh migration
-(add version column) atau controller-level refactor.
+(add version column) atau controller-level refactor. Now resolved as standalone Phase 2.
 
 ---
 
