@@ -376,6 +376,10 @@
                         resultEl.style.display  = 'none';
                         actionsEl.style.display = 'flex';
                     }, 3000);
+                } else if (res.status === 409 && data && data.error === 'booking_version_conflict') {
+                    // Bug #30: version conflict — alert + auto-reload (MVP scope, mirrors handleVersionConflict helper logic).
+                    alert('Booking diubah oleh admin lain. Halaman akan refresh otomatis dalam 3 detik...');
+                    setTimeout(function () { window.location.reload(); }, 3000);
                 } else {
                     alert(data.message || 'Terjadi kesalahan');
                     submitBtn.disabled    = false;

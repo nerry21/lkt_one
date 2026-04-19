@@ -1,7 +1,7 @@
 import { apiRequest } from '../../services/http';
 import { escapeHtml, formatCurrency, setButtonBusy, todayString } from '../../services/helpers';
 import { closeModal, openModal } from '../../ui/modal';
-import { toastError, toastSuccess } from '../../ui/toast';
+import { handleVersionConflict, toastError, toastSuccess } from '../../ui/toast';
 
 // ─── Schedules ────────────────────────────────────────────────────────────────
 
@@ -1313,6 +1313,8 @@ export default function initBookingsPage({ user } = {}) {
                 return;
             }
         } catch (error) {
+            // Bug #30: intercept 409 version conflict (departure-status path) before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Gagal memuat data pemesanan');
         }
     });
@@ -1595,6 +1597,8 @@ export default function initBookingsPage({ user } = {}) {
             resetForm();
             await fetchAndRender();
         } catch (error) {
+            // Bug #30: intercept 409 version conflict before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Silakan periksa kembali data yang diinput', 'Gagal menyimpan data pemesanan');
         } finally {
             setButtonBusy(submitButton, false, 'Menyimpan...');
@@ -1615,6 +1619,8 @@ export default function initBookingsPage({ user } = {}) {
             state.deleteItem = null;
             await fetchAndRender();
         } catch (error) {
+            // Bug #30: intercept 409 version conflict before generic toast.
+            if (handleVersionConflict(error)) return;
             toastError(error.message || 'Gagal menghapus data pemesanan');
         } finally {
             setButtonBusy(deleteButton, false, 'Menghapus...');
