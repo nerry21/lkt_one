@@ -440,6 +440,10 @@ Level auth di `/api/*` routes tidak konsisten:
 - bug #43 (validatePayment customer-resolve `saveQuietly()` bypasses version check — same pattern as design §10 Internal Mutator Policy but inside customer auto-resolve branch) — 🔴 OPEN, defer stakeholder review (business call on whether customer-merge side-effect should respect optimistic lock or run quiet)
 - bug #44 (polish 409 conflict UX from MVP toast + 3sec auto-reload to full modal with `[Refresh]/[Cancel]` buttons per bug #30 design §9.3 aspiration) — 🟡 OPEN, defer post-deploy stakeholder feedback (Bu Bos + Admin Zizi)
 - bug #45 (departure-status PATCH endpoint had no dedicated 409 catch site, relied on outer catch) — ✅ RESOLVED atomic in Phase 2 Step 14 EDIT 2d outer catch wiring (commit `bcd2bd6`)
+- bug #37 (slotAssign bulk race — `BookingController::slotAssign` mutates many bookings via slot_id reassignment without optimistic lock or row-level lock, multiple admin can race during bulk slot operations) — 🔴 OPEN, deferred — different class from #30 (bulk multi-row, not single-booking field race), needs separate design phase to scope multi-row optimistic locking strategy
+- bug #38 (web edit paths sibling pattern of #30 — 4 web blade-rendered admin paths: PUT/DELETE `/dashboard/dropping-data/{booking}` + PUT/DELETE `/dashboard/rental-data/{booking}` lack optimistic locking) — 🔴 OPEN, scheduled separate Phase (sibling Phase 1 execution to bug #30 Phase 2, same `version` column infra reusable)
+- bug #40 (`/dashboard/*` middleware hygiene — no explicit `jwt.auth` middleware audit follow-up; implicit Sanctum/session auth assumption without formal middleware enumeration + auth chain trace) — 🔴 OPEN, deferred — security hygiene low priority absent observed bypass, register for future audit pass
+- bug #42 (version-at-delete audit trail — DELETE path destroys booking row, version info lost; `BookingLevelBackup` schema lacks `final_version` column for post-mortem "what version was destroyed?" analysis) — 🔴 OPEN, stakeholder-driven — Q5 design decision per `docs/bug-30-design.md` §14 Q5 (skip rationale: rare DELETE admin action + uncertain audit query use case + scope expansion), defer until use case materializes
 Test yang affected: `RegularBookingPageTest::regular_booking_review_save_persists_booking_as_draft`.
 Fix target: Section G (Fase 1A). Ini contoh bahwa SQLite-based testing memang masking bug —
 bukan teoretis, sudah terbukti konkret.
@@ -1260,6 +1264,147 @@ Semua 4 wizard persistence service sekarang signature-change applied + preventiv
 - **(b) Fase 1B scope expand** — bundle bug #28 + bug #36 trait refactor sekaligus
 
 **Pattern reference:** analog bug #28 normalizeTripTime pattern-wide (6 duplicate locations). Both candidate untuk trait consolidation Fase 1B.
+
+---
+
+### 37. `BookingController::slotAssign` Bulk Race Condition
+
+**Status:** 🔴 OPEN — registered post-bug #30 Phase 2 closure (Sesi 7, 2026-04-19).
+
+**Lokasi:** `app/Http/Controllers/Api/BookingController.php::slotAssign` (line 260).
+
+**Detail:**
+- Endpoint mutates **many bookings** in single request via `slot_id` bulk reassignment
+- Different class from bug #30 (single-booking field race): #37 is multi-row mutation
+- 2 admin can race during overlapping bulk slot operations:
+  1. Admin A: assign bookings [123, 124, 125] to slot 5
+  2. Admin B (concurrent): assign booking 124 to slot 7
+  3. Race: depending on transaction order, booking 124 ends in slot 5 or slot 7 unpredictably
+- No optimistic lock, no row-level lock, no batch atomicity guard
+
+**Why bug #30 fix doesn't cover:**
+- Bug #30 `version` column protects single-booking updates via `WHERE id=? AND version=?`
+- Bulk multi-row update needs different strategy: either (a) per-row optimistic check inside loop with rollback on first conflict, or (b) `SELECT ... FOR UPDATE` lock on entire batch before mutation
+- Both options need separate design phase — out of bug #30 Phase 2 scope
+
+**Impact assessment:**
+- Low frequency: bulk slot assignment is occasional admin action (typically post-departure or schedule reorganization)
+- Low concurrency risk: usually performed by single admin (Bu Bos primary)
+- Defer until observed conflict OR multi-admin slot management workflow emerges
+
+**Defer rationale:** Different bug class needs separate scoping. Not prerequisite for bug #30 Phase 2 deploy. Registered for future Phase planning.
+
+**Reference:** Discussed during bug #30 Phase 0 recon (R1-R5), explicitly out-of-scope for Phase 2.
+
+---
+
+### 38. Web Edit Paths Sibling Pattern of Bug #30 (Dropping-Data + Rental-Data)
+
+**Status:** 🔴 OPEN — registered post-bug #30 Phase 2 closure (Sesi 7, 2026-04-19).
+
+**Lokasi:** 4 web blade-rendered admin routes:
+- `PUT  /dashboard/dropping-data/{booking}` → `DroppingBookingDataPageController::update` (`routes/web.php:115`)
+- `DELETE /dashboard/dropping-data/{booking}` → `DroppingBookingDataPageController::destroy` (`routes/web.php:116`)
+- `PUT  /dashboard/rental-data/{booking}` → `RentalDataPageController::update` (`routes/web.php:122`)
+- `DELETE /dashboard/rental-data/{booking}` → `RentalDataPageController::destroy` (`routes/web.php:123`)
+
+**Detail:**
+- Same race condition class as bug #30: 2 admin edit booking via web admin UI bersamaan → silent data loss on non-seat fields
+- Bug #30 Phase 2 only covered 4 **API JSON** paths (`/api/bookings/{booking}` PUT/DELETE + `/api/bookings/{booking}/validate-payment` PATCH + `/api/bookings/{booking}/departure-status` PATCH)
+- Web blade paths use different controllers + different request flow (form-encoded POST with `_method=PUT/DELETE` instead of JSON PUT/DELETE)
+- Need sibling Phase to wire optimistic locking on web paths
+
+**Reuse from Phase 2:**
+- `version` column on `bookings` table — already exists, no new migration needed
+- `BookingVersionConflictException` — already exists, dual-render (JSON 409 OR redirect-back-with-errors) — web path will use redirect-back branch
+- `Booking::updateWithVersionCheck()` model method — already exists, no changes needed
+- Frontend handling: redirect-back + flash error display in blade view (web pattern, different from JS toast)
+
+**Estimated scope:**
+- 4 controller method updates (mirror Phase 2 Step 5-8 pattern)
+- 2 blade form additions (`<input type="hidden" name="version" value="{{ $booking->version }}">`)
+- Feature tests for 4 web paths (mirror `BookingVersionConflictHttpTest` pattern with `post('/dashboard/dropping-data/{id}', [...])` instead of `putJson`)
+- No new exception class, no new migration
+
+**Defer rationale:**
+- Bug #30 Phase 2 must deploy first (reuses same infrastructure)
+- Lower frequency than API paths (admin uses API more often per Bu Bos workflow observations)
+- Separate Phase keeps scope manageable + atomic deploy units
+
+**Cross-reference:** `docs/bug-30-design.md` §17 Phase 2 Closure §17.5 — "Sibling scope (separate bug)" mention.
+
+---
+
+### 40. `/dashboard/*` Middleware Hygiene — No Explicit `jwt.auth` Audit
+
+**Status:** 🔴 OPEN — registered post-bug #30 Phase 2 closure (Sesi 7, 2026-04-19).
+
+**Lokasi:** `routes/web.php` (entire `/dashboard/*` route group), middleware chain not formally enumerated.
+
+**Detail:**
+- `/dashboard/*` routes implicitly assumed to use Sanctum session auth or web guard
+- No formal audit pass to verify:
+  1. Every `/dashboard/*` route enforces auth middleware
+  2. Auth middleware order is consistent (`auth` → `verified` → role check?)
+  3. No route accidentally exposed without auth (e.g., debug route forgotten)
+  4. Role-check middleware (`role:Admin`, etc.) applied where needed
+
+**Why this matters:**
+- Bug #30 Phase 2 added new `version` field to admin mutation responses — assumes admin-only access
+- If auth middleware bypass exists (theoretical), version-aware mutations could leak admin operations to unauthenticated requests
+- Generic security hygiene: middleware audit is best practice annual review item
+
+**Impact assessment:**
+- Zero observed bypass — registered as hygiene follow-up, not active security incident
+- Production has been stable post-Fase-1A deploy (18 April 2026) with current middleware chain
+- Low immediate risk — but accumulating tech debt without formal enumeration
+
+**Recommended action (when prioritized):**
+- Run `php artisan route:list --path=dashboard` to enumerate all routes + middleware
+- Cross-reference middleware applied vs expected (`auth` + role check minimum)
+- Document middleware chain in `docs/architecture/auth.md` (new file)
+- Add regression test for "all `/dashboard/*` routes require auth" pattern
+
+**Defer rationale:** Security hygiene, not active vulnerability. No P0/P1 indicator. Bundle with future security audit pass.
+
+**Reference:** Discussed informally during bug #30 Phase 2 Sesi 4 (architectural review tangent), formal register deferred until Step 19.
+
+---
+
+### 42. Version-at-Delete Audit Trail — `BookingLevelBackup` Schema Gap
+
+**Status:** 🔴 OPEN — stakeholder-driven, deferred per `docs/bug-30-design.md` §14 Q5.
+
+**Lokasi:** `app/Models/BookingLevelBackup.php` (or wherever the backup table is defined) + `BookingController::destroy` flow.
+
+**Detail:**
+- Bug #30 Phase 2 added `version` column to `bookings` table for optimistic locking
+- DELETE path destroys booking row (after Phase 2 version pre-check passes) — version info lost from production data
+- `BookingLevelBackup` (audit/backup table) does NOT have `final_version` column to capture version at deletion time
+- Use case: post-mortem analysis "what version was the booking at when destroyed?" not currently answerable
+
+**Why deferred (per bug-30-design.md §14 Q5 rationale):**
+- DELETE is rare admin action (soft-delete via status change more common in JET Travel workflow)
+- `BookingLevelBackup` schema doesn't have `final_version` column — adding it = new migration + backfill question (existing rows have no version captured)
+- Audit query use case uncertain — Bu Bos hasn't requested "version at delete" forensics
+- Scope expansion vs bug #30 Phase 2 clean scope (Q5 explicitly skipped during Phase 1 kickoff)
+
+**Re-evaluation triggers:**
+- Stakeholder request for delete forensics (post-deploy Bu Bos review)
+- Multiple "lost data after delete" incidents requiring version history
+- Compliance requirement (audit trail mandate from regulator/external party)
+
+**Implementation sketch (when triggered):**
+- Add `final_version` column to `booking_level_backups` table (migration, nullable to handle pre-Phase-2 backups)
+- Capture `$booking->version` in destroy flow before delete (single line in `BookingManagementService::deleteBooking`)
+- Backfill existing rows with `NULL` (acceptable — Phase 2 only — previous backups predate version column)
+- No frontend changes needed (audit consumed via DB query, not UI)
+
+**Cross-references:**
+- `docs/bug-30-design.md` §14 Q5 — skip decision rationale
+- `docs/bug-30-design.md` §17.5 — Phase-discovered bugs registered
+
+**Defer rationale:** Stakeholder-driven re-evaluation. Not prerequisite for bug #30 Phase 2 deploy.
 
 ---
 
