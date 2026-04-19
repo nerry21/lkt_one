@@ -185,6 +185,9 @@ class BookingManagementService
     {
         return [
             'id' => $booking->getKey(),
+            // Bug #30: expose version for optimistic locking (design §9.1).
+            // List items flow to state.bookings; used by DELETE + PATCH handlers.
+            'version' => (int) ($booking->version ?? 0),
             'booking_code' => (string) $booking->booking_code,
             'nama_pemesanan' => (string) $booking->passenger_name,
             'phone' => (string) $booking->passenger_phone,
