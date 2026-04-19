@@ -35,6 +35,7 @@ Admin concurrent edit pada same booking row = silent data loss. Seat-level sudah
 - Bug #38 — dropping-data + rental-data web edit paths (4 endpoints, same pattern)
 - Bug #37 — slotAssign bulk update (different race class)
 - Bug #40 — /dashboard middleware hygiene (orthogonal)
+- Bug #42 — Version-at-delete audit trail in BookingLevelBackup (deferred, stakeholder-request-driven)
 - Wizard persistPaymentSelection paths (single-admin-session, zero race)
 - Internal service mutators (SeatLockService, ETicketPdfService, TicketBackupService, CustomerMatching/Merge) — bypass via saveQuietly() per policy §10
 
@@ -526,13 +527,69 @@ Current: **128/0/605 (main @ 070dc2c)**. Phase 1 adds ~8-12 new tests. Expected 
 
 ---
 
-## 14. Open Questions for Phase 1 Start
+## 14. Resolved Decisions (Phase 1 Kickoff, 2026-04-19)
 
-1. **Strategy A vs B** in §7.2 — decide based on how aggressive concurrent testing reveals race windows inside transaction
-2. **destroy payload convention** — version via query string (`?version=5`) or body? R5.1 §9 shows current destroy is plain DELETE without body — query string cleaner
-3. **FormRequest for non-update endpoints** — defer or include in scope? Recommend defer (Phase 2 hygiene work)
-4. **Stale booking edit UX** — modal only or toast + inline field highlighting? Defer to UX discussion with Bu Bos
-5. **Version bump on delete** — technically irrelevant (row gone) but for audit: should we log version-at-delete-time somewhere? Option: BookingLevelBackup captures version at destroy time
+Q1-Q5 from Phase 0 recon resolved at Phase 1 kickoff. Each decision locked with rationale.
+
+### Q1 — updateBooking Integration Strategy
+
+**Decision:** Strategy A (pre-check + post-save version bump)
+
+**Rationale:**
+- Preserves existing `persistBooking()` code shape (shared with create path)
+- Race window inside `DB::transaction` = microseconds with MariaDB REPEATABLE READ isolation
+- Real-world admin concurrent edit gap = seconds/minutes (form open → submit), dominant threat
+- Strategy B available as Phase 2B upgrade if production testing reveals race issues
+
+### Q2 — Destroy Payload Convention
+
+**Decision:** Query string (`DELETE /api/bookings/{id}?version=N`)
+
+**Rationale:**
+- DELETE with request body is technically valid but poorly supported by HTTP clients/proxies
+- Existing DELETE endpoints in codebase don't use body
+- Frontend simpler: `fetch('/api/bookings/${id}?version=${v}', {method: 'DELETE'})`
+- Controller reads via `$request->query('version')`
+
+### Q3 — FormRequest for Non-Update Endpoints
+
+**Decision:** Defer (inline validation in controller)
+
+**Rationale:**
+- FormRequest creation = scope expansion beyond bug #30 core (3 new classes)
+- Single version field check = 2 lines inline, mechanically equivalent
+- Phase 1 ships faster; FormRequest hygiene deferrable to audit follow-up
+- If raised as concern later, can register as separate bug
+
+### Q4 — 409 Conflict Modal UX
+
+**Decision:** Minimal modal (sibling of DR-3 seat conflict UX)
+
+**Rationale:**
+- Rich UX (inline field highlighting) requires backend diff computation + 2-4 hr frontend work
+- Minimal modal = 30 min work with [Refresh]/[Cancel] buttons
+- Deferring rich UX to stakeholder request (post-deploy Bu Bos/Admin Zizi feedback)
+- Document as known tradeoff for deployment communication
+
+### Q5 — Version-at-Delete Audit Trail
+
+**Decision:** Skip (defer as bug #42)
+
+**Rationale:**
+- DELETE path is rare admin action (soft-delete via status change more common)
+- BookingLevelBackup schema doesn't have `final_version` column — scope expansion
+- Audit query use case uncertain
+- Registered as bug #42 for stakeholder-driven re-evaluation
+
+### Summary Table
+
+| Q | Decision | Impacted Sections |
+|---|---|---|
+| Q1 | Strategy A | §7.2 (canonical) |
+| Q2 | Query string | §7.3 (destroy wiring) |
+| Q3 | Defer FormRequest | §8.2 (stays deferred) |
+| Q4 | Minimal modal | §9.3 (UX notes) |
+| Q5 | Skip audit trail | §14 Q5 (deferred to bug #42) |
 
 ---
 
@@ -546,4 +603,15 @@ Current: **128/0/605 (main @ 070dc2c)**. Phase 1 adds ~8-12 new tests. Expected 
 
 ---
 
-**End design sketch. Ready for Phase 1 execution (separate sesi).**
+## 16. Decision Log
+
+| Date | Event | Actor | Reference |
+|---|---|---|---|
+| 2026-04-19 | Phase 0 recon complete (R1-R5) | Nerry + Claude | `579f437` initial design doc commit |
+| 2026-04-19 | Q1-Q5 resolved at Phase 1 kickoff | Nerry + Claude | `[this commit]` §14 resolution |
+| TBD | Phase 1 Step 1 migration executed | - | - |
+| TBD | Phase 1 completion | - | - |
+
+---
+
+**End design sketch. Phase 1 kickoff complete. Ready for Phase 1 Step 1 (migration) execution.**
