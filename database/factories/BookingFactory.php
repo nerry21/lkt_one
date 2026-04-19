@@ -42,4 +42,19 @@ class BookingFactory extends Factory
             'booking_status' => 'Draft',
         ];
     }
+
+    /**
+     * Factory lifecycle hooks.
+     *
+     * afterCreating: reload booking from DB to populate columns excluded
+     * from $fillable (like 'version' for optimistic locking per bug #30).
+     * DB defaults apply on INSERT but model's in-memory attribute stays
+     * null without explicit refresh.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Booking $booking) {
+            $booking->refresh();
+        });
+    }
 }
