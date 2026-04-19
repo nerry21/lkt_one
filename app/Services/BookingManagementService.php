@@ -235,6 +235,9 @@ class BookingManagementService
         );
 
         return array_merge($this->listPayload($booking), [
+            // Bug #30: expose version for optimistic locking (design §9.1).
+            // Frontend stores in state.editItem.version, sends back on PUT + PATCH.
+            'version' => $booking->version,
             'invoice_number' => $booking->invoice_number ?: '-',
             'ticket_number' => $booking->ticket_number ?: '-',
             'route_label' => trim((string) ($booking->route_label ?? '')) !== '' ? (string) $booking->route_label : ((string) $booking->from_city . ' - ' . (string) $booking->to_city),
