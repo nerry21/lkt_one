@@ -233,7 +233,26 @@ class BookingController extends Controller
             return response()->json(['message' => 'Status keberangkatan tidak valid'], 422);
         }
 
-        $record->update(['departure_status' => $status !== '' ? $status : null]);
+        // Guard: version required in request body (bug #30, PATCH carries body).
+        $versionRaw = $request->input('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return response()->json([
+                'error' => 'version_required',
+                'message' => 'Parameter version wajib dikirim.',
+            ], 422);
+        }
+        $expectedVersion = (int) $versionRaw;
+
+        // Atomic check-and-set replacement for $record->update() (bug #30, design §7.4).
+        // Single UPDATE with WHERE id = ? AND version = ? — elegant, no DB::transaction needed.
+        $success = $record->updateWithVersionCheck(
+            ['departure_status' => $status !== '' ? $status : null],
+            $expectedVersion,
+        );
+
+        if (! $success) {
+            throw new BookingVersionConflictException($record->id, $expectedVersion);
+        }
 
         return response()->json(['message' => 'Status keberangkatan berhasil diperbarui', 'departure_status' => $status]);
     }
