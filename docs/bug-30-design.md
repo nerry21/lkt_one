@@ -615,3 +615,113 @@ Q1-Q5 from Phase 0 recon resolved at Phase 1 kickoff. Each decision locked with 
 ---
 
 **End design sketch. Phase 1 kickoff complete. Ready for Phase 1 Step 1 (migration) execution.**
+
+---
+
+## 17. Phase 2 Closure (2026-04-19, post-execution)
+
+Phase 2 execution complete. This section captures actual outcome vs §11 design plan.
+
+### 17.1 Final State
+
+- **Branch:** `feat/phase-2-bug-30-optimistic-lock`
+- **Commits delivered:** 17 (2 docs + 15 operational)
+- **Test baseline elevation:** 128 passed / 605 assertions → **142 passed / 682 assertions** (+14 tests / +77 assertions)
+- **Production deploy status:** Pending (Step 20+, target 23-25 April 2026)
+
+### 17.2 Step → Commit Inventory
+
+| Step | Commit | Phase | Subject |
+|---|---|---|---|
+| 1 | `5d661ae` | Backend | Migration add `version` column to `bookings` |
+| 2 | `79c3874` | Backend | Booking model `updateWithVersionCheck()` method |
+| 3 | `1f8f904` | Backend | `BookingVersionConflictException` class (409 / redirect) |
+| 4 | `43aeb54` | Backend | `UpdateBookingRequest` version rule + `BookingFactory::configure()` afterCreating refresh |
+| 5 | `3bafbad` | Backend | PUT path: `BookingManagementService::updateBooking($expectedVersion)` + `BookingController::update` Strategy A (bundles design §11 Step 5+6) |
+| 6 | `d6c66aa` | Backend | DELETE path: `?version=N` query string + service pre-check |
+| 7 | `786fdd8` | Backend | `validatePayment` PATCH path: `updateWithVersionCheck` body source |
+| 8 | `0d7a9c6` | Backend | `updateDepartureStatus` PATCH path: same pattern |
+| 9 | `863eb35` | Backend | `SeatLockService` cache writes → `updateQuietly` (design §10) |
+| 10 | `ece43e9` | Backend | `ETicketPdfService` PDF path writes → `saveQuietly` (design §10) |
+| 11 | `0e8c393` | Frontend | `detailPayload` exposes `version` field |
+| 12 | `62cfb5f` | Frontend | `index.js` PUT/DELETE/PATCH version-aware + backend `listPayload` extension (scope-bundled) |
+| 13 | `76de178` | Frontend | `show.blade.php` `validatePayment` data-attribute + JS read + PATCH body |
+| 14 | `bcd2bd6` | Frontend | 409 conflict handler MVP: `handleVersionConflict()` helper + 4 catch sites (toast + 3sec auto-reload) |
+| 15 | `e22d0d5` | Tests | Unit `Booking::updateWithVersionCheck` (5 tests, +5/+30) |
+| 16 | `770f5cb` | Tests | Unit `BookingVersionConflictException::render` (5 tests, +5/+16) |
+| 17 | `779e5bf` | Tests | Feature `BookingVersionConflictHttpTest` 4 endpoints E2E + DB-unchanged proof (4 tests, +4/+31) |
+
+### 17.3 Label Mapping (operational vs design §11)
+
+Operational step numbers run 1 behind design §11 numbers because operational Step 5 bundled design Step 5+6:
+
+| Operational | Design §11 |
+|---|---|
+| 1-4 | 1-4 (1:1) |
+| 5 | 5+6 (bundled) |
+| 6-15 | 7-16 (1 behind) |
+| 16-17 | 17-18 |
+
+### 17.4 Deviations from Original Design
+
+**MVP toast vs full modal (design §9.3):**
+- Step 14 shipped `handleVersionConflict()` as toast + 3-second auto-reload, not full modal with `[Refresh]/[Cancel]` buttons
+- Rationale: minimum viable UX to unblock deploy; full modal deferred as bug #44
+- User experience impact: minor — auto-reload is acceptable for sub-second race scenarios; explicit modal preferred for longer windows
+
+**Step 5+6 bundling (operational):**
+- Design treated PUT service-layer pre-check (Step 5) and controller post-bump (Step 6) as separate steps
+- Operational Step 5 bundled both since they're behaviorally inseparable (one without the other = broken atomicity)
+- Single commit `3bafbad` covers both with 4 unit tests + 1 feature test atomically
+
+**Step 12 scope-bundled (operational):**
+- Design Step 13 was frontend-only `index.js` plumbing
+- Operational Step 12 also extended backend `BookingManagementService::listPayload()` to expose `version` field
+- Reason: discovered during execution that DELETE + PATCH departure-status flows read booking from `state.bookings` (list payload), not from `state.editItem` (detail payload)
+- Without listPayload extension, those two flows would have `version: undefined` → 422 instead of reaching version check
+
+**Step 14 outer-catch wiring (operational discovery):**
+- Initial Step 14 plan covered 3 catch sites (form submit + delete + validatePayment)
+- During implementation, CC CLI inspection revealed departure-status PATCH had no dedicated catch — it relied on outer catch at `~L1315`
+- Wired outer catch via `handleVersionConflict()` to close gap (would have been bug #45 otherwise — registered + RESOLVED atomic in same commit)
+
+**Test baseline assertion delta variance:**
+- Step 15 (DB-coupled unit): +5 tests / +30 assertions
+- Step 16 (pure exception render): +5 tests / +16 assertions
+- Step 17 (HTTP E2E): +4 tests / +31 assertions
+- Net: +14 tests / +77 assertions (vs rough estimate "+30/+30/+30")
+- Lesson: assertion density correlates with mutation-state checking, not test count
+
+### 17.5 Phase-Discovered Bugs (Registered)
+
+- **Bug #43** (registered Sesi 4): `$record->saveQuietly()` di `validatePayment` customer-resolve path bypasses version check. Same pattern as design §10 Internal Mutator Policy, but inside customer auto-resolve branch within an admin-initiated mutation. Defer stakeholder review — needs business call on whether customer-merge side-effect should respect optimistic lock or run quiet.
+- **Bug #44** (registered Sesi 4): Polish 409 conflict UX from MVP toast (Step 14) to full modal per design §9.3 aspiration. Defer post-deploy stakeholder feedback.
+- **Bug #45** (Sesi 4 discovery, RESOLVED in Step 14): Departure-status PATCH endpoint had no dedicated 409 catch. Registered + resolved atomic via Step 14 EDIT 2d outer catch wiring.
+
+### 17.6 Sesi 6 Lessons (Tests Phase)
+
+1. **VS Code auto-whitespace mid-CC-session:** Editor extensions can modify trailing whitespace on files NOT touched by CC CLI. GATE 3 (clean status check) caught this; mitigation = `git checkout --` discard for whitespace-only changes in out-of-scope files.
+
+2. **Laravel FormRequest validates BEFORE controller body:** `BookingUpsertRequest` rules run before `update()` method body, including version check. To test 409 path, test payload must be FULLY valid (mirror `bookingPayload()` helper shape) to reach the codepath. Otherwise 422 fires first.
+
+3. **`trip_time` is dynamic enum:** Sourced from `RegularBookingService::departureScheduleValues()`, format `'08:00'` (HHMM, 5 chars). Static `'05:00:00'` not in whitelist → 422.
+
+4. **Class name path assumption can be wrong:** `UpdateBookingRequest` lives at `app/Http/Requests/Booking/BookingUpsertRequest.php` (subdirectory + upsert pattern, not `app/Http/Requests/UpdateBookingRequest.php`). Mitigation: `grep -rn ClassName app/` rather than infer from naming convention.
+
+5. **STOP-on-anomaly is cheap recovery:** Step 17 hit 422-instead-of-409 at GATE 1, immediately halted. Recovery in same step (not new step) bounded to single payload-helper fix. Total recovery cost: ~5 minutes inspection + edit + retry.
+
+### 17.7 Updated Decision Log
+
+| Date | Event | Actor | Reference |
+|---|---|---|---|
+| 2026-04-19 | Phase 0 recon complete (R1-R5) | Nerry + Claude | `579f437` initial design doc commit |
+| 2026-04-19 | Q1-Q5 resolved at Phase 1 kickoff | Nerry + Claude | `e73d59f` design doc Q1-Q5 lock |
+| 2026-04-19 | Phase 2 Steps 1-10 backend complete | Nerry + Claude Code CLI | `5d661ae` → `ece43e9` |
+| 2026-04-19 | Phase 2 Steps 11-14 frontend complete | Nerry + Claude Code CLI | `0e8c393` → `bcd2bd6` |
+| 2026-04-19 | Phase 2 Steps 15-17 tests complete | Nerry + Claude Code CLI | `e22d0d5` → `779e5bf` |
+| 2026-04-19 | Phase 2 closure docs (Step 18) | Nerry + Claude | `[this commit]` |
+| TBD | Phase 2 deploy to production (Step 20+) | Nerry | - |
+
+---
+
+**Phase 2 closure complete. Production deploy pending Step 20+.**
