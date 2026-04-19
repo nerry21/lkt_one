@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\BookingVersionConflictException;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
 use App\Models\BookingSeat;
@@ -293,9 +294,15 @@ class BookingManagementService
         });
     }
 
-    public function updateBooking(Booking $booking, array $validated, User $actor): Booking
+    public function updateBooking(Booking $booking, array $validated, User $actor, int $expectedVersion): Booking
     {
-        return DB::transaction(function () use ($booking, $validated, $actor): Booking {
+        return DB::transaction(function () use ($booking, $validated, $actor, $expectedVersion): Booking {
+            // Optimistic lock gate (bug #30): fail fast on stale read before any mutation.
+            // Prevents wasted work and avoids passengers delete/recreate on known-stale requests.
+            if ($booking->version !== $expectedVersion) {
+                throw new BookingVersionConflictException($booking->id, $expectedVersion);
+            }
+
             $oldSlotKey = $this->buildSlotKey($booking);
             $oldSeats = $this->normalizeSeatList((array) ($booking->selected_seats ?? []));
             $newSlotKey = $this->buildSlotKeyFromValidated($validated);
@@ -326,6 +333,14 @@ class BookingManagementService
                     $newSeats,
                     $lockType,
                 );
+            }
+
+            // Atomic version bump (bug #30): catches concurrent writer that slipped in
+            // between pre-check and here. updateWithVersionCheck([]) = version-only UPDATE
+            // using WHERE id = ? AND version = ?; failure rolls back entire transaction
+            // (including passengers delete/recreate).
+            if (! $persisted->updateWithVersionCheck([], $expectedVersion)) {
+                throw new BookingVersionConflictException($booking->id, $expectedVersion);
             }
 
             return $persisted;

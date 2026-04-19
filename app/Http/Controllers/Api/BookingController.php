@@ -73,8 +73,15 @@ class BookingController extends Controller
     public function update(UpdateBookingRequest $request, string $booking, BookingManagementService $service): JsonResponse
     {
         $actor = $this->actor($request);
+        $validated = $request->validated();
+        $expectedVersion = (int) $validated['version'];
 
-        $updatedBooking = $service->updateBooking($this->findBooking($booking), $request->validated(), $actor);
+        $updatedBooking = $service->updateBooking(
+            $this->findBooking($booking),
+            $validated,
+            $actor,
+            $expectedVersion,
+        );
 
         return response()->json($service->detailPayload($updatedBooking));
     }

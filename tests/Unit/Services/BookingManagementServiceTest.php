@@ -108,7 +108,7 @@ class BookingManagementServiceTest extends TestCase
         $this->assertSame(2, BookingSeat::query()->where('booking_id', $booking->id)->active()->count());
 
         $payload = $this->validatedPayload(['notes' => 'Update hanya notes, seat+slot identical']);
-        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin);
+        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin, $booking->fresh()->version);
 
         // No new rows, no released rows — booking_seats state unchanged.
         $rows = BookingSeat::query()->where('booking_id', $booking->id)->get();
@@ -129,7 +129,7 @@ class BookingManagementServiceTest extends TestCase
                 ['seat_no' => '4A', 'name' => 'Siti', 'phone' => '081234567891'],
             ],
         ]);
-        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin);
+        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin, $booking->fresh()->version);
 
         // Old rows released dengan audit fields.
         $released = BookingSeat::query()
@@ -162,7 +162,7 @@ class BookingManagementServiceTest extends TestCase
         $payload = $this->validatedPayload([
             'trip_date' => '2026-04-25',
         ]);
-        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin);
+        $this->svc->updateBooking($booking->fresh(), $payload, $this->admin, $booking->fresh()->version);
 
         // Old slot rows released.
         $oldSlotRows = BookingSeat::query()
@@ -204,7 +204,7 @@ class BookingManagementServiceTest extends TestCase
         ]);
 
         try {
-            $this->svc->updateBooking($booking->fresh(), $payload, $this->admin);
+            $this->svc->updateBooking($booking->fresh(), $payload, $this->admin, $booking->fresh()->version);
             $this->fail('Expected SeatLockReleaseNotAllowedException');
         } catch (SeatLockReleaseNotAllowedException $e) {
             $this->assertSame($booking->id, $e->bookingId);
