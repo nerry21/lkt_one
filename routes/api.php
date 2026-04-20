@@ -40,6 +40,7 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
         Route::post('/bookings/armada-extras', [BookingController::class, 'upsertArmadaExtra'])->name('api.bookings.armada-extras.upsert');
         Route::patch('/bookings/slot-assign', [BookingController::class, 'slotAssign'])->name('api.bookings.slot-assign');
         Route::post('/bookings/quick-package', [BookingController::class, 'quickPackageStore'])->name('api.bookings.quick-package');
+        Route::put('/bookings/quick-package/{booking}', [BookingController::class, 'quickPackageUpdate'])->name('api.bookings.quick-package.update');
         Route::patch('/bookings/{booking}/validate-payment', [BookingController::class, 'validatePayment'])->name('api.bookings.validate-payment');
         Route::patch('/bookings/{booking}/departure-status', [BookingController::class, 'updateDepartureStatus'])->name('api.bookings.departure-status');
         Route::get('/bookings/{booking}/surat-bukti', [BookingController::class, 'downloadPackageInvoiceById'])->name('api.bookings.surat-bukti');

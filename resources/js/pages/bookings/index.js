@@ -37,6 +37,7 @@ const state = {
     selectedSeats: [],
     passengerDraftMap: {},
     editItem: null,
+    editPackageItem: null,
     deleteItem: null,
     slotDriverMap: {},
     slotMobilMap: {},
@@ -1042,9 +1043,21 @@ function buildPayload() {
     };
 }
 
+// Bug #49: module-level ref assigned inside initBookingsPage so top-level
+// openEditDialog can dispatch to the nested fillPackageForm helper.
+let fillPackageFormImpl = null;
+
 async function openEditDialog(id) {
-    fillForm(await apiRequest(`/bookings/${id}`));
-    openModal('booking-form-modal');
+    const item = await apiRequest(`/bookings/${id}`);
+
+    // Bug #49: dispatch by category. Paket uses separate form/API; others use regular flow.
+    if (item.category === 'Paket' && fillPackageFormImpl) {
+        fillPackageFormImpl(item);
+        openModal('package-form-modal');
+    } else {
+        fillForm(item);
+        openModal('booking-form-modal');
+    }
 }
 
 function openDeleteDialog(item) {
@@ -1371,6 +1384,9 @@ export default function initBookingsPage({ user } = {}) {
     // ─── Package booking form logic ───────────────────────────────────────────
 
     function resetPackageForm(armadaIndex = 1, tripTime = '') {
+        // Bug #49: clear edit state on fresh create (submit will POST not PUT)
+        state.editPackageItem = null;
+
         const form = document.getElementById('package-form');
         if (form) form.reset();
         const armadaInput = document.getElementById('package-armada-index');
@@ -1385,9 +1401,117 @@ export default function initBookingsPage({ user } = {}) {
         if (seatGroup) seatGroup.hidden = true;
         const banner = document.getElementById('package-form-success-banner');
         if (banner) banner.hidden = true;
+
+        // Bug #49: reset title + description for CREATE mode (overrides any EDIT-mode text)
+        const titleEl = document.querySelector('#package-form-modal .admin-users-dialog-head h3');
+        if (titleEl) titleEl.textContent = 'Pengirim Paket';
+        const descEl = document.getElementById('package-form-description');
+        if (descEl) descEl.textContent = 'Lengkapi data pengiriman paket. Surat Bukti Pengiriman tersedia setelah disimpan.';
+
         updatePackageTotal();
         fetchOccupiedSeatsForPackage();
     }
+
+    // Bug #49: populate package form from API booking payload for EDIT flow.
+    // Reads notes JSON for recipient/item_* fields (stored as JSON at create time).
+    function fillPackageForm(item) {
+        // Parse notes JSON for recipient/item fields (stored as JSON string at create time)
+        let packageNotes = {};
+        try {
+            packageNotes = item.notes ? JSON.parse(item.notes) : {};
+        } catch (e) {
+            console.warn('Failed to parse package notes JSON:', e);
+            packageNotes = {};
+        }
+
+        // Store edit context for submit handler
+        state.editPackageItem = {
+            id: item.id,
+            booking_code: item.booking_code,
+            version: item.version || 0,
+        };
+
+        // Reset first (ensures no stale data from previous create)
+        const form = document.getElementById('package-form');
+        if (form) form.reset();
+
+        // Armada
+        const armadaInput = document.getElementById('package-armada-index');
+        if (armadaInput) armadaInput.value = String(item.armada_index || 1);
+
+        // Helper for simple setValue (inline since no shared helper in this file)
+        const setVal = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value;
+        };
+
+        // Trip info
+        setVal('pkg-trip-date', item.trip_date_value || item.trip_date || '');
+        setVal('pkg-trip-time', item.trip_time_value || item.trip_time || '');
+        setVal('pkg-from-city', item.from_city || '');
+        setVal('pkg-to-city', item.to_city || '');
+
+        // Sender (from booking.passenger_* + pickup_location)
+        setVal('pkg-sender-name', item.nama_pemesanan || '');
+        setVal('pkg-sender-phone', item.phone || '');
+        setVal('pkg-sender-address', item.pickup_location || '');
+
+        // Recipient (from notes JSON)
+        setVal('pkg-recipient-name', packageNotes.recipient_name || '');
+        setVal('pkg-recipient-phone', packageNotes.recipient_phone || '');
+        setVal('pkg-recipient-address', item.dropoff_location || '');
+
+        // Item (notes JSON; fall back to booking_for for package_size)
+        setVal('pkg-item-name', packageNotes.item_name || '');
+        setVal('pkg-item-qty', String(packageNotes.item_qty || item.passenger_count || 1));
+        const packageSize = packageNotes.package_size || item.booking_for || 'Kecil';
+        setVal('pkg-package-size', packageSize);
+
+        // Seat code (only relevant if package_size === 'Besar')
+        const seatCode = Array.isArray(item.selected_seats) && item.selected_seats.length > 0
+            ? item.selected_seats[0]
+            : '';
+        setVal('pkg-seat-code', seatCode);
+
+        // Show/hide seat group based on package_size
+        const seatGroup = document.getElementById('pkg-seat-group');
+        if (seatGroup) seatGroup.hidden = packageSize !== 'Besar';
+
+        // Pricing
+        setVal('pkg-fare-amount', String(item.price_per_seat || 0));
+        // additional_fare = (total / qty) - fare_amount
+        const qty = Math.max(1, parseInt(packageNotes.item_qty || item.passenger_count || 1, 10));
+        const fare = parseInt(item.price_per_seat || 0, 10) || 0;
+        const total = parseInt(item.total_amount || 0, 10) || 0;
+        const additionalFare = Math.max(0, Math.round(total / qty) - fare);
+        setVal('pkg-additional-fare', String(additionalFare));
+
+        // Payment
+        const pm = item.payment_method_value || '';
+        setVal('pkg-payment-method', pm);
+        setVal('pkg-payment-status', item.payment_status || 'Belum Bayar');
+        setVal('pkg-bank-account-code', item.bank_account_code || '');
+
+        // Show/hide bank group based on payment method
+        const bankGroup = document.getElementById('pkg-bank-account-group');
+        if (bankGroup) bankGroup.hidden = pm !== 'transfer';
+
+        // Hide success banner (from previous create session)
+        const banner = document.getElementById('package-form-success-banner');
+        if (banner) banner.hidden = true;
+
+        // Update title + description for EDIT mode
+        const titleEl = document.querySelector('#package-form-modal .admin-users-dialog-head h3');
+        if (titleEl) titleEl.textContent = 'Edit Pengiriman Paket';
+        const descEl = document.getElementById('package-form-description');
+        if (descEl) descEl.textContent = `Perbarui data pengiriman paket untuk booking ${item.booking_code || ''}.`;
+
+        updatePackageTotal();
+        fetchOccupiedSeatsForPackage();
+    }
+
+    // Bug #49: expose nested fillPackageForm to top-level openEditDialog via module ref.
+    fillPackageFormImpl = fillPackageForm;
 
     function updatePackageTotal() {
         const fare = parseInt(document.getElementById('pkg-fare-amount')?.value || '0', 10) || 0;
@@ -1458,20 +1582,42 @@ export default function initBookingsPage({ user } = {}) {
                     : '',
             };
 
-            const res = await apiRequest('/bookings/quick-package', { method: 'POST', body: payload });
+            // Bug #49: branch by edit mode (state.editPackageItem set when entering edit flow)
+            const isEdit = !!state.editPackageItem;
+            let res;
+            if (isEdit) {
+                // EDIT: include version for Phase 2 optimistic locking; send PUT to quick-package/{id}
+                payload.version = state.editPackageItem.version;
+                res = await apiRequest(
+                    `/bookings/quick-package/${state.editPackageItem.id}`,
+                    { method: 'PUT', body: payload }
+                );
+            } else {
+                res = await apiRequest('/bookings/quick-package', { method: 'POST', body: payload });
+            }
 
             // Show success banner with download link
             const banner = document.getElementById('package-form-success-banner');
             const codeEl = document.getElementById('package-form-booking-code');
             const link = document.getElementById('package-form-download-link');
             if (banner) banner.hidden = false;
-            if (codeEl) codeEl.textContent = 'Kode Booking: ' + res.booking_code + (res.invoice_number && res.invoice_number !== '-' ? ' | No. Surat: ' + res.invoice_number : '');
+            if (codeEl) codeEl.textContent = (isEdit ? 'Paket diperbarui: ' : 'Kode Booking: ')
+                + res.booking_code
+                + (res.invoice_number && res.invoice_number !== '-' ? ' | No. Surat: ' + res.invoice_number : '');
             if (link) link.href = res.invoice_download_url;
 
-            toastSuccess('Paket berhasil disimpan: ' + res.booking_code);
+            toastSuccess((isEdit ? 'Paket diperbarui: ' : 'Paket berhasil disimpan: ') + res.booking_code);
             await fetchAndRender();
+
+            // Clear edit state for next interaction
+            state.editPackageItem = null;
         } catch (error) {
-            toastError(error.message || 'Silakan periksa kembali data yang diinput', 'Gagal menyimpan paket');
+            // Bug #30 Phase 2 pattern: intercept 409 version conflict before generic toast
+            if (handleVersionConflict(error)) return;
+            toastError(
+                error.message || 'Silakan periksa kembali data yang diinput',
+                state.editPackageItem ? 'Gagal memperbarui paket' : 'Gagal menyimpan paket'
+            );
         } finally {
             setButtonBusy(submitBtn, false, 'Menyimpan...');
         }

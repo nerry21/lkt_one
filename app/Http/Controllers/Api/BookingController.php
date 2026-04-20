@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Requests\Booking\StoreQuickPackageBookingRequest;
 use App\Http\Requests\Booking\UpdateBookingRequest;
+use App\Http\Requests\Booking\UpdateQuickPackageBookingRequest;
 use App\Models\Booking;
 use App\Models\BookingArmadaExtra;
 use App\Models\User;
@@ -456,6 +457,168 @@ class BookingController extends Controller
             'invoice_number'       => $booking->invoice_number ?? '-',
             'invoice_download_url' => '/dashboard/bookings/' . $booking->getKey() . '/surat-bukti',
         ], 201);
+    }
+
+    public function quickPackageUpdate(
+        UpdateQuickPackageBookingRequest $request,
+        string $booking,
+        PackageBookingService $packageService,
+        RegularBookingPaymentService $payments,
+        SeatLockService $seatLockService,
+    ): JsonResponse {
+        $actor = $this->actor($request);
+        $v = $request->validated();
+
+        // Load + category guard - fail fast before any mutation
+        $record = $this->findBooking($booking);
+        if ($record->category !== 'Paket') {
+            return response()->json([
+                'message' => 'Endpoint ini hanya untuk booking Paket.',
+            ], 422);
+        }
+
+        $expectedVersion = (int) $v['version'];
+
+        // Pure compute OUTSIDE wrap - no DB mutation
+        $fareAmount     = (int) $v['fare_amount'];
+        $additionalFare = (int) ($v['additional_fare'] ?? 0);
+        $itemQty        = (int) ($v['item_qty'] ?? 1);
+        $totalAmount    = ($fareAmount + $additionalFare) * $itemQty;
+        $paymentMethod  = (string) ($v['payment_method'] ?? '');
+        $paymentStatus  = (string) $v['payment_status'];
+        $paidStatuses   = ['Dibayar', 'Dibayar Tunai'];
+        $isPaid         = in_array($paymentStatus, $paidStatuses, true);
+        $requiresDocs   = $paymentMethod !== '' || $paymentStatus !== 'Belum Bayar';
+
+        $bankAccount = $paymentMethod === 'transfer'
+            ? $payments->bankAccountByCode($v['bank_account_code'] ?? null)
+            : null;
+
+        $notes = json_encode([
+            'recipient_name'  => trim((string) ($v['recipient_name'] ?? '')),
+            'recipient_phone' => trim((string) ($v['recipient_phone'] ?? '')),
+            'item_name'       => trim((string) ($v['item_name'] ?? '')),
+            'item_qty'        => $itemQty,
+            'package_size'    => trim((string) ($v['package_size'] ?? '')),
+        ], JSON_UNESCAPED_UNICODE);
+
+        $tripDate    = (string) $v['trip_date'];
+        $tripTime    = $this->normalizeTripTime((string) $v['trip_time']);
+        $fromCity    = trim((string) $v['from_city']);
+        $toCity      = trim((string) $v['to_city']);
+        $armadaIndex = max(1, (int) ($v['armada_index'] ?? 1));
+
+        $newSelectedSeats = (trim((string) ($v['package_size'] ?? '')) === 'Besar'
+            && trim((string) ($v['seat_code'] ?? '')) !== '')
+            ? [trim((string) $v['seat_code'])]
+            : [];
+
+        // Wrap DB mutation (adopts BookingManagementService::updateBooking pattern):
+        //   1. Pre-check version (fail fast)
+        //   2. Release old seat lock if slot/seat changed
+        //   3. Persist via fill()+save()
+        //   4. Acquire new seat lock if needed
+        //   5. Atomic version bump (catches concurrent writer between pre-check and here)
+        $updatedBooking = DB::transaction(function () use (
+            $record, $v, $actor, $fareAmount, $totalAmount, $itemQty, $paymentMethod, $paymentStatus,
+            $isPaid, $bankAccount, $notes, $requiresDocs, $seatLockService,
+            $tripDate, $tripTime, $fromCity, $toCity, $armadaIndex,
+            $newSelectedSeats, $expectedVersion
+        ): Booking {
+            // STEP 1: Optimistic lock gate (bug #30 pattern) - fail fast on stale read.
+            if ($record->version !== $expectedVersion) {
+                throw new BookingVersionConflictException($record->id, $expectedVersion);
+            }
+
+            // STEP 2: Compute slot/seat deltas for re-lock decision
+            $oldSelectedSeats = (array) ($record->selected_seats ?? []);
+            $oldSlotSignature = implode('|', [
+                (string) $record->trip_date?->toDateString(),
+                (string) $record->trip_time,
+                (string) $record->from_city,
+                (string) $record->to_city,
+                (int) ($record->armada_index ?? 1),
+            ]);
+            $newSlotSignature = implode('|', [$tripDate, $tripTime, $fromCity, $toCity, $armadaIndex]);
+            $slotChanged  = $oldSlotSignature !== $newSlotSignature;
+            $seatsChanged = $oldSelectedSeats !== $newSelectedSeats;
+            $needsReLock  = $slotChanged || $seatsChanged;
+
+            // STEP 3: Release old seat lock if slot/seat changed
+            if ($needsReLock && ! empty($oldSelectedSeats)) {
+                $reason = sprintf(
+                    'admin_update_package_%s_by_user_%s',
+                    $record->booking_code,
+                    $actor->id,
+                );
+                $seatLockService->releaseSeats($record, $actor, $reason);
+            }
+
+            // STEP 4: Persist update via fill()+save() (mirror quickPackageStore fill pattern)
+            $record->fill([
+                'from_city'              => $fromCity,
+                'to_city'                => $toCity,
+                'trip_date'              => $tripDate,
+                'trip_time'              => $tripTime,
+                'booking_for'            => trim((string) $v['package_size']),
+                'passenger_name'         => trim((string) $v['sender_name']),
+                'passenger_phone'        => trim((string) ($v['sender_phone'] ?? '')),
+                'passenger_count'        => $itemQty,
+                'pickup_location'        => trim((string) $v['sender_address']),
+                'dropoff_location'       => trim((string) $v['recipient_address']),
+                'selected_seats'         => $newSelectedSeats,
+                'price_per_seat'         => $fareAmount,
+                'total_amount'           => $totalAmount,
+                'nominal_payment'        => $requiresDocs ? $totalAmount : null,
+                'route_label'            => $fromCity . ' - ' . $toCity,
+                'armada_index'           => $armadaIndex,
+                'payment_method'         => $paymentMethod !== '' ? $paymentMethod : null,
+                'payment_account_bank'   => $bankAccount['bank_name'] ?? null,
+                'payment_account_name'   => $bankAccount['account_holder'] ?? null,
+                'payment_account_number' => $bankAccount['account_number'] ?? null,
+                'payment_status'         => $paymentStatus,
+                'booking_status'         => $isPaid ? 'Diproses' : 'Draft',
+                'ticket_status'          => $isPaid ? 'Aktif' : 'Draft',
+                'paid_at'                => $isPaid ? now() : ($record->paid_at ?? null),
+                'notes'                  => $notes,
+                'invoice_number'         => $record->invoice_number
+                    ?: ($requiresDocs ? $this->generateUniquePackageCode('invoice_number', 'SBB') : null),
+            ]);
+            $record->save();
+
+            // STEP 5: Acquire new seat lock if needed
+            if ($needsReLock && ! empty($newSelectedSeats)) {
+                $slot = [
+                    'trip_date'    => $tripDate,
+                    'trip_time'    => $tripTime,
+                    'from_city'    => $fromCity,
+                    'to_city'      => $toCity,
+                    'armada_index' => $armadaIndex,
+                ];
+                $seatLockService->lockSeats(
+                    $record,
+                    [$slot],
+                    $newSelectedSeats,
+                    $isPaid ? 'hard' : 'soft',
+                );
+            }
+
+            // STEP 6: Atomic version bump (bug #30 pattern - catch concurrent writer
+            // that slipped in between pre-check and save).
+            if (! $record->updateWithVersionCheck([], $expectedVersion)) {
+                throw new BookingVersionConflictException($record->id, $expectedVersion);
+            }
+
+            return $record;
+        });
+
+        return response()->json([
+            'id'                   => $updatedBooking->getKey(),
+            'booking_code'         => $updatedBooking->booking_code,
+            'invoice_number'       => $updatedBooking->invoice_number ?? '-',
+            'invoice_download_url' => '/dashboard/bookings/' . $updatedBooking->getKey() . '/surat-bukti',
+            'version'              => $updatedBooking->version,
+        ]);
     }
 
     public function downloadPackageInvoiceById(
