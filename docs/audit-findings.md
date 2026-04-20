@@ -1408,6 +1408,53 @@ Semua 4 wizard persistence service sekarang signature-change applied + preventiv
 
 ---
 
+### 48. Dompdf Font Embedding Inflates PDF Download Size
+
+**Status:** 🟢 RESOLVED — commit `<pending>` (20 April 2026).
+
+**Lokasi:** `config/dompdf.php` line 113 (post-publish).
+
+**Detail:**
+- dompdf v3.1.5 default config (`enable_font_subsetting = false`) menyebabkan
+  setiap PDF meng-embed full DejaVu Sans font family (Regular 757 KB, Bold
+  706 KB, Oblique 635 KB, BoldOblique 643 KB = total ~2.7 MB TTF files).
+- Template ticket hanya pakai ~60 glyph (huruf Latin dasar + angka + simbol),
+  tapi dompdf embed seluruh TTF termasuk glyph yang tidak terpakai.
+- Produksi single-ticket RBK-260420-OSQO: 894 KB (target ≤300 KB).
+- Breakdown byte budget: logo palette 16 KB + QR 1.5 KB + HTML 5 KB ≈ 22 KB
+  → ~870 KB unexplained = font embedding overhead.
+
+**Empirical validation (sandbox test, pre-deploy):**
+| Variant | Size | Reduction |
+|---|---|---|
+| DejaVu default (current prod) | 1,293 KB | baseline |
+| DejaVu + enable_font_subsetting=true | **83 KB** | **-93.6%** |
+| Helvetica (built-in font) | 851 KB | -34.2% |
+
+- Visual rendering DejaVu default vs subsetting: MD5-identical pada rasterized
+  render (pixel-for-pixel sama). Subsetting hanya strip glyph yang tidak
+  dipakai dari TTF table; glyph yang muncul di PDF tetap persis sama.
+- Helvetica option fallback-embed 2 DejaVu variants (Bold, Oblique) untuk
+  cascade weight/style yang Helvetica tidak cover, jadi kurang efektif dari
+  subsetting pure.
+
+**Fix:**
+`php artisan vendor:publish --provider="Barryvdh\DomPDF\ServiceProvider" --tag=config`,
+kemudian flip `enable_font_subsetting` dari `false` → `true` di line 113.
+
+**Scope:**
+- Config-only change (1 file: `config/dompdf.php`).
+- Applies ke semua 20+ `Pdf::loadView()` call sites secara otomatis.
+- 8 PDF templates yang pakai DejaVu Sans semua benefit.
+- Zero controller / template / model / migration change.
+- Zero test impact (baseline 143/684 preserved).
+
+**Cross-references:**
+- Sesi 8 Round 3 PDF optimization (lanjutan dari palette logo commit `380a569`).
+- Expected production result: single-ticket 894 KB → ~100-150 KB.
+
+---
+
 ## Design Review Items (Non-Bug, Require Business Confirmation)
 
 ### DR-2. Service-Layer Refactor quickPackageStore
