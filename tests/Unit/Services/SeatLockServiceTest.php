@@ -45,7 +45,7 @@ class SeatLockServiceTest extends TestCase
 
     protected function defaultSlot(
         string $date = '2026-04-20',
-        string $time = '05:00:00',
+        string $time = '05:30:00',
         int $armada = 1,
     ): array {
         return [
@@ -313,12 +313,12 @@ class SeatLockServiceTest extends TestCase
     public function test_get_occupied_seats_slot_isolation(): void
     {
         $b1 = $this->makeBookingForSlot();
-        $this->svc->lockSeats($b1, [$this->defaultSlot('2026-04-20', '05:00:00')], ['1A', '2A']);
+        $this->svc->lockSeats($b1, [$this->defaultSlot('2026-04-20', '05:30:00')], ['1A', '2A']);
 
         $b2 = $this->makeBookingForSlot(['trip_time' => '06:00:00']);
         $this->svc->lockSeats($b2, [$this->defaultSlot('2026-04-20', '06:00:00')], ['3A']);
 
-        $slotA = $this->svc->getOccupiedSeats($this->defaultSlot('2026-04-20', '05:00:00'));
+        $slotA = $this->svc->getOccupiedSeats($this->defaultSlot('2026-04-20', '05:30:00'));
         $slotB = $this->svc->getOccupiedSeats($this->defaultSlot('2026-04-20', '06:00:00'));
 
         $this->assertSame(['1A', '2A'], $slotA->sort()->values()->all());

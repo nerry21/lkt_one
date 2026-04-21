@@ -55,7 +55,7 @@ class RegularBookingPersistenceServiceTest extends TestCase
             'booking_type' => 'self',
             'pickup_location' => 'SKPD',
             'destination_location' => 'Pekanbaru',
-            'departure_time' => '05:00',
+            'departure_time' => '05:30',
             'passenger_count' => 2,
             'pickup_address' => 'Jl. Sudirman No. 123 Pekanbaru',
             'dropoff_address' => 'Terminal Pekanbaru Kota',

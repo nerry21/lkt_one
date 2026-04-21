@@ -23,6 +23,8 @@ class Mobil extends Model
     protected $fillable = [
         'kode_mobil',
         'jenis_mobil',
+        'home_pool',
+        'is_active_in_trip',
         'brand',
         'model',
         'seat_capacity',
@@ -34,6 +36,7 @@ class Mobil extends Model
     {
         return [
             'created_at' => 'immutable_datetime',
+            'is_active_in_trip' => 'boolean',
         ];
     }
 
@@ -45,6 +48,11 @@ class Mobil extends Model
     public function departures(): HasMany
     {
         return $this->hasMany(Departure::class, 'mobil_id', 'id');
+    }
+
+    public function trips(): HasMany
+    {
+        return $this->hasMany(Trip::class, 'mobil_id', 'id');
     }
 
     public function getPlateNumberAttribute(): string

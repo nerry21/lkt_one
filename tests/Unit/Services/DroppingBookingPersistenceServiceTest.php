@@ -65,7 +65,7 @@ class DroppingBookingPersistenceServiceTest extends TestCase
             'booking_type' => 'self',
             'pickup_location' => 'Pekanbaru',
             'destination_location' => 'Pasirpengaraian',
-            'departure_time' => '05:00',
+            'departure_time' => '05:30',
             'fare_amount' => 1200000,
             'additional_fare' => 0,
             'pickup_address' => 'Jl. Sudirman No. 123 Pekanbaru',

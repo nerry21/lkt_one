@@ -189,6 +189,36 @@
                         </div>
                     </div>
 
+                    <div class="mobil-form-group">
+                        <label for="mobil-home-pool">Home Pool (Trip Planning)</label>
+                        <div class="mobil-filter-shell mobil-filter-shell-form">
+                            <select id="mobil-home-pool" name="home_pool" data-testid="select-home-pool-mobil">
+                                <option value="">— Belum diset —</option>
+                                <option value="PKB">PKB (Pekanbaru)</option>
+                                <option value="ROHUL">ROHUL (Rokan Hulu)</option>
+                            </select>
+                            <span class="mobil-filter-chevron" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mobil-form-group">
+                        <label class="mobil-checkbox-label" for="mobil-is-active-in-trip">
+                            <input
+                                id="mobil-is-active-in-trip"
+                                name="is_active_in_trip"
+                                type="checkbox"
+                                value="1"
+                                data-testid="checkbox-is-active-in-trip"
+                                checked
+                            >
+                            <span>Mobil aktif di sistem Trip Planning</span>
+                        </label>
+                    </div>
+
                     <div class="mobil-dialog-actions">
                         <button class="mobil-secondary-button" type="button" data-modal-close="mobil-form-modal">Batal</button>
                         <button class="mobil-primary-button" type="submit" id="mobil-submit-btn" data-testid="submit-mobil-btn">Simpan</button>

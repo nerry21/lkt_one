@@ -101,6 +101,8 @@ class MobilController extends Controller
             'id' => $mobil->id,
             'kode_mobil' => $mobil->kode_mobil,
             'jenis_mobil' => $mobil->jenis_mobil,
+            'home_pool' => $mobil->home_pool,
+            'is_active_in_trip' => (bool) $mobil->is_active_in_trip,
             'created_at' => optional($mobil->created_at)?->toISOString(),
         ];
     }

@@ -63,7 +63,7 @@ class PackageBookingPersistenceServiceTest extends TestCase
     {
         return array_merge([
             'trip_date' => '2026-04-20',
-            'departure_time' => '05:00',
+            'departure_time' => '05:30',
             'pickup_city' => 'Pekanbaru',
             'destination_city' => 'Pasirpengaraian',
             'sender_name' => 'Budi Pengirim',

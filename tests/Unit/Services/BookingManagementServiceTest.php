@@ -43,7 +43,7 @@ class BookingManagementServiceTest extends TestCase
 
     protected function defaultSlot(
         string $date = '2026-04-20',
-        string $time = '05:00:00',
+        string $time = '05:30:00',
         int $armada = 1,
     ): array {
         return [
@@ -77,7 +77,7 @@ class BookingManagementServiceTest extends TestCase
             'from_city' => 'Pekanbaru',
             'to_city' => 'Pasirpengaraian',
             'trip_date' => '2026-04-20',
-            'trip_time' => '05:00:00',
+            'trip_time' => '05:30:00',
             'passenger_count' => 2,
             'pickup_location' => 'Jl. Sudirman No. 123 Pekanbaru',
             'dropoff_location' => 'Terminal Pasirpengaraian Kota',

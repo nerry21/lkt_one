@@ -16,6 +16,8 @@ class UpdateMobilRequest extends FormRequest
         return [
             'kode_mobil' => ['sometimes', 'string'],
             'jenis_mobil' => ['sometimes', 'string'],
+            'home_pool' => ['sometimes', 'nullable', 'in:PKB,ROHUL'],
+            'is_active_in_trip' => ['sometimes', 'boolean'],
         ];
     }
 }

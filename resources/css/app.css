@@ -2149,6 +2149,28 @@ button {
     font-weight: 500;
 }
 
+.mobil-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.mobil-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #059669;
+    cursor: pointer;
+    margin: 0;
+}
+
+.mobil-checkbox-label span {
+    color: #064e3b;
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
 .mobil-input-shell {
     position: relative;
 }
