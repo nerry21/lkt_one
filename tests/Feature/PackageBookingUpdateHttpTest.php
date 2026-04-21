@@ -125,7 +125,7 @@ class PackageBookingUpdateHttpTest extends TestCase
         // Factory default is 'Reguler' - no override for this test
         $regularBooking = Booking::factory()->create([
             'passenger_name' => 'Reguler Passenger',
-            'trip_time' => '08:00',
+            'trip_time' => '07:00',
         ]);
 
         $payload = $this->basePutPayload([
@@ -185,7 +185,7 @@ class PackageBookingUpdateHttpTest extends TestCase
             'from_city' => 'Pekanbaru',
             'to_city' => 'Pasirpengaraian',
             'trip_date' => '2026-04-25',
-            'trip_time' => '08:00',
+            'trip_time' => '07:00',
             'price_per_seat' => 100000,
             'total_amount' => 100000,
             'passenger_count' => 1,
@@ -202,7 +202,7 @@ class PackageBookingUpdateHttpTest extends TestCase
         return array_merge([
             'version' => 0,
             'trip_date' => '2026-04-25',
-            'trip_time' => '08:00',
+            'trip_time' => '07:00',
             'from_city' => 'Pekanbaru',
             'to_city' => 'Pasirpengaraian',
             'armada_index' => 1,

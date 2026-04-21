@@ -43,7 +43,7 @@ class RegularBookingPageTest extends TestCase
             'booking_type' => 'self',
             'pickup_location' => 'SKPD',
             'destination_location' => 'Pekanbaru',
-            'departure_time' => '08:00',
+            'departure_time' => '07:00',
             'passenger_count' => 3,
             'pickup_address' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
             'dropoff_address' => 'Jl. Sudirman No. 8 Pekanbaru',
@@ -54,7 +54,7 @@ class RegularBookingPageTest extends TestCase
         $response->assertSessionHas('regular_booking.information.booking_type', 'self');
         $response->assertSessionHas('regular_booking.information.pickup_location', 'SKPD');
         $response->assertSessionHas('regular_booking.information.destination_location', 'Pekanbaru');
-        $response->assertSessionHas('regular_booking.information.departure_time', '08:00');
+        $response->assertSessionHas('regular_booking.information.departure_time', '07:00');
         $response->assertSessionHas('regular_booking.information.passenger_count', 3);
         $response->assertSessionHas('regular_booking.information.pickup_address', 'Jl. Tuanku Tambusai No. 12 Pekanbaru');
         $response->assertSessionHas('regular_booking.information.dropoff_address', 'Jl. Sudirman No. 8 Pekanbaru');
@@ -88,7 +88,7 @@ class RegularBookingPageTest extends TestCase
                 'booking_type' => 'self',
                 'pickup_location' => 'SKPD',
                 'destination_location' => 'SKPD',
-                'departure_time' => '08:00',
+                'departure_time' => '07:00',
                 'passenger_count' => 2,
                 'pickup_address' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
                 'dropoff_address' => 'Jl. Sudirman No. 8 Pekanbaru',
@@ -368,7 +368,7 @@ class RegularBookingPageTest extends TestCase
             ->assertSee('Untuk Orang Lain')
             ->assertSee('SKPD')
             ->assertSee('Pekanbaru')
-            ->assertSee('Pagi - 08.00 WIB')
+            ->assertSee('Pagi - 07.00 WIB')
             ->assertSee('Jl. Tuanku Tambusai No. 12 Pekanbaru')
             ->assertSee('Jl. Sudirman No. 8 Pekanbaru')
             ->assertSee('Rp 150.000')
@@ -893,7 +893,7 @@ class RegularBookingPageTest extends TestCase
             'booking_type' => 'self',
             'pickup_location' => 'SKPD',
             'destination_location' => 'Pekanbaru',
-            'departure_time' => '08:00',
+            'departure_time' => '07:00',
             'passenger_count' => 3,
             'pickup_address' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
             'dropoff_address' => 'Jl. Sudirman No. 8 Pekanbaru',
@@ -928,7 +928,7 @@ class RegularBookingPageTest extends TestCase
             'from_city' => 'SKPD',
             'to_city' => 'Pekanbaru',
             'trip_date' => now()->toDateString(),
-            'trip_time' => '08:00:00',
+            'trip_time' => '07:00:00',
             'booking_for' => 'Untuk Diri Sendiri',
             'passenger_name' => 'Budi Santoso',
             'passenger_phone' => '081234567890',

@@ -6,10 +6,10 @@ import { handleVersionConflict, toastError, toastSuccess } from '../../ui/toast'
 // ─── Schedules ────────────────────────────────────────────────────────────────
 
 const SCHEDULES = [
-    { value: '05:00', label: 'Subuh', time: '05.00 WIB' },
-    { value: '08:00', label: 'Pagi', time: '08.00 WIB' },
-    { value: '10:00', label: 'Pagi', time: '10.00 WIB' },
-    { value: '14:00', label: 'Siang', time: '14.00 WIB' },
+    { value: '05:30', label: 'Subuh', time: '05.30 WIB' },
+    { value: '07:00', label: 'Pagi', time: '07.00 WIB' },
+    { value: '09:00', label: 'Pagi', time: '09.00 WIB' },
+    { value: '13:00', label: 'Siang', time: '13.00 WIB' },
     { value: '16:00', label: 'Sore', time: '16.00 WIB' },
     { value: '19:00', label: 'Malam', time: '19.00 WIB' },
 ];

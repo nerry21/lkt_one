@@ -29,10 +29,10 @@ class RegularBookingService
     public function departureSchedules(): array
     {
         return [
-            ['value' => '05:00', 'label' => 'Subuh - 05.00 WIB'],
-            ['value' => '08:00', 'label' => 'Pagi - 08.00 WIB'],
-            ['value' => '10:00', 'label' => 'Pagi - 10.00 WIB'],
-            ['value' => '14:00', 'label' => 'Siang - 14.00 WIB'],
+            ['value' => '05:30', 'label' => 'Subuh - 05.30 WIB'],
+            ['value' => '07:00', 'label' => 'Pagi - 07.00 WIB'],
+            ['value' => '09:00', 'label' => 'Pagi - 09.00 WIB'],
+            ['value' => '13:00', 'label' => 'Siang - 13.00 WIB'],
             ['value' => '16:00', 'label' => 'Sore - 16.00 WIB'],
             ['value' => '19:00', 'label' => 'Malam - 19.00 WIB'],
         ];

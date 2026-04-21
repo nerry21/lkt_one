@@ -7,7 +7,7 @@ class KeberangkatanController extends Controller {
         $items=Keberangkatan::query()->when($search!=='', function($q) use($search){ $q->where('driver_nama','like',"%{$search}%")->orWhere('kode_mobil','like',"%{$search}%")->orWhere('tipe_layanan','like',"%{$search}%")->orWhereDate('tanggal',$search); })->latest('tanggal')->paginate(10)->withQueryString();
         return view('keberangkatan.index', compact('items','search'));
     }
-    public function create(): View { return view('keberangkatan.form',['item'=>new Keberangkatan(['jam_keberangkatan'=>'08:00','jam_label'=>'Jam Pagi 08:00 WIB','tipe_layanan'=>'Reguler']),'drivers'=>Driver::orderBy('nama')->get(),'mobil'=>Mobil::orderBy('kode_mobil')->get()]); }
+    public function create(): View { return view('keberangkatan.form',['item'=>new Keberangkatan(['jam_keberangkatan'=>'07:00','jam_label'=>'Jam Pagi 07:00 WIB','tipe_layanan'=>'Reguler']),'drivers'=>Driver::orderBy('nama')->get(),'mobil'=>Mobil::orderBy('kode_mobil')->get()]); }
     public function store(Request $request, TransportService $service): RedirectResponse {
         $validated=$this->validateData($request); $driver=Driver::findOrFail($validated['driver_id']); $validated['driver_nama']=$driver->nama; $validated=array_merge($validated,$service->tanggalMeta($validated['tanggal']),$service->hitungKeuangan($validated)); Keberangkatan::create($validated); $service->sinkronkanStock($validated['tanggal']); return redirect()->route('keberangkatan.index')->with('success','Keberangkatan berhasil ditambahkan.');
     }

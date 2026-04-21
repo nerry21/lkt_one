@@ -106,7 +106,7 @@ class BookingManagementPageTest extends TestCase
             'passenger_phone' => '081234567890',
             'from_city' => 'SKPD',
             'to_city' => 'Pekanbaru',
-            'trip_time' => '08:00:00',
+            'trip_time' => '07:00:00',
             'selected_seats' => ['1A', '2A'],
             'category' => 'Reguler',
             'total_amount' => 300000,
@@ -442,13 +442,13 @@ class BookingManagementPageTest extends TestCase
             'booking_status' => 'Menunggu Verifikasi Pembayaran',
             'selected_seats' => ['1A', '2A'],
             'trip_date' => '2026-04-20',
-            'trip_time' => '08:00:00',
+            'trip_time' => '07:00:00',
         ]);
 
         $lockSvc = $this->app->make(SeatLockService::class);
         $slot = [
             'trip_date' => '2026-04-20',
-            'trip_time' => '08:00:00',
+            'trip_time' => '07:00:00',
             'from_city' => 'SKPD',
             'to_city' => 'Pekanbaru',
             'armada_index' => 1,
@@ -496,7 +496,7 @@ class BookingManagementPageTest extends TestCase
             'from_city' => 'SKPD',
             'to_city' => 'Pekanbaru',
             'trip_date' => now()->addDay()->toDateString(),
-            'trip_time' => '08:00',
+            'trip_time' => '07:00',
             'passenger_count' => 2,
             'driver_name' => '',
             'pickup_location' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
@@ -530,7 +530,7 @@ class BookingManagementPageTest extends TestCase
             'from_city' => 'SKPD',
             'to_city' => 'Pekanbaru',
             'trip_date' => now()->toDateString(),
-            'trip_time' => '08:00:00',
+            'trip_time' => '07:00:00',
             'booking_for' => 'Untuk Diri Sendiri',
             'passenger_name' => 'Budi Santoso',
             'passenger_phone' => '081234567890',

@@ -35,7 +35,7 @@ use Throwable;
  *   } catch (QueryException $e) {
  *       if ($e->getCode() === '23000') {
  *           throw new SeatConflictException(
- *               conflicts: [['date' => '2026-04-20', 'time' => '05:00:00', 'seat' => '1A', 'booking_id' => 123]],
+ *               conflicts: [['date' => '2026-04-20', 'time' => '05:30:00', 'seat' => '1A', 'booking_id' => 123]],
  *               previous: $e,
  *           );
  *       }

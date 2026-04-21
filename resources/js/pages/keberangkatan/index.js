@@ -18,14 +18,14 @@ const state = {
 
 const limit = 10;
 const departureTimeOptions = {
-    '05:00': 'Subuh (05.00 WIB)',
-    '08:00': 'Pagi (08.00 WIB)',
-    '10:00': 'Pagi (10.00 WIB)',
-    '14:00': 'Siang (14.00 WIB)',
+    '05:30': 'Subuh (05.30 WIB)',
+    '07:00': 'Pagi (07.00 WIB)',
+    '09:00': 'Pagi (09.00 WIB)',
+    '13:00': 'Siang (13.00 WIB)',
     '16:00': 'Sore (16.00 WIB)',
     '19:00': 'Malam (19.00 WIB)',
 };
-const defaultDepartureTime = '08:00';
+const defaultDepartureTime = '07:00';
 const serviceTypeOptions = ['Reguler', 'Dropping', 'Rental'];
 const defaultServiceType = 'Reguler';
 
