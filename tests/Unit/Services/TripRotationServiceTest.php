@@ -149,9 +149,9 @@ class TripRotationServiceTest extends TestCase
 
     // ── Group 3: markTidakKeluarTrip ────────────────────────────────────────
 
-    public function test_markTidakKeluarTrip_transitions_scheduled_to_tidak_keluar_trip(): void
+    public function test_markTidakKeluarTrip_transitions_keluar_trip_to_tidak_keluar_trip(): void
     {
-        $trip = Trip::factory()->scheduled()->create([
+        $trip = Trip::factory()->keluarTrip('out', 'PKB')->create([
             'trip_date' => self::TRIP_DATE,
             'trip_time' => '05:30:00',
         ])->refresh();
@@ -161,9 +161,10 @@ class TripRotationServiceTest extends TestCase
         $this->assertSame('tidak_keluar_trip', $result->status);
     }
 
-    public function test_markTidakKeluarTrip_throws_when_status_not_scheduled(): void
+    public function test_markTidakKeluarTrip_throws_when_status_not_keluar_trip(): void
     {
-        $trip = Trip::factory()->berangkat()->create([
+        // Scheduled trip is no longer acceptable after Sesi 18 tighten.
+        $trip = Trip::factory()->scheduled()->create([
             'trip_date' => self::TRIP_DATE,
             'trip_time' => '05:30:00',
         ])->refresh();

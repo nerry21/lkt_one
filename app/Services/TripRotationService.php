@@ -17,8 +17,8 @@ use App\Models\Trip;
  * Methods:
  *   - markBerangkat:      scheduled → berangkat
  *   - markTidakBerangkat: scheduled → tidak_berangkat (TIDAK trigger cascade)
- *   - markTidakKeluarTrip: scheduled → tidak_keluar_trip (Sesi 17 simplified —
- *                          should be from keluar_trip after KeluarTripService lives)
+ *   - markTidakKeluarTrip: keluar_trip → tidak_keluar_trip (tightened Sesi 18
+ *                          setelah KeluarTripService live)
  *   - gantiJam:           ubah trip_time, save original_trip_time audit trail
  *
  * Delegates to TripService::updateWithVersionCheck for all mutations
@@ -103,11 +103,9 @@ class TripRotationService
      * Admin menandai bahwa mobil keluar_trip (dropping/rental) tidak jadi
      * berangkat (penumpang cancel, mobil kendala, dll).
      *
-     * Pre-condition Sesi 17 (simplified): status = 'scheduled'.
-     *
-     * TODO Sesi 18: tighten to status = 'keluar_trip' once KeluarTripService
-     * is live and can create trips with that status. Currently 'keluar_trip'
-     * is unreachable via existing service surface.
+     * Pre-condition: trip status = 'keluar_trip' (tightened Sesi 18 setelah
+     * KeluarTripService::markKeluarTrip live — sebelumnya accept 'scheduled'
+     * sebagai workaround karena keluar_trip unreachable).
      *
      * @throws TripInvalidTransitionException
      * @throws \App\Exceptions\TripVersionConflictException
@@ -116,14 +114,12 @@ class TripRotationService
     {
         $trip = $this->fetchTripOrFail($tripId);
 
-        // TODO(Sesi 18): setelah KeluarTripService live, change precondition
-        // to: $trip->status !== 'keluar_trip'
-        if ($trip->status !== 'scheduled') {
+        if ($trip->status !== 'keluar_trip') {
             throw new TripInvalidTransitionException(
                 tripId: $tripId,
                 currentStatus: $trip->status,
                 attemptedAction: 'markTidakKeluarTrip',
-                reason: 'trip harus berstatus scheduled (Sesi 17 simplified — akan tighten ke keluar_trip di Sesi 18)',
+                reason: 'trip harus berstatus keluar_trip (Sesi 18 tightened via KeluarTripService.markKeluarTrip)',
             );
         }
 
