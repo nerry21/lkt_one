@@ -62,6 +62,7 @@ class Booking extends Model
         'booking_status',
         'departure_status',
         'armada_index',
+        'trip_id',
         'ticket_pdf_path',
         'ticket_pdf_disk',
         'ticket_pdf_generated_at',
@@ -189,6 +190,11 @@ class Booking extends Model
     public function departure(): BelongsTo
     {
         return $this->belongsTo(Departure::class);
+    }
+
+    public function trip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class);
     }
 
     public function getFromAttribute(): string
