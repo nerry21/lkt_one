@@ -232,6 +232,8 @@ function resetForm() {
     const hiddenId = document.getElementById('mobil-id');
     const kode = document.getElementById('mobil-kode');
     const jenis = document.getElementById('mobil-jenis');
+    const homePool = document.getElementById('mobil-home-pool');
+    const isActive = document.getElementById('mobil-is-active-in-trip');
 
     form?.reset();
 
@@ -245,6 +247,15 @@ function resetForm() {
 
     if (jenis) {
         jenis.value = 'Hiace';
+    }
+
+    if (homePool) {
+        homePool.value = '';
+    }
+
+    if (isActive) {
+        // Default true untuk mobil baru (match DB default + design §3.5)
+        isActive.checked = true;
     }
 
     if (title) {
@@ -265,6 +276,8 @@ function fillForm(item) {
     const hiddenId = document.getElementById('mobil-id');
     const kode = document.getElementById('mobil-kode');
     const jenis = document.getElementById('mobil-jenis');
+    const homePool = document.getElementById('mobil-home-pool');
+    const isActive = document.getElementById('mobil-is-active-in-trip');
 
     state.editItem = item;
 
@@ -278,6 +291,15 @@ function fillForm(item) {
 
     if (jenis) {
         jenis.value = item.jenis_mobil;
+    }
+
+    if (homePool) {
+        homePool.value = item.home_pool ?? '';
+    }
+
+    if (isActive) {
+        // Default true untuk mobil baru; existing item pakai value dari payload
+        isActive.checked = item.is_active_in_trip !== false;
     }
 
     if (title) {
@@ -365,9 +387,13 @@ export default function initMobilPage() {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        const homePoolValue = document.getElementById('mobil-home-pool')?.value || '';
+
         const payload = {
             kode_mobil: document.getElementById('mobil-kode')?.value.trim().toUpperCase() || '',
             jenis_mobil: document.getElementById('mobil-jenis')?.value || 'Hiace',
+            home_pool: homePoolValue === '' ? null : homePoolValue,
+            is_active_in_trip: document.getElementById('mobil-is-active-in-trip')?.checked ?? true,
         };
 
         setSubmitting(true);

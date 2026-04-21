@@ -16,6 +16,8 @@ class StoreMobilRequest extends FormRequest
         return [
             'kode_mobil' => ['required', 'string'],
             'jenis_mobil' => ['required', 'string'],
+            'home_pool' => ['nullable', 'in:PKB,ROHUL'],
+            'is_active_in_trip' => ['sometimes', 'boolean'],
         ];
     }
 }
