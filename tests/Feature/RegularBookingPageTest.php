@@ -34,8 +34,12 @@ class RegularBookingPageTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
+        // Pakai tanggal future relatif ke now() — validator after_or_equal:today
+        // akan reject hardcoded date yang sudah lewat (bikin test jadi time-bomb).
+        $tripDate = now()->addDay()->toDateString();
+
         $response = $this->post('/dashboard/regular-bookings/information', [
-            'trip_date' => '2026-04-20',
+            'trip_date' => $tripDate,
             'booking_type' => 'self',
             'pickup_location' => 'SKPD',
             'destination_location' => 'Pekanbaru',
@@ -46,7 +50,7 @@ class RegularBookingPageTest extends TestCase
         ]);
 
         $response->assertRedirect('/dashboard/regular-bookings/seats');
-        $response->assertSessionHas('regular_booking.information.trip_date', '2026-04-20');
+        $response->assertSessionHas('regular_booking.information.trip_date', $tripDate);
         $response->assertSessionHas('regular_booking.information.booking_type', 'self');
         $response->assertSessionHas('regular_booking.information.pickup_location', 'SKPD');
         $response->assertSessionHas('regular_booking.information.destination_location', 'Pekanbaru');
