@@ -123,4 +123,36 @@ Route::prefix('dashboard')->group(function () {
     Route::delete('/rental-data/{booking}', [RentalDataPageController::class, 'destroy'])->name('rental-data.destroy');
     Route::get('/rental-data/{booking}/ticket/download', [RentalDataPageController::class, 'downloadTicket'])->name('rental-data.ticket.download');
     Route::get('/rental-data/{booking}/surat-jalan', [RentalDataPageController::class, 'downloadSuratJalan'])->name('rental-data.surat-jalan');
+
+    // Trip Planning — Fase D Sesi 21 (DailyDriverAssignment CRUD foundation).
+    Route::middleware(['jwt.auth', 'admin.role:admin'])->prefix('trip-planning')->group(function () {
+        Route::get('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'index'])
+            ->name('trip-planning.assignments.index');
+        Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
+            ->name('trip-planning.assignments.upsert');
+
+        // Trip Planning — Fase D Sesi 22 (dashboard read endpoints + manual generate).
+        Route::get('/dashboard', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'dashboard'])
+            ->name('trip-planning.dashboard');
+        Route::get('/trips', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'trips'])
+            ->name('trip-planning.trips');
+        Route::post('/generate', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'generate'])
+            ->name('trip-planning.generate');
+
+        // Trip Planning — Fase D Sesi 23 (7 PATCH action endpoints).
+        Route::patch('/trips/{trip}/berangkat', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markBerangkat'])
+            ->name('trip-planning.trips.berangkat');
+        Route::patch('/trips/{trip}/tidak-berangkat', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markTidakBerangkat'])
+            ->name('trip-planning.trips.tidak-berangkat');
+        Route::patch('/trips/{trip}/keluar-trip', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markKeluarTrip'])
+            ->name('trip-planning.trips.keluar-trip');
+        Route::patch('/trips/{trip}/waiting-list', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markWaitingList'])
+            ->name('trip-planning.trips.waiting-list');
+        Route::patch('/trips/{trip}/returning', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markReturning'])
+            ->name('trip-planning.trips.returning');
+        Route::patch('/trips/{trip}/tidak-keluar-trip', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markTidakKeluarTrip'])
+            ->name('trip-planning.trips.tidak-keluar-trip');
+        Route::patch('/trips/{trip}/ganti-jam', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'gantiJam'])
+            ->name('trip-planning.trips.ganti-jam');
+    });
 });
