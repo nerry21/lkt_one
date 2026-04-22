@@ -4,10 +4,14 @@ namespace App\Http\Controllers\TripPlanning;
 
 use App\Exceptions\TripGenerationDriverMissingException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TripPlanning\GantiJamRequest;
 use App\Http\Requests\TripPlanning\GenerateTripRequest;
+use App\Http\Requests\TripPlanning\MarkKeluarTripRequest;
 use App\Models\DailyDriverAssignment;
 use App\Models\Trip;
+use App\Services\KeluarTripService;
 use App\Services\TripGenerationService;
+use App\Services\TripRotationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,6 +34,8 @@ class TripPlanningPageController extends Controller
 
     public function __construct(
         private readonly TripGenerationService $tripGeneration,
+        private readonly TripRotationService $rotationService,
+        private readonly KeluarTripService $keluarTripService,
     ) {}
 
     /**
@@ -150,6 +156,92 @@ class TripPlanningPageController extends Controller
         return response()->json([
             'date' => $date,
             'result' => $result,
+        ]);
+    }
+
+    // ── Fase D3 Sesi 23: trip state-transition action endpoints ───────────
+    //
+    // Service layer requires (int $tripId, int $expectedVersion, ...) signature.
+    // DP-B: tidak ekspos version ke client payload. Controller baca $trip->version
+    // dari RMB (current value) dan pass ke service. TripVersionConflictException
+    // punya render() sendiri kalau ada race antar admin (409 JSON).
+    // TripInvalidTransitionException di-render via bootstrap/app.php (409 JSON).
+
+    public function markBerangkat(Request $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->rotationService->markBerangkat($trip->id, $trip->version);
+
+        return response()->json([
+            'message' => 'Trip marked as berangkat',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function markTidakBerangkat(Request $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->rotationService->markTidakBerangkat($trip->id, $trip->version);
+
+        return response()->json([
+            'message' => 'Trip marked as tidak berangkat',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function markKeluarTrip(MarkKeluarTripRequest $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->keluarTripService->markKeluarTrip(
+            tripId: $trip->id,
+            expectedVersion: $trip->version,
+            payload: $request->validated(),
+        );
+
+        return response()->json([
+            'message' => 'Trip marked as keluar trip',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function markWaitingList(Request $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->keluarTripService->markWaitingList($trip->id, $trip->version);
+
+        return response()->json([
+            'message' => 'Trip moved to waiting list',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function markReturning(Request $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->keluarTripService->markReturning($trip->id, $trip->version);
+
+        return response()->json([
+            'message' => 'Trip set to returning',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function markTidakKeluarTrip(Request $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->rotationService->markTidakKeluarTrip($trip->id, $trip->version);
+
+        return response()->json([
+            'message' => 'Trip marked as tidak keluar trip',
+            'trip' => $updated->load(['mobil', 'driver']),
+        ]);
+    }
+
+    public function gantiJam(GantiJamRequest $request, Trip $trip): JsonResponse
+    {
+        $updated = $this->rotationService->gantiJam(
+            tripId: $trip->id,
+            newTripTime: $request->validated('new_trip_time'),
+            expectedVersion: $trip->version,
+        );
+
+        return response()->json([
+            'message' => 'Trip time updated',
+            'trip' => $updated->load(['mobil', 'driver']),
         ]);
     }
 

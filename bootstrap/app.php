@@ -32,4 +32,20 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
         });
+
+        // Fase D3 Sesi 23: map TripInvalidTransitionException ke JSON 409.
+        // TripSlotConflict + TripVersionConflict self-render; TripGenerationDriverMissing
+        // punya inline catch di TripPlanningPageController::generate (D2).
+        $exceptions->render(function (\App\Exceptions\TripInvalidTransitionException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error_code' => 'TRIP_INVALID_TRANSITION',
+                    'message' => $e->getMessage(),
+                    'trip_id' => $e->tripId,
+                    'current_status' => $e->currentStatus,
+                    'attempted_action' => $e->attemptedAction,
+                    'reason' => $e->reason,
+                ], 409);
+            }
+        });
     })->create();
