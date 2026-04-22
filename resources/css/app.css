@@ -307,8 +307,8 @@ button {
     color: var(--transit-text-soft);
 }
 
-.auth-field input,
-.modal-form input,
+.auth-field input:not([type="radio"]):not([type="checkbox"]),
+.modal-form input:not([type="radio"]):not([type="checkbox"]),
 .modal-form select,
 .search-input,
 .filter-select {
@@ -322,14 +322,14 @@ button {
     transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
 }
 
-.auth-field input::placeholder,
-.modal-form input::placeholder,
+.auth-field input:not([type="radio"]):not([type="checkbox"])::placeholder,
+.modal-form input:not([type="radio"]):not([type="checkbox"])::placeholder,
 .search-input::placeholder {
     color: rgba(148, 163, 184, 0.9);
 }
 
-.auth-field input:focus,
-.modal-form input:focus,
+.auth-field input:not([type="radio"]):not([type="checkbox"]):focus,
+.modal-form input:not([type="radio"]):not([type="checkbox"]):focus,
 .modal-form select:focus,
 .search-input:focus,
 .filter-select:focus {
@@ -8039,7 +8039,12 @@ button {
 }
 
 .trip-planning-radio-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
     margin: 0;
+    accent-color: #10b981;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 
 .trip-planning-radio-option input[type="radio"]:checked + span {
