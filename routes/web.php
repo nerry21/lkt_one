@@ -126,6 +126,10 @@ Route::prefix('dashboard')->group(function () {
 
     // Trip Planning — Fase D Sesi 21 (DailyDriverAssignment CRUD foundation).
     Route::middleware(['jwt.auth', 'admin.role:admin'])->prefix('trip-planning')->group(function () {
+        // Trip Planning — Fase E1 Sesi 25 (dashboard Blade view, read-only).
+        Route::get('/', [\App\Http\Controllers\TripPlanning\TripPlanningDashboardViewController::class, 'show'])
+            ->name('trip-planning.dashboard.view');
+
         Route::get('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'index'])
             ->name('trip-planning.assignments.index');
         Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])

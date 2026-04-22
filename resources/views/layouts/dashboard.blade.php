@@ -10,6 +10,14 @@
             'active_patterns' => ['dashboard'],
         ],
         [
+            'route' => 'trip-planning.dashboard.view',
+            'label' => 'Trip Planning',
+            'testid' => 'nav-trip-planning',
+            'icon' => 'dashboard',
+            'requires_admin' => true,
+            'active_patterns' => ['trip-planning.*'],
+        ],
+        [
             'route' => 'regular-bookings.index',
             'label' => 'Pemesanan Reguler',
             'testid' => 'nav-regular-bookings',

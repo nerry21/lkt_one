@@ -61,6 +61,30 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
         Route::get('/admin-users/{adminUser}', [AdminUserController::class, 'show'])->name('api.admin-users.show');
         Route::put('/admin-users/{adminUser}', [AdminUserController::class, 'update'])->name('api.admin-users.update');
         Route::delete('/admin-users/{adminUser}', [AdminUserController::class, 'destroy'])->name('api.admin-users.destroy');
+
+        // ── Trip Planning API — Fase E2 Sesi 26 ───────────────────────────────
+        // Mirror dari routes/web.php trip-planning group supaya dashboard Blade UI
+        // bisa consume via apiRequest() (prefix /api/). Same controller methods
+        // re-used (thin controller, business logic di service).
+        Route::prefix('trip-planning')->group(function () {
+            Route::get('/dashboard', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'dashboard'])
+                ->name('api.trip-planning.dashboard');
+
+            Route::patch('/trips/{trip}/berangkat', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markBerangkat'])
+                ->name('api.trip-planning.trips.berangkat');
+            Route::patch('/trips/{trip}/tidak-berangkat', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markTidakBerangkat'])
+                ->name('api.trip-planning.trips.tidak-berangkat');
+            Route::patch('/trips/{trip}/keluar-trip', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markKeluarTrip'])
+                ->name('api.trip-planning.trips.keluar-trip');
+            Route::patch('/trips/{trip}/waiting-list', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markWaitingList'])
+                ->name('api.trip-planning.trips.waiting-list');
+            Route::patch('/trips/{trip}/returning', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markReturning'])
+                ->name('api.trip-planning.trips.returning');
+            Route::patch('/trips/{trip}/tidak-keluar-trip', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'markTidakKeluarTrip'])
+                ->name('api.trip-planning.trips.tidak-keluar-trip');
+            Route::patch('/trips/{trip}/ganti-jam', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'gantiJam'])
+                ->name('api.trip-planning.trips.ganti-jam');
+        });
     });
 
     Route::get('/drivers', [DriverController::class, 'index'])->name('api.drivers.index');

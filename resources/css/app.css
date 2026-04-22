@@ -7755,3 +7755,255 @@ button {
     cursor: pointer; transition: background 0.15s;
 }
 .plkt-danger-button:hover { background: #dc2626; }
+
+/* ── Trip Planning dashboard (Fase E1 Sesi 25) ─────────────────────────── */
+
+.dashboard-inline-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dashboard-date-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background: #ffffff;
+    color: #111827;
+}
+
+.dashboard-date-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.trip-planning-pool-tag {
+    display: inline-flex;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.4rem;
+    background: #ecfdf5;
+    color: #065f46;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.trip-planning-status-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+}
+
+.trip-planning-status-breakdown-empty {
+    color: #6b7280;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.trip-planning-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.trip-planning-status-badge--scheduled {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.trip-planning-status-badge--berangkat {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.trip-planning-status-badge--tidak_berangkat {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.trip-planning-status-badge--keluar_trip {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.trip-planning-status-badge--tidak_keluar_trip {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.trip-planning-status-badge--ganti_jam {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+.trip-planning-direction-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.trip-planning-direction-badge--rohul-to-pkb {
+    background-color: #ecfccb;
+    color: #3f6212;
+}
+
+.trip-planning-direction-badge--pkb-to-rohul {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.trip-planning-trips-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.trip-planning-trips-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.trip-planning-trips-table thead {
+    background-color: #f9fafb;
+}
+
+.trip-planning-trips-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #065f46;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.trip-planning-trips-table td {
+    padding: 0.65rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1f2937;
+}
+
+.trip-planning-trips-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.trip-planning-trips-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+@media (max-width: 767px) {
+    .trip-planning-trips-table {
+        font-size: 0.78rem;
+    }
+
+    .trip-planning-trips-table th,
+    .trip-planning-trips-table td {
+        padding: 0.55rem 0.7rem;
+        white-space: nowrap;
+    }
+
+    .dashboard-inline-form {
+        width: 100%;
+    }
+
+    .dashboard-date-input {
+        flex: 1;
+    }
+}
+
+/* ── Trip Planning actions (Fase E2 Sesi 26) ─────────────────────────── */
+
+.trip-planning-actions-cell {
+    padding: 0.5rem 0.75rem !important;
+    min-width: 220px;
+}
+
+.trip-planning-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.trip-planning-action-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.7rem;
+    border-radius: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s, opacity 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.trip-planning-action-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.trip-planning-action-btn--success {
+    background-color: #10b981;
+    color: #ffffff;
+}
+
+.trip-planning-action-btn--success:hover:not(:disabled) {
+    background-color: #059669;
+}
+
+.trip-planning-action-btn--danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+.trip-planning-action-btn--danger:hover:not(:disabled) {
+    background-color: #fecaca;
+}
+
+.trip-planning-action-btn--neutral {
+    background-color: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.trip-planning-action-btn--neutral:hover:not(:disabled) {
+    background-color: #e5e7eb;
+}
+
+.trip-planning-action-btn--confirming {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #991b1b !important;
+    animation: trip-planning-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes trip-planning-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.75; }
+}
+
+@media (max-width: 767px) {
+    .trip-planning-actions-cell {
+        min-width: 180px;
+    }
+
+    .trip-planning-action-btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.68rem;
+    }
+}
