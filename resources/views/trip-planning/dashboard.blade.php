@@ -99,6 +99,7 @@
                                     <th>Jam</th>
                                     <th>Seq</th>
                                     <th>Status</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -120,6 +121,57 @@
                                                     · {{ $trip->keluar_trip_substatus }}
                                                 @endif
                                             </span>
+                                        </td>
+                                        <td class="trip-planning-actions-cell">
+                                            <div class="trip-planning-action-group" data-trip-actions>
+                                                @if ($trip->status === 'scheduled' && $trip->trip_time !== null)
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--success"
+                                                            data-action="berangkat"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-testid="btn-berangkat-{{ $trip->id }}">
+                                                        Berangkat
+                                                    </button>
+                                                @endif
+
+                                                @if ($trip->status === 'scheduled')
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--danger"
+                                                            data-action="tidak-berangkat"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-testid="btn-tidak-berangkat-{{ $trip->id }}">
+                                                        Tidak Berangkat
+                                                    </button>
+                                                @endif
+
+                                                @if ($trip->status === 'keluar_trip' && $trip->keluar_trip_substatus === 'out')
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
+                                                            data-action="waiting-list"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-testid="btn-waiting-list-{{ $trip->id }}">
+                                                        Waiting List
+                                                    </button>
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
+                                                            data-action="tidak-keluar-trip"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-testid="btn-tidak-keluar-trip-{{ $trip->id }}">
+                                                        Tidak Keluar Trip
+                                                    </button>
+                                                @endif
+
+                                                @if ($trip->status === 'keluar_trip' && $trip->keluar_trip_substatus === 'waiting_list')
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--success"
+                                                            data-action="returning"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-testid="btn-returning-{{ $trip->id }}">
+                                                        Returning
+                                                    </button>
+                                                @endif
+                                                {{-- keluar-trip + ganti-jam (modal form actions) defer ke Fase E3 --}}
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach

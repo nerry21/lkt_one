@@ -7924,3 +7924,86 @@ button {
         flex: 1;
     }
 }
+
+/* ── Trip Planning actions (Fase E2 Sesi 26) ─────────────────────────── */
+
+.trip-planning-actions-cell {
+    padding: 0.5rem 0.75rem !important;
+    min-width: 220px;
+}
+
+.trip-planning-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.trip-planning-action-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.7rem;
+    border-radius: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s, opacity 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.trip-planning-action-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.trip-planning-action-btn--success {
+    background-color: #10b981;
+    color: #ffffff;
+}
+
+.trip-planning-action-btn--success:hover:not(:disabled) {
+    background-color: #059669;
+}
+
+.trip-planning-action-btn--danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+.trip-planning-action-btn--danger:hover:not(:disabled) {
+    background-color: #fecaca;
+}
+
+.trip-planning-action-btn--neutral {
+    background-color: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.trip-planning-action-btn--neutral:hover:not(:disabled) {
+    background-color: #e5e7eb;
+}
+
+.trip-planning-action-btn--confirming {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #991b1b !important;
+    animation: trip-planning-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes trip-planning-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.75; }
+}
+
+@media (max-width: 767px) {
+    .trip-planning-actions-cell {
+        min-width: 180px;
+    }
+
+    .trip-planning-action-btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.68rem;
+    }
+}
