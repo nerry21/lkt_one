@@ -21,6 +21,7 @@ import initPassengerLktPage from './pages/passengers-lkt/index';
 import initCustomersPage from './pages/customers/index';
 import initDroppingBookingsPage from './pages/dropping-bookings/index';
 import initDroppingDataPage from './pages/dropping-data/index';
+import initTripPlanningDashboardPage from './pages/trip-planning/dashboard';
 
 const pageModules = {
     'admin-users/index': initAdminUsersPage,
@@ -38,6 +39,7 @@ const pageModules = {
     'customers/index': initCustomersPage,
     'dropping-bookings/index': initDroppingBookingsPage,
     'dropping-data/index': initDroppingDataPage,
+    'trip-planning/dashboard': initTripPlanningDashboardPage,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
