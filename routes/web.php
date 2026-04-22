@@ -130,5 +130,13 @@ Route::prefix('dashboard')->group(function () {
             ->name('trip-planning.assignments.index');
         Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
             ->name('trip-planning.assignments.upsert');
+
+        // Trip Planning — Fase D Sesi 22 (dashboard read endpoints + manual generate).
+        Route::get('/dashboard', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'dashboard'])
+            ->name('trip-planning.dashboard');
+        Route::get('/trips', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'trips'])
+            ->name('trip-planning.trips');
+        Route::post('/generate', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'generate'])
+            ->name('trip-planning.generate');
     });
 });
