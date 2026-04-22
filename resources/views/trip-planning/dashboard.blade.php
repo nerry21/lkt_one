@@ -180,8 +180,15 @@
                                                             data-testid="btn-ganti-jam-{{ $trip->id }}">
                                                         Ganti Jam
                                                     </button>
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--danger"
+                                                            data-action="open-keluar-trip-modal"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-mobil-home-pool="{{ $trip->mobil->home_pool ?? '' }}"
+                                                            data-testid="btn-keluar-trip-{{ $trip->id }}">
+                                                        Keluar Trip
+                                                    </button>
                                                 @endif
-                                                {{-- keluar-trip (modal form action) defer ke Fase E3-B --}}
                                             </div>
                                         </td>
                                     </tr>
@@ -234,6 +241,84 @@
                         <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-ganti-jam-modal">Batal</button>
                         <button type="submit" class="dashboard-primary-button" id="trip-planning-ganti-jam-submit" data-testid="btn-submit-ganti-jam">
                             Ganti Jam
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal-shell" id="trip-planning-keluar-trip-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-keluar-trip-modal"></div>
+
+            <div class="modal-card">
+                <div class="modal-head">
+                    <div>
+                        <h3>Keluar Trip</h3>
+                        <p class="trip-planning-modal-subtitle">
+                            Mobil keluar dari rotasi. Pilih alasan dan pool tujuan saat kembali.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-keluar-trip-modal" aria-label="Tutup">
+                        &times;
+                    </button>
+                </div>
+
+                <form id="trip-planning-keluar-trip-form" class="modal-form" data-testid="trip-planning-keluar-trip-form">
+                    <input type="hidden" id="trip-planning-keluar-trip-trip-id" value="">
+
+                    <div>
+                        <label class="trip-planning-modal-label">Reason <span class="trip-planning-modal-required">*</span></label>
+                        <div class="trip-planning-radio-group" data-testid="input-keluar-trip-reason-group">
+                            <label class="trip-planning-radio-option">
+                                <input type="radio" name="reason" value="dropping" required data-testid="input-keluar-trip-reason-dropping">
+                                <span>Dropping</span>
+                            </label>
+                            <label class="trip-planning-radio-option">
+                                <input type="radio" name="reason" value="rental" required data-testid="input-keluar-trip-reason-rental">
+                                <span>Rental</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="trip-planning-modal-label">Pool tujuan <span class="trip-planning-modal-required">*</span></label>
+                        <div class="trip-planning-radio-group" data-testid="input-keluar-trip-pool-group">
+                            <label class="trip-planning-radio-option">
+                                <input type="radio" name="pool_target" value="PKB" required data-testid="input-keluar-trip-pool-pkb">
+                                <span>PKB</span>
+                            </label>
+                            <label class="trip-planning-radio-option">
+                                <input type="radio" name="pool_target" value="ROHUL" required data-testid="input-keluar-trip-pool-rohul">
+                                <span>ROHUL</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-keluar-trip-end-date" class="trip-planning-modal-label">
+                            <span id="trip-planning-keluar-trip-end-date-label-text">Planned end date</span>
+                            <span class="trip-planning-modal-required" id="trip-planning-keluar-trip-end-date-asterisk" hidden>*</span>
+                            <span class="trip-planning-modal-hint" id="trip-planning-keluar-trip-end-date-hint">(opsional untuk dropping)</span>
+                        </label>
+                        <input type="date"
+                               id="trip-planning-keluar-trip-end-date"
+                               name="planned_end_date"
+                               data-testid="input-keluar-trip-end-date">
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-keluar-trip-note" class="trip-planning-modal-label">Catatan <span class="trip-planning-modal-hint">(opsional, max 1000)</span></label>
+                        <textarea id="trip-planning-keluar-trip-note"
+                                  name="note"
+                                  maxlength="1000"
+                                  rows="3"
+                                  data-testid="input-keluar-trip-note"></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-keluar-trip-modal">Batal</button>
+                        <button type="submit" class="dashboard-primary-button" id="trip-planning-keluar-trip-submit" data-testid="btn-submit-keluar-trip">
+                            Konfirmasi Keluar Trip
                         </button>
                     </div>
                 </form>

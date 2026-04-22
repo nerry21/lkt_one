@@ -23,7 +23,12 @@ class MarkKeluarTripRequest extends FormRequest
             'reason' => ['required', 'string', 'in:dropping,rental'],
             'pool_target' => ['required', 'string', 'in:PKB,ROHUL'],
             'note' => ['nullable', 'string', 'max:1000'],
-            'planned_end_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'planned_end_date' => [
+                'required_if:reason,rental',
+                'nullable',
+                'date',
+                'after_or_equal:today',
+            ],
         ];
     }
 
@@ -32,6 +37,7 @@ class MarkKeluarTripRequest extends FormRequest
         return [
             'reason.in' => 'Reason harus dropping atau rental.',
             'pool_target.in' => 'Pool target harus PKB atau ROHUL.',
+            'planned_end_date.required_if' => 'Planned end date wajib diisi untuk reason rental (minimum 2 hari kontrak).',
             'planned_end_date.after_or_equal' => 'Planned end date tidak boleh sebelum hari ini.',
         ];
     }

@@ -58,6 +58,9 @@ function renderActionButtons(trip) {
     if (status === 'scheduled') {
         const tripTimeAttr = escapeHtml(trip.trip_time ?? '');
         buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--neutral" data-action="open-ganti-jam-modal" data-trip-id="${tripId}" data-trip-time="${tripTimeAttr}" data-testid="btn-ganti-jam-${tripId}">Ganti Jam</button>`);
+
+        const homePool = escapeHtml(trip.mobil?.home_pool ?? '');
+        buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--danger" data-action="open-keluar-trip-modal" data-trip-id="${tripId}" data-mobil-home-pool="${homePool}" data-testid="btn-keluar-trip-${tripId}">Keluar Trip</button>`);
     }
 
     return buttons.join('');
@@ -335,6 +338,110 @@ async function submitGantiJam(event) {
     }
 }
 
+function updateKeluarTripEndDateLabel(reason) {
+    const asterisk = document.getElementById('trip-planning-keluar-trip-end-date-asterisk');
+    const hint = document.getElementById('trip-planning-keluar-trip-end-date-hint');
+    const dateInput = document.getElementById('trip-planning-keluar-trip-end-date');
+
+    if (!asterisk || !hint || !dateInput) {
+        return;
+    }
+
+    if (reason === 'rental') {
+        asterisk.hidden = false;
+        hint.textContent = '(wajib untuk rental, min 2 hari kontrak)';
+        dateInput.required = true;
+    } else {
+        asterisk.hidden = true;
+        hint.textContent = '(opsional untuk dropping)';
+        dateInput.required = false;
+    }
+}
+
+function openKeluarTripModal(tripId, mobilHomePool) {
+    const form = document.getElementById('trip-planning-keluar-trip-form');
+    const tripIdInput = document.getElementById('trip-planning-keluar-trip-trip-id');
+
+    if (!form || !tripIdInput) {
+        return;
+    }
+
+    form.reset();
+    tripIdInput.value = String(tripId);
+
+    if (mobilHomePool === 'PKB' || mobilHomePool === 'ROHUL') {
+        const radio = form.querySelector(`input[name="pool_target"][value="${mobilHomePool}"]`);
+        if (radio) {
+            radio.checked = true;
+        }
+    }
+
+    updateKeluarTripEndDateLabel(null);
+
+    openModal('trip-planning-keluar-trip-modal');
+}
+
+async function submitKeluarTrip(event) {
+    event.preventDefault();
+
+    const form = document.getElementById('trip-planning-keluar-trip-form');
+    const tripIdInput = document.getElementById('trip-planning-keluar-trip-trip-id');
+    const submitButton = document.getElementById('trip-planning-keluar-trip-submit');
+
+    if (!form || !tripIdInput || !submitButton) {
+        return;
+    }
+
+    const tripId = tripIdInput.value;
+    const formData = new FormData(form);
+    const reason = formData.get('reason');
+    const poolTarget = formData.get('pool_target');
+    const plannedEndDate = (formData.get('planned_end_date') || '').trim();
+    const note = (formData.get('note') || '').trim();
+
+    if (!tripId || !reason || !poolTarget) {
+        toastError('Lengkapi reason dan pool tujuan');
+        return;
+    }
+
+    if (reason === 'rental' && !plannedEndDate) {
+        toastError('Planned end date wajib diisi untuk rental');
+        return;
+    }
+
+    const payload = {
+        reason,
+        pool_target: poolTarget,
+    };
+    if (plannedEndDate) {
+        payload.planned_end_date = plannedEndDate;
+    }
+    if (note) {
+        payload.note = note;
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(tripId)}/keluar-trip`, {
+            method: 'PATCH',
+            body: payload,
+        });
+
+        if (response?.trip) {
+            updateTripRow(response.trip);
+            toastSuccess(response.message || 'Trip marked as keluar trip');
+            scheduleStatsRefetch();
+        }
+
+        closeModal('trip-planning-keluar-trip-modal');
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
 function handleActionClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) {
@@ -355,6 +462,12 @@ function handleActionClick(event) {
     if (action === 'open-ganti-jam-modal') {
         const currentTripTime = button.dataset.tripTime || '';
         openGantiJamModal(tripId, currentTripTime);
+        return;
+    }
+
+    if (action === 'open-keluar-trip-modal') {
+        const mobilHomePool = button.dataset.mobilHomePool || '';
+        openKeluarTripModal(tripId, mobilHomePool);
         return;
     }
 
@@ -380,5 +493,15 @@ export default async function initTripPlanningDashboardPage() {
     const gantiJamForm = document.getElementById('trip-planning-ganti-jam-form');
     if (gantiJamForm) {
         gantiJamForm.addEventListener('submit', submitGantiJam);
+    }
+
+    const keluarTripForm = document.getElementById('trip-planning-keluar-trip-form');
+    if (keluarTripForm) {
+        keluarTripForm.addEventListener('submit', submitKeluarTrip);
+        keluarTripForm.addEventListener('change', (event) => {
+            if (event.target?.name === 'reason') {
+                updateKeluarTripEndDateLabel(event.target.value);
+            }
+        });
     }
 }

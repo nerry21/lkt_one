@@ -129,4 +129,78 @@ class TripPlanningApiActionTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['new_trip_time']);
     }
+
+    public function test_admin_can_mark_keluar_trip_dropping_via_api_mirror_route(): void
+    {
+        $trip = $this->makeScheduledTrip();
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/trip-planning/trips/{$trip->id}/keluar-trip", [
+                'reason' => 'dropping',
+                'pool_target' => 'ROHUL',
+                'note' => 'Dropping ke Duri',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('trip.status', 'keluar_trip')
+            ->assertJsonPath('trip.keluar_trip_substatus', 'out')
+            ->assertJsonPath('trip.keluar_trip_reason', 'dropping')
+            ->assertJsonPath('trip.keluar_trip_pool_target', 'ROHUL')
+            ->assertJsonPath('trip.keluar_trip_note', 'Dropping ke Duri');
+
+        $this->assertDatabaseHas('trips', [
+            'id' => $trip->id,
+            'status' => 'keluar_trip',
+            'keluar_trip_substatus' => 'out',
+            'keluar_trip_reason' => 'dropping',
+            'keluar_trip_pool_target' => 'ROHUL',
+            'keluar_trip_planned_end_date' => null,
+        ]);
+    }
+
+    public function test_admin_can_mark_keluar_trip_rental_with_end_date_via_api_mirror_route(): void
+    {
+        $trip = $this->makeScheduledTrip();
+        $plannedEnd = Carbon::now()->addDays(3)->toDateString();
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/trip-planning/trips/{$trip->id}/keluar-trip", [
+                'reason' => 'rental',
+                'pool_target' => 'PKB',
+                'planned_end_date' => $plannedEnd,
+                'note' => 'Rental 3 hari',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('trip.status', 'keluar_trip')
+            ->assertJsonPath('trip.keluar_trip_reason', 'rental')
+            ->assertJsonPath('trip.keluar_trip_pool_target', 'PKB');
+
+        $this->assertDatabaseHas('trips', [
+            'id' => $trip->id,
+            'status' => 'keluar_trip',
+            'keluar_trip_reason' => 'rental',
+            'keluar_trip_pool_target' => 'PKB',
+            'keluar_trip_planned_end_date' => $plannedEnd,
+        ]);
+    }
+
+    public function test_keluar_trip_rental_without_end_date_rejected_by_formrequest_via_api_mirror_route(): void
+    {
+        $trip = $this->makeScheduledTrip();
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/trip-planning/trips/{$trip->id}/keluar-trip", [
+                'reason' => 'rental',
+                'pool_target' => 'ROHUL',
+                // planned_end_date sengaja dihilangkan — FormRequest required_if harus menangkap ini
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('planned_end_date');
+
+        // Trip tetap scheduled, tidak ter-mutate
+        $this->assertDatabaseHas('trips', [
+            'id' => $trip->id,
+            'status' => 'scheduled',
+            'keluar_trip_reason' => null,
+        ]);
+    }
 }
