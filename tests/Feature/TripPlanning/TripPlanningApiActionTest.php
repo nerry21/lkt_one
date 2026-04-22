@@ -104,4 +104,29 @@ class TripPlanningApiActionTest extends TestCase
         $this->patchJson("/api/trip-planning/trips/{$trip->id}/berangkat")
             ->assertStatus(401);
     }
+
+    public function test_admin_can_ganti_jam_via_api_mirror_route(): void
+    {
+        $trip = $this->makeScheduledTrip();
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/trip-planning/trips/{$trip->id}/ganti-jam", [
+                'new_trip_time' => '07:00:00',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('trip.trip_time', '07:00:00')
+            ->assertJsonPath('trip.original_trip_time', '05:30:00');
+    }
+
+    public function test_ganti_jam_rejects_invalid_slot_via_api_mirror_route(): void
+    {
+        $trip = $this->makeScheduledTrip();
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/trip-planning/trips/{$trip->id}/ganti-jam", [
+                'new_trip_time' => '08:00:00',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['new_trip_time']);
+    }
 }

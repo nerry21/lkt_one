@@ -7997,6 +7997,24 @@ button {
     to { opacity: 0.75; }
 }
 
+/* Fase E3-A: gantiJam modal helper styles */
+.trip-planning-modal-subtitle {
+    margin: 4px 0 0;
+    color: var(--transit-text-soft);
+    font-size: 0.85rem;
+}
+
+.trip-planning-modal-readonly {
+    margin: 4px 0 0;
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    color: var(--transit-text);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(110, 231, 183, 0.12);
+    border-radius: 12px;
+}
+
 @media (max-width: 767px) {
     .trip-planning-actions-cell {
         min-width: 180px;

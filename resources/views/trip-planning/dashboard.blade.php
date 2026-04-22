@@ -170,7 +170,18 @@
                                                         Returning
                                                     </button>
                                                 @endif
-                                                {{-- keluar-trip + ganti-jam (modal form actions) defer ke Fase E3 --}}
+
+                                                @if ($trip->status === 'scheduled')
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
+                                                            data-action="open-ganti-jam-modal"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-trip-time="{{ $trip->trip_time ?? '' }}"
+                                                            data-testid="btn-ganti-jam-{{ $trip->id }}">
+                                                        Ganti Jam
+                                                    </button>
+                                                @endif
+                                                {{-- keluar-trip (modal form action) defer ke Fase E3-B --}}
                                             </div>
                                         </td>
                                     </tr>
@@ -180,6 +191,53 @@
                     </div>
                 @endif
             </section>
+        </div>
+
+        <div class="modal-shell" id="trip-planning-ganti-jam-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-ganti-jam-modal"></div>
+
+            <div class="modal-card">
+                <div class="modal-head">
+                    <div>
+                        <h3>Ganti Jam Trip</h3>
+                        <p class="trip-planning-modal-subtitle" id="trip-planning-ganti-jam-subtitle">
+                            Pilih slot baru untuk trip ini.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-ganti-jam-modal" aria-label="Tutup">
+                        &times;
+                    </button>
+                </div>
+
+                <form id="trip-planning-ganti-jam-form" class="modal-form" data-testid="trip-planning-ganti-jam-form">
+                    <input type="hidden" id="trip-planning-ganti-jam-trip-id" value="">
+
+                    <div>
+                        <label>Jam saat ini</label>
+                        <p class="trip-planning-modal-readonly" id="trip-planning-ganti-jam-current-time">—</p>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-ganti-jam-new-time">Jam baru</label>
+                        <select id="trip-planning-ganti-jam-new-time" name="new_trip_time" required data-testid="input-ganti-jam-new-time">
+                            <option value="">Pilih slot...</option>
+                            <option value="05:30:00">05:30</option>
+                            <option value="07:00:00">07:00</option>
+                            <option value="09:00:00">09:00</option>
+                            <option value="13:00:00">13:00</option>
+                            <option value="16:00:00">16:00</option>
+                            <option value="19:00:00">19:00</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-ganti-jam-modal">Batal</button>
+                        <button type="submit" class="dashboard-primary-button" id="trip-planning-ganti-jam-submit" data-testid="btn-submit-ganti-jam">
+                            Ganti Jam
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </section>
 @endsection
