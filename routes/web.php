@@ -123,4 +123,12 @@ Route::prefix('dashboard')->group(function () {
     Route::delete('/rental-data/{booking}', [RentalDataPageController::class, 'destroy'])->name('rental-data.destroy');
     Route::get('/rental-data/{booking}/ticket/download', [RentalDataPageController::class, 'downloadTicket'])->name('rental-data.ticket.download');
     Route::get('/rental-data/{booking}/surat-jalan', [RentalDataPageController::class, 'downloadSuratJalan'])->name('rental-data.surat-jalan');
+
+    // Trip Planning — Fase D Sesi 21 (DailyDriverAssignment CRUD foundation).
+    Route::middleware(['jwt.auth', 'admin.role:admin'])->prefix('trip-planning')->group(function () {
+        Route::get('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'index'])
+            ->name('trip-planning.assignments.index');
+        Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
+            ->name('trip-planning.assignments.upsert');
+    });
 });
