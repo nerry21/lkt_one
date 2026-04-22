@@ -1,5 +1,6 @@
 import { apiRequest } from '../../services/http';
 import { escapeHtml, setButtonBusy } from '../../services/helpers';
+import { openModal, closeModal } from '../../ui/modal';
 import { toastError, toastSuccess } from '../../ui/toast';
 
 const DIRECTION_LABELS = {
@@ -9,6 +10,10 @@ const DIRECTION_LABELS = {
 
 const STATS_REFETCH_DEBOUNCE_MS = 500;
 const SOFT_CONFIRM_WINDOW_MS = 2000;
+
+// Slots whitelist — MUST match server-side TripGenerationService::SLOTS and
+// GantiJamRequest::VALID_SLOTS. Update ketiganya bersamaan kalau slots berubah.
+const GANTI_JAM_SLOTS = ['05:30:00', '07:00:00', '09:00:00', '13:00:00', '16:00:00', '19:00:00'];
 
 const state = {
     targetDate: null,
@@ -49,6 +54,10 @@ function renderActionButtons(trip) {
     }
     if (status === 'keluar_trip' && substatus === 'waiting_list') {
         buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--success" data-action="returning" data-trip-id="${tripId}" data-testid="btn-returning-${tripId}">Returning</button>`);
+    }
+    if (status === 'scheduled') {
+        const tripTimeAttr = escapeHtml(trip.trip_time ?? '');
+        buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--neutral" data-action="open-ganti-jam-modal" data-trip-id="${tripId}" data-trip-time="${tripTimeAttr}" data-testid="btn-ganti-jam-${tripId}">Ganti Jam</button>`);
     }
 
     return buttons.join('');
@@ -264,6 +273,68 @@ function handleTidakBerangkatWithSoftConfirm(tripId, button) {
     softConfirmTimers.set(key, timer);
 }
 
+function openGantiJamModal(tripId, currentTripTime) {
+    const form = document.getElementById('trip-planning-ganti-jam-form');
+    const tripIdInput = document.getElementById('trip-planning-ganti-jam-trip-id');
+    const currentTimeDisplay = document.getElementById('trip-planning-ganti-jam-current-time');
+    const select = document.getElementById('trip-planning-ganti-jam-new-time');
+
+    if (!form || !tripIdInput || !currentTimeDisplay || !select) {
+        return;
+    }
+
+    form.reset();
+    tripIdInput.value = String(tripId);
+    currentTimeDisplay.textContent = currentTripTime || '(waiting list)';
+
+    if (currentTripTime && GANTI_JAM_SLOTS.includes(currentTripTime)) {
+        select.value = currentTripTime;
+    }
+
+    openModal('trip-planning-ganti-jam-modal');
+}
+
+async function submitGantiJam(event) {
+    event.preventDefault();
+
+    const tripIdInput = document.getElementById('trip-planning-ganti-jam-trip-id');
+    const select = document.getElementById('trip-planning-ganti-jam-new-time');
+    const submitButton = document.getElementById('trip-planning-ganti-jam-submit');
+
+    if (!tripIdInput || !select || !submitButton) {
+        return;
+    }
+
+    const tripId = tripIdInput.value;
+    const newTripTime = select.value;
+
+    if (!tripId || !newTripTime) {
+        toastError('Pilih slot baru terlebih dahulu');
+        return;
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(tripId)}/ganti-jam`, {
+            method: 'PATCH',
+            body: { new_trip_time: newTripTime },
+        });
+
+        if (response?.trip) {
+            updateTripRow(response.trip);
+            toastSuccess(response.message || 'Jam trip berhasil diubah');
+            scheduleStatsRefetch();
+        }
+
+        closeModal('trip-planning-ganti-jam-modal');
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
 function handleActionClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) {
@@ -278,9 +349,16 @@ function handleActionClick(event) {
 
     if (action === 'tidak-berangkat') {
         handleTidakBerangkatWithSoftConfirm(tripId, button);
-    } else {
-        executeAction(tripId, action, button);
+        return;
     }
+
+    if (action === 'open-ganti-jam-modal') {
+        const currentTripTime = button.dataset.tripTime || '';
+        openGantiJamModal(tripId, currentTripTime);
+        return;
+    }
+
+    executeAction(tripId, action, button);
 }
 
 export default async function initTripPlanningDashboardPage() {
@@ -297,5 +375,10 @@ export default async function initTripPlanningDashboardPage() {
     const content = document.querySelector('[data-trip-planning-content]');
     if (content) {
         content.addEventListener('click', handleActionClick);
+    }
+
+    const gantiJamForm = document.getElementById('trip-planning-ganti-jam-form');
+    if (gantiJamForm) {
+        gantiJamForm.addEventListener('submit', submitGantiJam);
     }
 }
