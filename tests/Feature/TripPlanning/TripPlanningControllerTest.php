@@ -254,6 +254,56 @@ class TripPlanningControllerTest extends TestCase
         $this->assertGreaterThan(0, Trip::where('trip_date', self::DATE)->count());
     }
 
+    // ── Group 6: Per-mobil stats shape consistency (Fase E5d) ─────────────
+
+    public function test_dashboard_per_mobil_includes_all_active_mobils_even_when_no_trips(): void
+    {
+        // $this->mobil1 + $this->mobil2 dari setUp are already active-in-trip via factory default.
+        $mobil3 = Mobil::factory()->create(['is_active_in_trip' => true, 'kode_mobil' => 'JET 03']);
+        $this->createTrip($this->mobil1->id, $this->driver1->id, 'ROHUL_TO_PKB', '05:30:00', 1, 'scheduled');
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/dashboard/trip-planning/dashboard?date='.self::DATE);
+
+        $response->assertStatus(200);
+        $perMobil = $response->json('statistics.per_mobil');
+
+        // Harus include mobil1 + mobil2 + mobil3 walau hanya mobil1 yang punya trip.
+        $this->assertCount(3, $perMobil);
+
+        foreach ($perMobil as $entry) {
+            $this->assertArrayHasKey('mobil_id', $entry);
+            $this->assertArrayHasKey('mobil_code', $entry);
+            $this->assertArrayHasKey('home_pool', $entry);
+            $this->assertArrayHasKey('pp_count', $entry);
+            $this->assertArrayHasKey('status_breakdown', $entry);
+        }
+
+        // Verify mobil tanpa trip punya breakdown kosong + 0 PP.
+        $mobil3Entry = collect($perMobil)->firstWhere('mobil_id', $mobil3->id);
+        $this->assertSame(0.0, (float) $mobil3Entry['pp_count']);
+        $this->assertSame([], $mobil3Entry['status_breakdown']);
+    }
+
+    public function test_dashboard_per_mobil_status_breakdown_reflects_trip_counts(): void
+    {
+        $this->createTrip($this->mobil1->id, $this->driver1->id, 'ROHUL_TO_PKB', '05:30:00', 1, 'scheduled');
+        $this->createTrip($this->mobil1->id, $this->driver1->id, 'ROHUL_TO_PKB', '07:00:00', 2, 'berangkat');
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/dashboard/trip-planning/dashboard?date='.self::DATE);
+
+        $response->assertStatus(200);
+        $perMobil = $response->json('statistics.per_mobil');
+
+        $mobil1Entry = collect($perMobil)->firstWhere('mobil_id', $this->mobil1->id);
+        $this->assertNotNull($mobil1Entry);
+        $this->assertSame(
+            ['scheduled' => 1, 'berangkat' => 1],
+            $mobil1Entry['status_breakdown'],
+        );
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private function createTrip(

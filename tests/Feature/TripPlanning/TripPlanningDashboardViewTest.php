@@ -327,6 +327,47 @@ class TripPlanningDashboardViewTest extends TestCase
             ->assertSee('empty-state-keberangkatan', false);
     }
 
+    public function test_dashboard_counter_has_testid_span_reflecting_trip_count(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $mobil = Mobil::factory()->create(['is_active_in_trip' => true]);
+        $driver = Driver::factory()->create();
+
+        // Buat 3 trip — counter harus baca 3.
+        Trip::query()->create([
+            'trip_date' => '2026-04-25',
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+        Trip::query()->create([
+            'trip_date' => '2026-04-25',
+            'trip_time' => '09:00:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 2,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+        Trip::query()->create([
+            'trip_date' => '2026-04-25',
+            'trip_time' => '16:00:00',
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-25');
+
+        $response->assertOk()
+            ->assertSee('data-testid="trip-planning-trip-counter">3</span>', false);
+    }
+
     public function test_keberangkatan_trips_sorted_by_time_asc_with_null_time_last(): void
     {
         $admin = User::factory()->create(['role' => 'Admin']);
