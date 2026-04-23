@@ -2,10 +2,6 @@
 
 @php
     $formatPp = static fn ($value): string => number_format((float) $value, 1, ',', '.');
-    $directionLabels = [
-        'ROHUL_TO_PKB' => 'ROHUL → PKB',
-        'PKB_TO_ROHUL' => 'PKB → ROHUL',
-    ];
 @endphp
 
 @section('content')
@@ -95,135 +91,125 @@
                     </div>
                 </div>
 
-                @if (count($trips) === 0)
-                    <div class="dashboard-empty-state dashboard-empty-state--block">
-                        Belum ada trip terjadwal untuk tanggal ini
+                <div class="trip-planning-two-column-grid">
+                    {{-- KOLOM KIRI — KEBERANGKATAN (ROHUL → PKB) --}}
+                    <div class="trip-planning-direction-column" data-testid="trip-planning-column-keberangkatan">
+                        <div class="trip-planning-direction-column-head">
+                            <h4>Keberangkatan</h4>
+                            <p class="trip-planning-direction-column-subtitle">ROHUL → PKB</p>
+                        </div>
+
+                        @php
+                            $keberangkatanTrips = $trips
+                                ->where('direction', 'ROHUL_TO_PKB')
+                                ->sortBy(fn ($trip) => $trip->trip_time ?? '99:99:99')
+                                ->values();
+                        @endphp
+
+                        @if ($keberangkatanTrips->isEmpty())
+                            <div class="dashboard-empty-state dashboard-empty-state--block" data-testid="empty-state-keberangkatan">
+                                Belum ada trip Keberangkatan
+                            </div>
+                        @else
+                            <div class="trip-planning-trips-table-wrap">
+                                <table class="trip-planning-trips-table" data-testid="trip-planning-trips-table-keberangkatan">
+                                    <thead>
+                                        <tr>
+                                            <th>Mobil</th>
+                                            <th>Driver</th>
+                                            <th>Jam</th>
+                                            <th>Seq</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($keberangkatanTrips as $trip)
+                                            <tr data-trip-id="{{ $trip->id }}" data-testid="trip-row-{{ $trip->id }}">
+                                                <td>{{ $trip->mobil?->kode_mobil ?? '-' }}</td>
+                                                <td>{{ $trip->driver?->nama ?? '-' }}</td>
+                                                <td>{{ $trip->trip_time ?? '(waiting)' }}</td>
+                                                <td>{{ $trip->sequence }}</td>
+                                                <td>
+                                                    <span class="trip-planning-status-badge trip-planning-status-badge--{{ $trip->status }}">
+                                                        {{ $trip->status }}
+                                                        @if ($trip->keluar_trip_substatus)
+                                                            · {{ $trip->keluar_trip_substatus }}
+                                                        @endif
+                                                    </span>
+                                                </td>
+                                                <td class="trip-planning-actions-cell">
+                                                    <div class="trip-planning-action-group" data-trip-actions>
+                                                        @include('trip-planning.partials._trip-action-buttons', ['trip' => $trip, 'pairedOriginIds' => $pairedOriginIds])
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
                     </div>
-                @else
-                    <div class="trip-planning-trips-table-wrap">
-                        <table class="trip-planning-trips-table" data-testid="trip-planning-trips-table">
-                            <thead>
-                                <tr>
-                                    <th>Mobil</th>
-                                    <th>Driver</th>
-                                    <th>Arah</th>
-                                    <th>Jam</th>
-                                    <th>Seq</th>
-                                    <th>Status</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($trips as $trip)
-                                    <tr data-trip-id="{{ $trip->id }}" data-testid="trip-row-{{ $trip->id }}">
-                                        <td>{{ $trip->mobil?->kode_mobil ?? '-' }}</td>
-                                        <td>{{ $trip->driver?->nama ?? '-' }}</td>
-                                        <td>
-                                            <span class="trip-planning-direction-badge trip-planning-direction-badge--{{ strtolower(str_replace('_', '-', $trip->direction)) }}">
-                                                {{ $directionLabels[$trip->direction] ?? $trip->direction }}
-                                            </span>
-                                        </td>
-                                        <td>{{ $trip->trip_time ?? '(waiting)' }}</td>
-                                        <td>{{ $trip->sequence }}</td>
-                                        <td>
-                                            <span class="trip-planning-status-badge trip-planning-status-badge--{{ $trip->status }}">
-                                                {{ $trip->status }}
-                                                @if ($trip->keluar_trip_substatus)
-                                                    · {{ $trip->keluar_trip_substatus }}
-                                                @endif
-                                            </span>
-                                        </td>
-                                        <td class="trip-planning-actions-cell">
-                                            <div class="trip-planning-action-group" data-trip-actions>
-                                                @if ($trip->status === 'scheduled' && $trip->trip_time !== null)
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--success"
-                                                            data-action="berangkat"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-testid="btn-berangkat-{{ $trip->id }}">
-                                                        Berangkat
-                                                    </button>
-                                                @endif
 
-                                                @if ($trip->status === 'scheduled')
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--danger"
-                                                            data-action="tidak-berangkat"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-testid="btn-tidak-berangkat-{{ $trip->id }}">
-                                                        Tidak Berangkat
-                                                    </button>
-                                                @endif
+                    {{-- KOLOM KANAN — KEPULANGAN (PKB → ROHUL) --}}
+                    <div class="trip-planning-direction-column" data-testid="trip-planning-column-kepulangan">
+                        <div class="trip-planning-direction-column-head">
+                            <h4>Kepulangan</h4>
+                            <p class="trip-planning-direction-column-subtitle">PKB → ROHUL</p>
+                        </div>
 
-                                                @if ($trip->status === 'keluar_trip' && $trip->keluar_trip_substatus === 'out')
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
-                                                            data-action="waiting-list"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-testid="btn-waiting-list-{{ $trip->id }}">
-                                                        Waiting List
-                                                    </button>
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
-                                                            data-action="tidak-keluar-trip"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-testid="btn-tidak-keluar-trip-{{ $trip->id }}">
-                                                        Tidak Keluar Trip
-                                                    </button>
-                                                @endif
+                        @php
+                            $kepulanganTrips = $trips
+                                ->where('direction', 'PKB_TO_ROHUL')
+                                ->sortBy(fn ($trip) => $trip->trip_time ?? '99:99:99')
+                                ->values();
+                        @endphp
 
-                                                @if ($trip->status === 'keluar_trip' && $trip->keluar_trip_substatus === 'waiting_list')
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--success"
-                                                            data-action="returning"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-testid="btn-returning-{{ $trip->id }}">
-                                                        Returning
-                                                    </button>
-                                                @endif
-
-                                                @if ($trip->status === 'scheduled')
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
-                                                            data-action="open-ganti-jam-modal"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-trip-time="{{ $trip->trip_time ?? '' }}"
-                                                            data-testid="btn-ganti-jam-{{ $trip->id }}">
-                                                        Ganti Jam
-                                                    </button>
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--danger"
-                                                            data-action="open-keluar-trip-modal"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-mobil-home-pool="{{ $trip->mobil->home_pool ?? '' }}"
-                                                            data-testid="btn-keluar-trip-{{ $trip->id }}">
-                                                        Keluar Trip
-                                                    </button>
-                                                @endif
-
-                                                @if ($trip->direction === 'ROHUL_TO_PKB'
-                                                    && in_array($trip->status, ['scheduled', 'berangkat'], true)
-                                                    && ! in_array((int) $trip->id, $pairedOriginIds, true))
-                                                    <button type="button"
-                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
-                                                            data-action="open-same-day-return-modal"
-                                                            data-trip-id="{{ $trip->id }}"
-                                                            data-mobil-code="{{ $trip->mobil?->kode_mobil ?? '-' }}"
-                                                            data-driver-id="{{ $trip->driver_id ?? '' }}"
-                                                            data-driver-name="{{ $trip->driver?->nama ?? '-' }}"
-                                                            data-trip-time="{{ $trip->trip_time ?? '' }}"
-                                                            data-testid="btn-same-day-return-{{ $trip->id }}">
-                                                        Pulang Hari Ini
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                        @if ($kepulanganTrips->isEmpty())
+                            <div class="dashboard-empty-state dashboard-empty-state--block" data-testid="empty-state-kepulangan">
+                                Belum ada trip Kepulangan
+                            </div>
+                        @else
+                            <div class="trip-planning-trips-table-wrap">
+                                <table class="trip-planning-trips-table" data-testid="trip-planning-trips-table-kepulangan">
+                                    <thead>
+                                        <tr>
+                                            <th>Mobil</th>
+                                            <th>Driver</th>
+                                            <th>Jam</th>
+                                            <th>Seq</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($kepulanganTrips as $trip)
+                                            <tr data-trip-id="{{ $trip->id }}" data-testid="trip-row-{{ $trip->id }}">
+                                                <td>{{ $trip->mobil?->kode_mobil ?? '-' }}</td>
+                                                <td>{{ $trip->driver?->nama ?? '-' }}</td>
+                                                <td>{{ $trip->trip_time ?? '(waiting)' }}</td>
+                                                <td>{{ $trip->sequence }}</td>
+                                                <td>
+                                                    <span class="trip-planning-status-badge trip-planning-status-badge--{{ $trip->status }}">
+                                                        {{ $trip->status }}
+                                                        @if ($trip->keluar_trip_substatus)
+                                                            · {{ $trip->keluar_trip_substatus }}
+                                                        @endif
+                                                    </span>
+                                                </td>
+                                                <td class="trip-planning-actions-cell">
+                                                    <div class="trip-planning-action-group" data-trip-actions>
+                                                        @include('trip-planning.partials._trip-action-buttons', ['trip' => $trip, 'pairedOriginIds' => $pairedOriginIds])
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
                     </div>
-                @endif
+                </div>
             </section>
         </div>
 
