@@ -8083,50 +8083,55 @@ button {
     }
 }
 
-/* Fase E4: Assignments matrix page */
+/* Fase E4: Assignments matrix page (light theme — match trip-planning-trips-table pattern) */
 .trip-planning-assignments-matrix {
     margin-top: 24px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(167, 243, 208, 0.16);
-    border-radius: 16px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
     overflow: hidden;
 }
 
 .trip-planning-assignments-table {
     width: 100%;
     border-collapse: collapse;
-    color: var(--transit-text);
+    font-size: 0.875rem;
+}
+
+.trip-planning-assignments-table thead {
+    background-color: #f9fafb;
 }
 
 .trip-planning-assignments-table thead th {
+    padding: 0.75rem 1rem;
     text-align: left;
-    padding: 14px 18px;
-    background: rgba(16, 185, 129, 0.08);
-    color: var(--transit-text-soft);
     font-weight: 600;
-    font-size: 0.8rem;
+    color: #065f46;
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    border-bottom: 1px solid rgba(167, 243, 208, 0.18);
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .trip-planning-assignments-table tbody td {
-    padding: 14px 18px;
-    border-bottom: 1px solid rgba(167, 243, 208, 0.1);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
+    color: #1f2937;
 }
 
 .trip-planning-assignments-table tbody tr:last-child td {
-    border-bottom: none;
+    border-bottom: 0;
 }
 
 .trip-planning-assignments-table tbody tr:hover {
-    background: rgba(16, 185, 129, 0.05);
+    background-color: #f9fafb;
 }
 
 .assignments-cell-mobil strong {
-    font-size: 1rem;
-    color: var(--transit-text);
+    font-size: 0.95rem;
+    color: #111827;
+    font-weight: 600;
 }
 
 .assignments-pool-badge {
@@ -8140,32 +8145,33 @@ button {
 }
 
 .assignments-pool-badge--rohul {
-    background: rgba(110, 231, 183, 0.16);
-    color: #6ee7b7;
-    border: 1px solid rgba(110, 231, 183, 0.32);
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.28);
 }
 
 .assignments-pool-badge--pkb {
-    background: rgba(147, 197, 253, 0.16);
-    color: #93c5fd;
-    border: 1px solid rgba(147, 197, 253, 0.32);
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.28);
 }
 
 .assignments-driver-select {
     width: 100%;
     min-width: 220px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(167, 243, 208, 0.18);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--transit-text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 0.875rem;
     outline: none;
-    transition: border-color 0.16s ease, background 0.16s ease;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .assignments-driver-select:focus {
-    border-color: rgba(52, 211, 153, 0.55);
-    background: rgba(255, 255, 255, 0.06);
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .trip-planning-assignments-footer {
@@ -8179,17 +8185,18 @@ button {
 .trip-planning-assignments-empty-state {
     padding: 48px 24px;
     text-align: center;
-    color: var(--transit-text-soft);
+    color: #6b7280;
 }
 
 .trip-planning-assignments-empty-state h3 {
-    color: var(--transit-text);
+    color: #111827;
     margin-bottom: 8px;
     font-size: 1.125rem;
+    font-weight: 600;
 }
 
 .trip-planning-assignments-empty-state a {
-    color: #6ee7b7;
+    color: #047857;
     text-decoration: underline;
 }
 
