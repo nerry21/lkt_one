@@ -200,6 +200,22 @@
                                                         Keluar Trip
                                                     </button>
                                                 @endif
+
+                                                @if ($trip->direction === 'ROHUL_TO_PKB'
+                                                    && in_array($trip->status, ['scheduled', 'berangkat'], true)
+                                                    && $trip->same_day_return_origin_trip_id === null)
+                                                    <button type="button"
+                                                            class="trip-planning-action-btn trip-planning-action-btn--neutral"
+                                                            data-action="open-same-day-return-modal"
+                                                            data-trip-id="{{ $trip->id }}"
+                                                            data-mobil-code="{{ $trip->mobil?->kode_mobil ?? '-' }}"
+                                                            data-driver-id="{{ $trip->driver_id ?? '' }}"
+                                                            data-driver-name="{{ $trip->driver?->nama ?? '-' }}"
+                                                            data-trip-time="{{ $trip->trip_time ?? '' }}"
+                                                            data-testid="btn-same-day-return-{{ $trip->id }}">
+                                                        Pulang Hari Ini
+                                                    </button>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
@@ -368,6 +384,95 @@
                         <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-keluar-trip-modal">Batal</button>
                         <button type="submit" class="dashboard-primary-button" id="trip-planning-keluar-trip-submit" data-testid="btn-submit-keluar-trip">
                             Konfirmasi Keluar Trip
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal-shell" id="trip-planning-same-day-return-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-same-day-return-modal"></div>
+
+            <div class="modal-card">
+                <div class="modal-head">
+                    <div>
+                        <h3>Pulang Hari Ini</h3>
+                        <p class="trip-planning-modal-subtitle">
+                            Buat trip pulang PKB → ROHUL di hari yang sama untuk mobil ini.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-same-day-return-modal" aria-label="Tutup">
+                        &times;
+                    </button>
+                </div>
+
+                <form id="trip-planning-same-day-return-form" class="modal-form" data-testid="trip-planning-same-day-return-form">
+                    <input type="hidden" id="trip-planning-sdr-trip-id" value="">
+
+                    <div>
+                        <label class="trip-planning-modal-label">Trip asal</label>
+                        <p class="trip-planning-modal-readonly" id="trip-planning-sdr-origin-display">—</p>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-sdr-slot" class="trip-planning-modal-label">
+                            Jam pulang <span class="trip-planning-modal-required">*</span>
+                        </label>
+                        <select id="trip-planning-sdr-slot" name="slot" required data-testid="input-sdr-slot">
+                            <option value="">Pilih slot jam pulang...</option>
+                            <option value="05:30:00">05:30</option>
+                            <option value="07:00:00">07:00</option>
+                            <option value="09:00:00">09:00</option>
+                            <option value="13:00:00">13:00</option>
+                            <option value="16:00:00">16:00</option>
+                            <option value="19:00:00">19:00</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-sdr-driver" class="trip-planning-modal-label">
+                            Sopir pulang <span class="trip-planning-modal-hint">(default: sopir trip asal)</span>
+                        </label>
+                        <select id="trip-planning-sdr-driver" name="driver_id" data-testid="input-sdr-driver">
+                            <option value="">— Pakai sopir trip asal —</option>
+                            {{-- Options di-populate via JS dari dashboardState.drivers --}}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-sdr-reason" class="trip-planning-modal-label">
+                            Alasan <span class="trip-planning-modal-hint">(opsional, max 64 karakter)</span>
+                        </label>
+                        <input type="text"
+                               id="trip-planning-sdr-reason"
+                               name="reason"
+                               maxlength="64"
+                               list="trip-planning-sdr-reason-suggestions"
+                               placeholder="Contoh: coverage_gap, load_balance, ..."
+                               data-testid="input-sdr-reason">
+                        <datalist id="trip-planning-sdr-reason-suggestions">
+                            <option value="coverage_gap">
+                            <option value="load_balance">
+                            <option value="customer_request">
+                            <option value="other">
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-sdr-note" class="trip-planning-modal-label">
+                            Catatan <span class="trip-planning-modal-hint">(opsional, max 1000 karakter)</span>
+                        </label>
+                        <textarea id="trip-planning-sdr-note"
+                                  name="note"
+                                  maxlength="1000"
+                                  rows="3"
+                                  data-testid="input-sdr-note"></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-same-day-return-modal">Batal</button>
+                        <button type="submit" class="dashboard-primary-button" id="trip-planning-sdr-submit" data-testid="btn-submit-sdr">
+                            Buat Trip Pulang
                         </button>
                     </div>
                 </form>

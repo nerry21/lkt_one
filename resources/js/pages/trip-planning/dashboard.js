@@ -15,10 +15,16 @@ const SOFT_CONFIRM_WINDOW_MS = 2000;
 // GantiJamRequest::VALID_SLOTS. Update ketiganya bersamaan kalau slots berubah.
 const GANTI_JAM_SLOTS = ['05:30:00', '07:00:00', '09:00:00', '13:00:00', '16:00:00', '19:00:00'];
 
+// Same-day return slots — MUST match SameDayReturnService::VALID_SLOTS.
+// Hardcoded di 4 tempat total (TripGenerationService, GantiJamRequest,
+// SameDayReturnService, dashboard.js). Update semuanya bersamaan.
+const SAME_DAY_RETURN_SLOTS = ['05:30:00', '07:00:00', '09:00:00', '13:00:00', '16:00:00', '19:00:00'];
+
 const state = {
     targetDate: null,
     trips: [],
     statistics: [],
+    drivers: [],
 };
 
 let statsRefetchTimer = null;
@@ -61,6 +67,21 @@ function renderActionButtons(trip) {
 
         const homePool = escapeHtml(trip.mobil?.home_pool ?? '');
         buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--danger" data-action="open-keluar-trip-modal" data-trip-id="${tripId}" data-mobil-home-pool="${homePool}" data-testid="btn-keluar-trip-${tripId}">Keluar Trip</button>`);
+    }
+
+    // Pulang Hari Ini — available untuk origin trip ROHUL→PKB yang scheduled
+    // atau berangkat, dan belum punya SDR pair. Admin Zizi use case utama:
+    // mobil sudah berangkat pagi, siang putuskan pulang.
+    if (
+        trip.direction === 'ROHUL_TO_PKB'
+        && (status === 'scheduled' || status === 'berangkat')
+        && !trip.same_day_return_origin_trip_id
+    ) {
+        const mobilCode = escapeHtml(trip.mobil?.code ?? trip.mobil?.kode_mobil ?? '-');
+        const driverId = escapeHtml(trip.driver_id ?? trip.driver?.id ?? '');
+        const driverName = escapeHtml(trip.driver?.name ?? trip.driver?.nama ?? '-');
+        const tripTimeAttr = escapeHtml(trip.trip_time ?? '');
+        buttons.push(`<button type="button" class="trip-planning-action-btn trip-planning-action-btn--neutral" data-action="open-same-day-return-modal" data-trip-id="${tripId}" data-mobil-code="${mobilCode}" data-driver-id="${driverId}" data-driver-name="${driverName}" data-trip-time="${tripTimeAttr}" data-testid="btn-same-day-return-${tripId}">Pulang Hari Ini</button>`);
     }
 
     return buttons.join('');
@@ -442,6 +463,186 @@ async function submitKeluarTrip(event) {
     }
 }
 
+function populateSameDayReturnDriverOptions(preselectedDriverId) {
+    const select = document.getElementById('trip-planning-sdr-driver');
+    if (!select) {
+        return;
+    }
+
+    // Rebuild options: keep placeholder, then append drivers from state.
+    select.innerHTML = '<option value="">— Pakai sopir trip asal —</option>';
+
+    const drivers = Array.isArray(state.drivers) ? state.drivers : [];
+    drivers.forEach((driver) => {
+        const option = document.createElement('option');
+        option.value = driver.id;
+        option.textContent = driver.nama ?? driver.name ?? '(tanpa nama)';
+        if (preselectedDriverId && String(driver.id) === String(preselectedDriverId)) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+}
+
+function openSameDayReturnModal(tripId, meta) {
+    const form = document.getElementById('trip-planning-same-day-return-form');
+    const tripIdInput = document.getElementById('trip-planning-sdr-trip-id');
+    const originDisplay = document.getElementById('trip-planning-sdr-origin-display');
+    const slotSelect = document.getElementById('trip-planning-sdr-slot');
+
+    if (!form || !tripIdInput || !originDisplay || !slotSelect) {
+        return;
+    }
+
+    form.reset();
+    tripIdInput.value = String(tripId);
+
+    const mobilCode = meta.mobilCode || '-';
+    const driverName = meta.driverName || '-';
+    const tripTime = meta.tripTime || '(waiting)';
+    originDisplay.textContent = `${mobilCode} — ${driverName} — ${tripTime}`;
+
+    // Populate driver dropdown dengan pre-select driver asal (nullable).
+    populateSameDayReturnDriverOptions(meta.driverId);
+
+    openModal('trip-planning-same-day-return-modal');
+}
+
+function rebuildTripsTable(trips) {
+    const tbody = document.querySelector('[data-testid="trip-planning-trips-table"] tbody');
+    if (!tbody) {
+        // Kalau tabel sebelumnya empty-state, hard reload supaya layout ke tabel full.
+        window.location.reload();
+        return;
+    }
+
+    if (!Array.isArray(trips) || trips.length === 0) {
+        window.location.reload();
+        return;
+    }
+
+    tbody.innerHTML = trips.map((trip) => `
+        <tr data-trip-id="${escapeHtml(trip.id)}" data-testid="trip-row-${escapeHtml(trip.id)}">
+            ${renderTripRowInner(trip)}
+        </tr>
+    `).join('');
+}
+
+async function refetchDashboardAfterSdr() {
+    const date = state.targetDate;
+    if (!date) {
+        // Fallback: hard reload kalau tidak bisa determine tanggal.
+        window.location.reload();
+        return;
+    }
+
+    try {
+        const data = await apiRequest(`/trip-planning/dashboard?date=${encodeURIComponent(date)}`);
+
+        // Dashboard GET response shape: { date, statistics, trips_pkb_to_rohul, trips_rohul_to_pkb, assignments_tomorrow }.
+        const normalizedStats = normalizeStatisticsFromDashboardPayload(data);
+        state.statistics = normalizedStats;
+        renderStatistics(normalizedStats);
+
+        // Trips table: merge dari 2 kategori directional + re-render.
+        if (Array.isArray(data?.trips_pkb_to_rohul) || Array.isArray(data?.trips_rohul_to_pkb)) {
+            const merged = []
+                .concat(data.trips_pkb_to_rohul || [])
+                .concat(data.trips_rohul_to_pkb || []);
+            state.trips = merged;
+            rebuildTripsTable(merged);
+        } else if (Array.isArray(data?.trips)) {
+            state.trips = data.trips;
+            rebuildTripsTable(data.trips);
+        } else {
+            // Shape unknown — hard reload sebagai safety net.
+            window.location.reload();
+        }
+    } catch (error) {
+        // Refetch gagal — hard reload supaya user tetap lihat trip baru.
+        if (window.console) {
+            console.warn('[trip-planning] Dashboard refetch after SDR failed, falling back to reload:', error.message);
+        }
+        window.location.reload();
+    }
+}
+
+function extractSameDayReturnErrorDisplay(error) {
+    const data = error?.data || {};
+    if (data.error === 'same_day_return_conflict') {
+        // Backend sudah provide pesan Indonesian per conflict_type.
+        return data.message || 'Tidak bisa buat trip pulang untuk trip asal ini.';
+    }
+    if (data.errors) {
+        // 422 validation — ambil error pertama.
+        const firstKey = Object.keys(data.errors)[0];
+        const firstErr = firstKey ? data.errors[firstKey]?.[0] : null;
+        return firstErr || data.message || 'Input tidak valid.';
+    }
+    return extractErrorDisplay(error);
+}
+
+async function submitSameDayReturn(event) {
+    event.preventDefault();
+
+    const tripIdInput = document.getElementById('trip-planning-sdr-trip-id');
+    const slotSelect = document.getElementById('trip-planning-sdr-slot');
+    const driverSelect = document.getElementById('trip-planning-sdr-driver');
+    const reasonInput = document.getElementById('trip-planning-sdr-reason');
+    const noteTextarea = document.getElementById('trip-planning-sdr-note');
+    const submitButton = document.getElementById('trip-planning-sdr-submit');
+
+    if (!tripIdInput || !slotSelect || !submitButton) {
+        return;
+    }
+
+    const tripId = tripIdInput.value;
+    const slot = slotSelect.value;
+    const driverId = (driverSelect?.value || '').trim();
+    const reason = (reasonInput?.value || '').trim();
+    const note = (noteTextarea?.value || '').trim();
+
+    if (!tripId || !slot) {
+        toastError('Pilih slot jam pulang terlebih dahulu');
+        return;
+    }
+
+    if (!SAME_DAY_RETURN_SLOTS.includes(slot)) {
+        toastError('Slot tidak valid');
+        return;
+    }
+
+    const payload = { slot };
+    if (driverId) {
+        payload.driver_id = driverId;
+    }
+    if (reason) {
+        payload.reason = reason;
+    }
+    if (note) {
+        payload.note = note;
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(tripId)}/same-day-return`, {
+            method: 'POST',
+            body: payload,
+        });
+
+        closeModal('trip-planning-same-day-return-modal');
+        toastSuccess(response?.message || 'Trip pulang berhasil dibuat');
+
+        // Refetch dashboard supaya trip baru muncul di tabel + stats ter-update.
+        await refetchDashboardAfterSdr();
+    } catch (error) {
+        toastError(extractSameDayReturnErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
 function handleActionClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) {
@@ -482,6 +683,17 @@ function handleActionClick(event) {
     if (action === 'open-keluar-trip-modal') {
         const mobilHomePool = button.dataset.mobilHomePool || '';
         openKeluarTripModal(tripId, mobilHomePool);
+        return;
+    }
+
+    if (action === 'open-same-day-return-modal') {
+        const meta = {
+            mobilCode: button.dataset.mobilCode || '-',
+            driverId: button.dataset.driverId || '',
+            driverName: button.dataset.driverName || '-',
+            tripTime: button.dataset.tripTime || '',
+        };
+        openSameDayReturnModal(tripId, meta);
         return;
     }
 
@@ -542,6 +754,7 @@ export default async function initTripPlanningDashboardPage() {
     state.targetDate = initial.target_date;
     state.trips = Array.isArray(initial.trips) ? initial.trips : [];
     state.statistics = Array.isArray(initial.statistics) ? initial.statistics : [];
+    state.drivers = Array.isArray(initial.drivers) ? initial.drivers : [];
 
     const content = document.querySelector('[data-trip-planning-content]');
     if (content) {
@@ -561,5 +774,10 @@ export default async function initTripPlanningDashboardPage() {
                 updateKeluarTripEndDateLabel(event.target.value);
             }
         });
+    }
+
+    const sameDayReturnForm = document.getElementById('trip-planning-same-day-return-form');
+    if (sameDayReturnForm) {
+        sameDayReturnForm.addEventListener('submit', submitSameDayReturn);
     }
 }

@@ -335,6 +335,10 @@ class TripPlanningPageController extends Controller
                 'id' => $trip->driver->id,
                 'nama' => $trip->driver->nama,
             ] : null,
+            // Fase E5: consumed by dashboard.js refetchDashboardAfterSdr → rebuildTripsTable
+            // untuk hide tombol "Pulang Hari Ini" di origin trip yang sudah paired setelah
+            // admin berhasil create SDR. Field nullable FK.
+            'same_day_return_origin_trip_id' => $trip->same_day_return_origin_trip_id,
             'keluar_trip_detail' => $keluarTripDetail,
         ];
     }
