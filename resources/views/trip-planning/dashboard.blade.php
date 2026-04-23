@@ -203,7 +203,7 @@
 
                                                 @if ($trip->direction === 'ROHUL_TO_PKB'
                                                     && in_array($trip->status, ['scheduled', 'berangkat'], true)
-                                                    && $trip->same_day_return_origin_trip_id === null)
+                                                    && ! in_array((int) $trip->id, $pairedOriginIds, true))
                                                     <button type="button"
                                                             class="trip-planning-action-btn trip-planning-action-btn--neutral"
                                                             data-action="open-same-day-return-modal"
