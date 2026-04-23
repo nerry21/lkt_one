@@ -36,6 +36,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $keluar_trip_actual_end_date
  * @property \Illuminate\Support\Carbon|null $keluar_trip_pool_entered_at
  * @property string|null $original_trip_time
+ * @property bool $same_day_return
+ * @property string|null $same_day_return_reason
+ * @property int|null $same_day_return_origin_trip_id
  * @property int $version
  * @property string|null $created_by           UUID
  * @property string|null $updated_by           UUID
@@ -69,6 +72,9 @@ class Trip extends Model
         'keluar_trip_actual_end_date',
         'keluar_trip_pool_entered_at',
         'original_trip_time',
+        'same_day_return',
+        'same_day_return_reason',
+        'same_day_return_origin_trip_id',
         'created_by',
         'updated_by',
     ];
@@ -81,6 +87,8 @@ class Trip extends Model
         'keluar_trip_pool_entered_at'  => 'datetime',
         'sequence'                     => 'integer',
         'version'                      => 'integer',
+        'same_day_return'                  => 'boolean',
+        'same_day_return_origin_trip_id'   => 'integer',
     ];
 
     public function mobil(): BelongsTo
@@ -101,6 +109,15 @@ class Trip extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Trip ROHUL→PKB asal untuk trip PKB→ROHUL same-day return.
+     * Null kalau trip ini BUKAN same-day return (regular generated trip).
+     */
+    public function originTrip(): BelongsTo
+    {
+        return $this->belongsTo(Trip::class, 'same_day_return_origin_trip_id');
     }
 
     /**

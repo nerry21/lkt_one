@@ -161,7 +161,15 @@ class PoolStateService
                 $hasBerangkat = $group->contains(fn (Trip $t): bool => $t->status === 'berangkat');
                 $hasKeluarTrip = $group->contains(fn (Trip $t): bool => $t->status === 'keluar_trip');
 
-                $conflict = $distinctDirections >= 2 || ($hasBerangkat && $hasKeluarTrip);
+                // Fase E5 DP-E5.7: SDR pair legitimately punya 2 direction
+                // berlawanan di tanggal sama (origin ROHUL→PKB + return
+                // PKB→ROHUL). Kalau group berisi ≥1 trip same_day_return=true,
+                // bypass distinctDirections flag. Kombinasi berangkat +
+                // keluar_trip tetap di-flag (real conflict orthogonal dari SDR).
+                $hasSameDayReturn = $group->contains(fn (Trip $t): bool => (bool) $t->same_day_return);
+
+                $conflict = ($distinctDirections >= 2 && ! $hasSameDayReturn)
+                    || ($hasBerangkat && $hasKeluarTrip);
 
                 if (! $conflict) {
                     return null;

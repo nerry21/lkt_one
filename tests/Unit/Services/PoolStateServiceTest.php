@@ -245,4 +245,72 @@ class PoolStateServiceTest extends TestCase
 
         $this->assertTrue($violations->isEmpty());
     }
+
+    public function test_findDualPoolViolations_bypasses_conflict_when_group_has_same_day_return_flag(): void
+    {
+        // Fase E5 DP-E5.7: SDR pair legitimately punya 2 direction berlawanan
+        // di tanggal sama. Bukan violation.
+        $mobil = Mobil::factory()->create(['home_pool' => 'ROHUL']);
+
+        $origin = Trip::factory()
+            ->berangkat()
+            ->direction('ROHUL_TO_PKB')
+            ->create([
+                'trip_date' => self::TODAY,
+                'sequence'  => 1,
+                'mobil_id'  => $mobil->id,
+            ]);
+
+        Trip::factory()
+            ->scheduled()
+            ->direction('PKB_TO_ROHUL')
+            ->create([
+                'trip_date'                      => self::TODAY,
+                'sequence'                       => 999,
+                'mobil_id'                       => $mobil->id,
+                'same_day_return'                => true,
+                'same_day_return_origin_trip_id' => $origin->id,
+            ]);
+
+        $violations = $this->svc->findDualPoolViolations(self::TODAY);
+
+        $this->assertTrue($violations->isEmpty());
+    }
+
+    public function test_findDualPoolViolations_still_flags_regular_dual_direction_without_same_day_return_flag(): void
+    {
+        // Regression guard: tanpa flag SDR, dual-direction tetap dianggap
+        // conflict (behavior pre-E5 tidak berubah).
+        $mobil = Mobil::factory()->create(['home_pool' => 'PKB']);
+
+        $tripA = Trip::factory()
+            ->scheduled()
+            ->direction('PKB_TO_ROHUL')
+            ->create([
+                'trip_date'       => self::TODAY,
+                'sequence'        => 1,
+                'mobil_id'        => $mobil->id,
+                'same_day_return' => false,
+            ]);
+
+        $tripB = Trip::factory()
+            ->scheduled()
+            ->direction('ROHUL_TO_PKB')
+            ->create([
+                'trip_date'       => self::TODAY,
+                'sequence'        => 1,
+                'mobil_id'        => $mobil->id,
+                'same_day_return' => false,
+            ]);
+
+        $violations = $this->svc->findDualPoolViolations(self::TODAY);
+
+        $this->assertCount(1, $violations);
+        $violation = $violations->first();
+        $this->assertSame($mobil->id, $violation['mobil_id']);
+        $this->assertEqualsCanonicalizing(
+            [$tripA->id, $tripB->id],
+            $violation['trip_ids'],
+        );
+    }
 }
