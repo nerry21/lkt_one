@@ -88,4 +88,72 @@ class TripPlanningDashboardViewTest extends TestCase
             ->assertSee('JET 99')
             ->assertSee('Belum ada trip');
     }
+
+    public function test_dashboard_state_includes_drivers_list(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        Driver::factory()->create(['nama' => 'Pak Ahmad']);
+        Driver::factory()->create(['nama' => 'Pak Budi']);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
+
+        $response->assertOk();
+        // Driver names harus muncul di inline JSON state untuk di-consume modal SDR.
+        $response->assertSee('Pak Ahmad', false);
+        $response->assertSee('Pak Budi', false);
+    }
+
+    public function test_same_day_return_button_visible_for_eligible_trip(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $mobil = Mobil::factory()->create([
+            'kode_mobil' => 'JET 01',
+            'home_pool' => 'ROHUL',
+            'is_active_in_trip' => true,
+        ]);
+        $driver = Driver::factory()->create(['nama' => 'Pak Ahmad']);
+
+        $trip = Trip::query()->create([
+            'trip_date' => '2026-04-22',
+            'trip_time' => '07:00:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
+
+        $response->assertOk();
+        $response->assertSee('Pulang Hari Ini');
+        $response->assertSee('btn-same-day-return-'.$trip->id, false);
+    }
+
+    public function test_same_day_return_button_hidden_for_pkb_to_rohul_trip(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $mobil = Mobil::factory()->create([
+            'kode_mobil' => 'JET 02',
+            'home_pool' => 'PKB',
+            'is_active_in_trip' => true,
+        ]);
+        $driver = Driver::factory()->create(['nama' => 'Pak Chandra']);
+
+        $trip = Trip::query()->create([
+            'trip_date' => '2026-04-22',
+            'trip_time' => '13:00:00',
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
+
+        $response->assertOk();
+        // Button row action tidak muncul untuk PKB→ROHUL trip.
+        $response->assertDontSee('btn-same-day-return-'.$trip->id, false);
+    }
 }

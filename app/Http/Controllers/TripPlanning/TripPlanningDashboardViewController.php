@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\TripPlanning;
 
 use App\Http\Controllers\Controller;
+use App\Models\Driver;
 use App\Models\Mobil;
 use App\Models\Trip;
 use App\Services\TripService;
@@ -46,12 +47,17 @@ class TripPlanningDashboardViewController extends Controller
             ->orderBy('sequence')
             ->get();
 
+        $drivers = Driver::query()
+            ->orderBy('nama')
+            ->get(['id', 'nama']);
+
         $statistics = $this->computeStatistics($targetDate, $trips);
 
         $dashboardState = [
             'target_date' => $targetDate->toDateString(),
             'trips' => $trips->map(fn (Trip $trip) => $this->formatTripForState($trip))->all(),
             'statistics' => $statistics,
+            'drivers' => $drivers,
         ];
 
         return view('trip-planning.dashboard', [
