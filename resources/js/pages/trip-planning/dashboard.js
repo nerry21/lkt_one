@@ -3,11 +3,6 @@ import { escapeHtml, setButtonBusy } from '../../services/helpers';
 import { openModal, closeModal } from '../../ui/modal';
 import { toastError, toastInfo, toastSuccess } from '../../ui/toast';
 
-const DIRECTION_LABELS = {
-    ROHUL_TO_PKB: 'ROHUL → PKB',
-    PKB_TO_ROHUL: 'PKB → ROHUL',
-};
-
 const STATS_REFETCH_DEBOUNCE_MS = 500;
 const SOFT_CONFIRM_WINDOW_MS = 2000;
 
@@ -88,8 +83,6 @@ function renderActionButtons(trip) {
 }
 
 function renderTripRowInner(trip) {
-    const direction = DIRECTION_LABELS[trip.direction] || trip.direction || '';
-    const directionClass = String(trip.direction || '').toLowerCase().replace(/_/g, '-');
     const mobilCode = escapeHtml(trip.mobil?.code ?? trip.mobil?.kode_mobil ?? '-');
     const driverName = escapeHtml(trip.driver?.name ?? trip.driver?.nama ?? '-');
     const tripTime = trip.trip_time ? escapeHtml(trip.trip_time) : '(waiting)';
@@ -100,11 +93,6 @@ function renderTripRowInner(trip) {
     return `
         <td>${mobilCode}</td>
         <td>${driverName}</td>
-        <td>
-            <span class="trip-planning-direction-badge trip-planning-direction-badge--${escapeHtml(directionClass)}">
-                ${escapeHtml(direction)}
-            </span>
-        </td>
         <td>${tripTime}</td>
         <td>${Number(trip.sequence) || 0}</td>
         <td>
@@ -509,19 +497,86 @@ function openSameDayReturnModal(tripId, meta) {
 }
 
 function rebuildTripsTable(trips) {
-    const tbody = document.querySelector('[data-testid="trip-planning-trips-table"] tbody');
-    if (!tbody) {
-        // Kalau tabel sebelumnya empty-state, hard reload supaya layout ke tabel full.
+    if (!Array.isArray(trips)) {
         window.location.reload();
         return;
     }
 
-    if (!Array.isArray(trips) || trips.length === 0) {
+    const sortByTimeNullLast = (a, b) => {
+        const timeA = a.trip_time || '99:99:99';
+        const timeB = b.trip_time || '99:99:99';
+        if (timeA < timeB) return -1;
+        if (timeA > timeB) return 1;
+        return (Number(a.sequence) || 0) - (Number(b.sequence) || 0);
+    };
+
+    const keberangkatanTrips = trips
+        .filter((trip) => trip.direction === 'ROHUL_TO_PKB')
+        .sort(sortByTimeNullLast);
+
+    const kepulanganTrips = trips
+        .filter((trip) => trip.direction === 'PKB_TO_ROHUL')
+        .sort(sortByTimeNullLast);
+
+    rebuildDirectionColumn('keberangkatan', keberangkatanTrips);
+    rebuildDirectionColumn('kepulangan', kepulanganTrips);
+}
+
+function rebuildDirectionColumn(directionKey, directionTrips) {
+    const column = document.querySelector(`[data-testid="trip-planning-column-${directionKey}"]`);
+    if (!column) {
         window.location.reload();
         return;
     }
 
-    tbody.innerHTML = trips.map((trip) => `
+    const existingTable = column.querySelector(`[data-testid="trip-planning-trips-table-${directionKey}"]`);
+    const existingEmpty = column.querySelector(`[data-testid="empty-state-${directionKey}"]`);
+
+    if (directionTrips.length === 0) {
+        if (existingTable) {
+            existingTable.closest('.trip-planning-trips-table-wrap').remove();
+        }
+        if (!existingEmpty) {
+            const emptyLabel = directionKey === 'keberangkatan' ? 'Keberangkatan' : 'Kepulangan';
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'dashboard-empty-state dashboard-empty-state--block';
+            emptyDiv.setAttribute('data-testid', `empty-state-${directionKey}`);
+            emptyDiv.textContent = `Belum ada trip ${emptyLabel}`;
+            column.appendChild(emptyDiv);
+        }
+        return;
+    }
+
+    if (existingEmpty) {
+        existingEmpty.remove();
+    }
+
+    let tbody;
+    if (existingTable) {
+        tbody = existingTable.querySelector('tbody');
+    } else {
+        const wrap = document.createElement('div');
+        wrap.className = 'trip-planning-trips-table-wrap';
+        wrap.innerHTML = `
+            <table class="trip-planning-trips-table" data-testid="trip-planning-trips-table-${directionKey}">
+                <thead>
+                    <tr>
+                        <th>Mobil</th>
+                        <th>Driver</th>
+                        <th>Jam</th>
+                        <th>Seq</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        `;
+        column.appendChild(wrap);
+        tbody = wrap.querySelector('tbody');
+    }
+
+    tbody.innerHTML = directionTrips.map((trip) => `
         <tr data-trip-id="${escapeHtml(trip.id)}" data-testid="trip-row-${escapeHtml(trip.id)}">
             ${renderTripRowInner(trip)}
         </tr>

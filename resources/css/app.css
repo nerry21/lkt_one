@@ -7881,6 +7881,64 @@ button {
     color: #1e40af;
 }
 
+/* Fase E5b: Two-column layout Keberangkatan/Kepulangan */
+.trip-planning-two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: stretch;
+    margin-top: 1rem;
+}
+
+.trip-planning-direction-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.trip-planning-direction-column-head {
+    padding: 0.5rem 0.25rem;
+    border-bottom: 2px solid #d1fae5;
+}
+
+.trip-planning-direction-column-head h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #065f46;
+}
+
+.trip-planning-direction-column-subtitle {
+    margin: 0.15rem 0 0;
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.trip-planning-direction-column .trip-planning-trips-table-wrap {
+    flex: 1;
+}
+
+.trip-planning-direction-column .dashboard-empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+
+@media (max-width: 767px) {
+    .trip-planning-two-column-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .trip-planning-direction-column-head h4 {
+        font-size: 1rem;
+    }
+}
+
 .trip-planning-trips-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
