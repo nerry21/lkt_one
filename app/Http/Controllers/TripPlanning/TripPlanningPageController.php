@@ -14,7 +14,7 @@ use App\Services\KeluarTripService;
 use App\Services\SameDayReturnService;
 use App\Services\TripGenerationService;
 use App\Services\TripRotationService;
-use App\Services\TripService;
+use App\Services\TripStatsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -37,8 +37,8 @@ class TripPlanningPageController extends Controller
         private readonly TripGenerationService $tripGeneration,
         private readonly TripRotationService $rotationService,
         private readonly KeluarTripService $keluarTripService,
-        private readonly TripService $tripService,
         private readonly SameDayReturnService $sameDayReturnService,
+        private readonly TripStatsService $tripStatsService,
     ) {}
 
     /**
@@ -291,27 +291,17 @@ class TripPlanningPageController extends Controller
     }
 
     /**
-     * PP counting per mobil per date. 1 PP = pulang-pergi starting dari ROHUL.
+     * Build dashboard statistics payload.
      *
-     * Formula tunggal di TripService::computePpForMobil (Fase E5c Sesi 30) —
-     * sebelumnya duplicate di sini dan TripPlanningDashboardViewController.
+     * Per-mobil shape delegated ke TripStatsService (Fase E5d Sesi 32) supaya
+     * identik dengan initial page load di TripPlanningDashboardViewController.
+     * Sebelumnya shape berbeda → refetch post-action bikin stats card kosong
+     * untuk mobil yang baru punya trip setelah SDR create.
      */
     private function buildStatistics($trips): array
     {
-        $perMobilStats = [];
-
-        foreach ($trips->groupBy('mobil_id') as $mobilId => $mobilTrips) {
-            $mobil = $mobilTrips->first()->mobil;
-
-            $perMobilStats[] = [
-                'mobil_id' => $mobilId,
-                'kode_mobil' => $mobil?->kode_mobil ?? 'unknown',
-                'pp_count' => $this->tripService->computePpForMobil($mobilTrips),
-            ];
-        }
-
         return [
-            'per_mobil' => $perMobilStats,
+            'per_mobil' => $this->tripStatsService->buildPerMobilStats($trips),
             'total_berangkat' => $trips->where('status', 'berangkat')->count(),
             'total_tidak_berangkat' => $trips->where('status', 'tidak_berangkat')->count(),
             'total_keluar_trip' => $trips->where('status', 'keluar_trip')->count(),

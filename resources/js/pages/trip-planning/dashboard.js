@@ -169,13 +169,14 @@ function renderStatistics(statistics) {
 }
 
 function normalizeStatisticsFromDashboardPayload(payload) {
-    // GET /api/trip-planning/dashboard mengembalikan shape D2:
+    // GET /api/trip-planning/dashboard mengembalikan shape:
     //   { date, statistics: { per_mobil: [...], total_berangkat, ... }, trips_*, assignments_tomorrow }
-    // View E1 pakai shape flat per-mobil: [{mobil_id, mobil_code, home_pool, pp_count, status_breakdown}, ...]
+    // View pakai shape flat per-mobil: [{mobil_id, mobil_code, home_pool, pp_count, status_breakdown}, ...]
     //
-    // D2 per_mobil hanya include mobil yang punya trip hari ini, dan field `kode_mobil`
-    // (bukan `mobil_code`) serta tidak ada `status_breakdown`. Fallback: kalau stat item
-    // tidak punya mobil_code/status_breakdown, derive dari field yang ada.
+    // Backend sekarang (Fase E5d Sesi 32) konsisten return shape flat per_mobil via
+    // TripStatsService — include semua mobil aktif, selalu carry mobil_code +
+    // home_pool + status_breakdown. Fallback di bawah tetap defensive untuk compat
+    // kalau future deployment lag antara backend/frontend (edge case).
     const statistics = payload?.statistics;
     if (!statistics) {
         return [];
@@ -496,11 +497,20 @@ function openSameDayReturnModal(tripId, meta) {
     openModal('trip-planning-same-day-return-modal');
 }
 
+function updateTripCounter(count) {
+    const counter = document.querySelector('[data-testid="trip-planning-trip-counter"]');
+    if (counter) {
+        counter.textContent = String(count);
+    }
+}
+
 function rebuildTripsTable(trips) {
     if (!Array.isArray(trips)) {
         window.location.reload();
         return;
     }
+
+    updateTripCounter(trips.length);
 
     const sortByTimeNullLast = (a, b) => {
         const timeA = a.trip_time || '99:99:99';

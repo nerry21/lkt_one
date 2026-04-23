@@ -87,7 +87,7 @@
                 <div class="dashboard-panel-head">
                     <div>
                         <h3>Daftar Trip</h3>
-                        <p>{{ count($trips) }} trip terjadwal untuk {{ $targetDate->format('d M Y') }}</p>
+                        <p><span data-testid="trip-planning-trip-counter">{{ count($trips) }}</span> trip terjadwal untuk {{ $targetDate->format('d M Y') }}</p>
                     </div>
                 </div>
 
