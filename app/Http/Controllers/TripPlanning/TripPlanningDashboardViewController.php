@@ -137,6 +137,10 @@ class TripPlanningDashboardViewController extends Controller
             'trip_time' => $trip->trip_time,
             'status' => $trip->status,
             'keluar_trip_substatus' => $trip->keluar_trip_substatus,
+            // Fase E5: consumed by dashboard.js renderActionButtons untuk hide tombol
+            // "Pulang Hari Ini" di origin trip yang sudah punya SDR pair. Field ini
+            // nullable FK — null = belum paired, int value = id trip asal.
+            'same_day_return_origin_trip_id' => $trip->same_day_return_origin_trip_id,
         ];
     }
 }

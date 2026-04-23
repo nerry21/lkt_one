@@ -156,4 +156,49 @@ class TripPlanningDashboardViewTest extends TestCase
         // Button row action tidak muncul untuk PKB→ROHUL trip.
         $response->assertDontSee('btn-same-day-return-'.$trip->id, false);
     }
+
+    public function test_same_day_return_button_hidden_when_origin_already_paired(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $mobil = Mobil::factory()->create([
+            'kode_mobil' => 'JET 03',
+            'home_pool' => 'ROHUL',
+            'is_active_in_trip' => true,
+        ]);
+        $driver = Driver::factory()->create(['nama' => 'Pak Doni']);
+
+        // Origin trip ROHUL → PKB scheduled.
+        $originTrip = Trip::query()->create([
+            'trip_date' => '2026-04-22',
+            'trip_time' => '07:00:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+
+        // SDR pair trip PKB → ROHUL yang point ke origin via same_day_return_origin_trip_id.
+        // Sequence=999 = marker ad-hoc SDR (lesson #38 handoff Sesi 30).
+        Trip::query()->create([
+            'trip_date' => '2026-04-22',
+            'trip_time' => '13:00:00',
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence' => 999,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+            'same_day_return' => true,
+            'same_day_return_origin_trip_id' => $originTrip->id,
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
+
+        $response->assertOk();
+        // Primary guard: field same_day_return_origin_trip_id HARUS ter-expose di inline
+        // JSON state (formatTripForState). Tanpa field ini, dashboard.js renderActionButtons
+        // evaluate undefined → truthy negation → tombol always shown = UX bug.
+        // Kalau developer masa depan accidentally hapus field dari serializer, test ini fail.
+        $response->assertSee('"same_day_return_origin_trip_id":'.$originTrip->id, false);
+    }
 }
