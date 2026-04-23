@@ -1,7 +1,7 @@
 import { apiRequest } from '../../services/http';
 import { escapeHtml, setButtonBusy } from '../../services/helpers';
 import { openModal, closeModal } from '../../ui/modal';
-import { toastError, toastSuccess } from '../../ui/toast';
+import { toastError, toastInfo, toastSuccess } from '../../ui/toast';
 
 const DIRECTION_LABELS = {
     ROHUL_TO_PKB: 'ROHUL → PKB',
@@ -448,9 +448,23 @@ function handleActionClick(event) {
         return;
     }
 
-    const tripId = button.dataset.tripId;
     const action = button.dataset.action;
-    if (!tripId || !action) {
+    if (!action) {
+        return;
+    }
+
+    if (action === 'open-generate-trips-modal') {
+        openModal('trip-planning-generate-trips-modal');
+        return;
+    }
+
+    if (action === 'confirm-generate-trips') {
+        confirmGenerateTrips(button);
+        return;
+    }
+
+    const tripId = button.dataset.tripId;
+    if (!tripId) {
         return;
     }
 
@@ -472,6 +486,50 @@ function handleActionClick(event) {
     }
 
     executeAction(tripId, action, button);
+}
+
+function extractGenerateErrorMessage(error) {
+    const data = error?.data || {};
+
+    if (data.error_code === 'TRIP_GENERATION_DRIVER_MISSING') {
+        const missing = data.details?.missing_mobil_ids?.length || 0;
+        return `${missing} mobil belum punya driver. Atur di halaman Assignments.`;
+    }
+
+    if (data.error === 'trip_slot_conflict' || error?.status === 409) {
+        return data.message || 'Trips sudah pernah digenerate untuk tanggal ini.';
+    }
+
+    return data.message || error?.message || 'Generate trips gagal.';
+}
+
+async function confirmGenerateTrips(buttonEl) {
+    const date = state.targetDate;
+    if (!date) {
+        toastError('Tanggal target tidak terdeteksi.');
+        return;
+    }
+
+    setButtonBusy(buttonEl, true);
+    toastInfo('Generating trips...');
+
+    try {
+        const response = await apiRequest('/trip-planning/generate', {
+            method: 'POST',
+            body: { date },
+        });
+
+        const result = Array.isArray(response?.result) ? response.result : [];
+        const totalTrips = result.reduce((sum, row) => sum + (Array.isArray(row?.trip_ids) ? row.trip_ids.length : 0), 0);
+
+        closeModal('trip-planning-generate-trips-modal');
+        toastSuccess(`${totalTrips} trip berhasil digenerate.`);
+
+        window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+        toastError(extractGenerateErrorMessage(error));
+        setButtonBusy(buttonEl, false);
+    }
 }
 
 export default async function initTripPlanningDashboardPage() {

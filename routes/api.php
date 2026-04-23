@@ -84,6 +84,16 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
                 ->name('api.trip-planning.trips.tidak-keluar-trip');
             Route::patch('/trips/{trip}/ganti-jam', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'gantiJam'])
                 ->name('api.trip-planning.trips.ganti-jam');
+
+            // E4: read trips list + generate + assignments CRUD.
+            Route::get('/trips', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'trips'])
+                ->name('api.trip-planning.trips');
+            Route::post('/generate', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'generate'])
+                ->name('api.trip-planning.generate');
+            Route::get('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'index'])
+                ->name('api.trip-planning.assignments.index');
+            Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
+                ->name('api.trip-planning.assignments.upsert');
         });
     });
 

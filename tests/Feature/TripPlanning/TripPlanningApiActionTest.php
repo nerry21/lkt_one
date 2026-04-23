@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TripPlanning;
 
+use App\Models\DailyDriverAssignment;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Models\Trip;
@@ -202,5 +203,91 @@ class TripPlanningApiActionTest extends TestCase
             'status' => 'scheduled',
             'keluar_trip_reason' => null,
         ]);
+    }
+
+    // ── Fase E4 Sesi 29: manual POST /api/trip-planning/generate ──────────
+
+    public function test_admin_can_generate_trips_via_api(): void
+    {
+        // Butuh 1 mobil di setiap pool — generateForDirection hanya include mobil
+        // yang start-day di origin pool direction itu (PKB_TO_ROHUL → mobil di PKB,
+        // ROHUL_TO_PKB → mobil di ROHUL).
+        $mobilRohul = Mobil::factory()->create(['home_pool' => 'ROHUL']);
+        $driverRohul = Driver::factory()->create();
+
+        DailyDriverAssignment::create([
+            'date' => self::DATE,
+            'mobil_id' => $this->mobil->id,
+            'driver_id' => $this->driver->id,
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+        DailyDriverAssignment::create([
+            'date' => self::DATE,
+            'mobil_id' => $mobilRohul->id,
+            'driver_id' => $driverRohul->id,
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->postJson('/api/trip-planning/generate', ['date' => self::DATE])
+            ->assertStatus(200)
+            ->assertJsonPath('date', self::DATE)
+            ->assertJsonStructure([
+                'date',
+                'result' => [
+                    '*' => ['direction', 'slots_filled', 'waiting_list_count', 'trip_ids'],
+                ],
+            ]);
+
+        // 1 mobil per pool × 2 arah = 2 trip (1 PKB_TO_ROHUL + 1 ROHUL_TO_PKB).
+        $this->assertEquals(2, Trip::where('trip_date', self::DATE)->count());
+        $this->assertCount(2, $response->json('result'));
+    }
+
+    public function test_generate_returns_422_when_mobil_missing_driver(): void
+    {
+        // Mobil aktif ada tapi tidak ada assignment sama sekali untuk tanggal target.
+        $this->actingAs($this->admin)
+            ->postJson('/api/trip-planning/generate', ['date' => self::DATE])
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'TRIP_GENERATION_DRIVER_MISSING')
+            ->assertJsonPath('details.date', self::DATE)
+            ->assertJsonStructure([
+                'message',
+                'error_code',
+                'details' => ['date', 'missing_mobil_ids'],
+            ]);
+
+        // Tidak ada trip ter-generate karena pre-flight reject.
+        $this->assertEquals(0, Trip::where('trip_date', self::DATE)->count());
+    }
+
+    public function test_generate_returns_409_when_trips_already_exist(): void
+    {
+        // Seed 1 trip existing di tanggal+arah PKB_TO_ROHUL → generateForDirection throw.
+        Trip::factory()->create([
+            'mobil_id' => $this->mobil->id,
+            'driver_id' => $this->driver->id,
+            'trip_date' => self::DATE,
+            'trip_time' => '05:30:00',
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence' => 1,
+            'status' => 'scheduled',
+        ]);
+
+        DailyDriverAssignment::create([
+            'date' => self::DATE,
+            'mobil_id' => $this->mobil->id,
+            'driver_id' => $this->driver->id,
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->postJson('/api/trip-planning/generate', ['date' => self::DATE])
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'trip_slot_conflict');
     }
 }
