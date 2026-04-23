@@ -178,7 +178,7 @@ class TripPlanningDashboardViewTest extends TestCase
             'status' => 'scheduled',
         ]);
 
-        // SDR pair trip PKB → ROHUL yang point ke origin via same_day_return_origin_trip_id.
+        // SDR pair trip PKB → ROHUL yang point ke origin.
         // Sequence=999 = marker ad-hoc SDR (lesson #38 handoff Sesi 30).
         Trip::query()->create([
             'trip_date' => '2026-04-22',
@@ -195,10 +195,43 @@ class TripPlanningDashboardViewTest extends TestCase
         $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
 
         $response->assertOk();
-        // Primary guard: field same_day_return_origin_trip_id HARUS ter-expose di inline
-        // JSON state (formatTripForState). Tanpa field ini, dashboard.js renderActionButtons
-        // evaluate undefined → truthy negation → tombol always shown = UX bug.
-        // Kalau developer masa depan accidentally hapus field dari serializer, test ini fail.
-        $response->assertSee('"same_day_return_origin_trip_id":'.$originTrip->id, false);
+
+        // PRIMARY assertion: tombol "Pulang Hari Ini" TIDAK ter-render di origin
+        // yang sudah paired. Ini adalah guard yang proper (bukan cuma assert
+        // field ter-expose di serializer).
+        $response->assertDontSee('btn-same-day-return-'.$originTrip->id, false);
+
+        // Secondary assertion: flag has_same_day_return_pair=true ter-expose
+        // di inline state untuk origin, supaya JS renderActionButtons consume.
+        $response->assertSee('"has_same_day_return_pair":true', false);
+    }
+
+    public function test_has_same_day_return_pair_flag_false_for_unpaired_origin(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $mobil = Mobil::factory()->create([
+            'kode_mobil' => 'JET 04',
+            'home_pool' => 'ROHUL',
+            'is_active_in_trip' => true,
+        ]);
+        $driver = Driver::factory()->create(['nama' => 'Pak Edi']);
+
+        // Origin trip ROHUL → PKB scheduled, BELUM punya SDR pair.
+        Trip::query()->create([
+            'trip_date' => '2026-04-22',
+            'trip_time' => '07:00:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'scheduled',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard/trip-planning?date=2026-04-22');
+
+        $response->assertOk();
+        // Flag harus false — trip belum punya pair, tombol SHOULD visible.
+        $response->assertSee('"has_same_day_return_pair":false', false);
+        $response->assertSee('btn-same-day-return-', false);
     }
 }

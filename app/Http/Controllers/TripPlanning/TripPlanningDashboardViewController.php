@@ -47,6 +47,15 @@ class TripPlanningDashboardViewController extends Controller
             ->orderBy('sequence')
             ->get();
 
+        // Fase E5 guard: scan SDR pair trips di collection yang sama untuk build
+        // lookup set origin IDs yang sudah paired. Single pass, zero extra query.
+        // Consumed by formatTripForState untuk set flag has_same_day_return_pair.
+        $pairedOriginIds = $trips
+            ->whereNotNull('same_day_return_origin_trip_id')
+            ->pluck('same_day_return_origin_trip_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $drivers = Driver::query()
             ->orderBy('nama')
             ->get(['id', 'nama']);
@@ -55,7 +64,7 @@ class TripPlanningDashboardViewController extends Controller
 
         $dashboardState = [
             'target_date' => $targetDate->toDateString(),
-            'trips' => $trips->map(fn (Trip $trip) => $this->formatTripForState($trip))->all(),
+            'trips' => $trips->map(fn (Trip $trip) => $this->formatTripForState($trip, $pairedOriginIds))->all(),
             'statistics' => $statistics,
             'drivers' => $drivers,
         ];
@@ -70,6 +79,7 @@ class TripPlanningDashboardViewController extends Controller
             'trips' => $trips,
             'statistics' => $statistics,
             'dashboardState' => $dashboardState,
+            'pairedOriginIds' => $pairedOriginIds,
         ]);
     }
 
@@ -117,9 +127,13 @@ class TripPlanningDashboardViewController extends Controller
     }
 
     /**
-     * @return array{id:int,mobil:array{id:?string,code:?string,home_pool:?string},driver:array{id:?string,name:?string},direction:string,sequence:int,trip_time:?string,status:string,keluar_trip_substatus:?string}
+     * @param  array<int, int>  $pairedOriginIds  Lookup list dari origin trip IDs
+     *   yang sudah punya SDR pair di tanggal yang sama. Digunakan untuk compute
+     *   `has_same_day_return_pair` flag (Fase E5 guard post-pair visibility).
+     *
+     * @return array{id:int,mobil:array{id:?string,code:?string,home_pool:?string},driver:array{id:?string,name:?string},direction:string,sequence:int,trip_time:?string,status:string,keluar_trip_substatus:?string,same_day_return_origin_trip_id:?int,has_same_day_return_pair:bool}
      */
-    private function formatTripForState(Trip $trip): array
+    private function formatTripForState(Trip $trip, array $pairedOriginIds = []): array
     {
         return [
             'id' => $trip->id,
@@ -141,6 +155,12 @@ class TripPlanningDashboardViewController extends Controller
             // "Pulang Hari Ini" di origin trip yang sudah punya SDR pair. Field ini
             // nullable FK — null = belum paired, int value = id trip asal.
             'same_day_return_origin_trip_id' => $trip->same_day_return_origin_trip_id,
+            // Fase E5 guard: TRUE jika trip ini adalah origin ROHUL→PKB yang sudah
+            // punya SDR pair di collection tanggal yang sama. Consumed by dashboard.js
+            // renderActionButtons sebagai guard visibility utama tombol "Pulang Hari
+            // Ini". Berbeda dari same_day_return_origin_trip_id (yang di-set di SDR
+            // pair trip, bukan origin).
+            'has_same_day_return_pair' => in_array((int) $trip->id, $pairedOriginIds, true),
         ];
     }
 }

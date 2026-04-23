@@ -67,16 +67,23 @@ class TripPlanningPageController extends Controller
             ->orderBy('sequence')
             ->get();
 
+        // Fase E5 guard: lookup set untuk compute has_same_day_return_pair flag.
+        $pairedOriginIds = $trips
+            ->whereNotNull('same_day_return_origin_trip_id')
+            ->pluck('same_day_return_origin_trip_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         return response()->json([
             'date' => $date,
             'statistics' => $this->buildStatistics($trips),
             'trips_pkb_to_rohul' => $trips
                 ->where('direction', 'PKB_TO_ROHUL')
-                ->map(fn ($t) => $this->summarizeTrip($t))
+                ->map(fn ($t) => $this->summarizeTrip($t, $pairedOriginIds))
                 ->values(),
             'trips_rohul_to_pkb' => $trips
                 ->where('direction', 'ROHUL_TO_PKB')
-                ->map(fn ($t) => $this->summarizeTrip($t))
+                ->map(fn ($t) => $this->summarizeTrip($t, $pairedOriginIds))
                 ->values(),
             'assignments_tomorrow' => $this->fetchAssignments($tomorrow),
         ]);
@@ -114,9 +121,19 @@ class TripPlanningPageController extends Controller
             ->orderBy('sequence')
             ->paginate($perPage);
 
+        // Fase E5 guard: untuk paginated list, build lookup set dari page items saja.
+        // Edge case: SDR pair trip dan origin-nya bisa di page berbeda — dalam case itu
+        // flag false-negative (origin tidak ter-mark paired). Acceptable tradeoff:
+        // backend 409 tetap catch, admin refresh liat state lengkap.
+        $paginatedPairedOriginIds = $paginated->getCollection()
+            ->whereNotNull('same_day_return_origin_trip_id')
+            ->pluck('same_day_return_origin_trip_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         return response()->json([
             'data' => $paginated->getCollection()
-                ->map(fn ($t) => $this->summarizeTrip($t))
+                ->map(fn ($t) => $this->summarizeTrip($t, $paginatedPairedOriginIds))
                 ->values(),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
@@ -303,7 +320,13 @@ class TripPlanningPageController extends Controller
         ];
     }
 
-    private function summarizeTrip(Trip $trip): array
+    /**
+     * @param  array<int, int>  $pairedOriginIds  Lookup untuk compute
+     *   `has_same_day_return_pair` flag (Fase E5 guard post-pair visibility).
+     *
+     * @return array<string, mixed>
+     */
+    private function summarizeTrip(Trip $trip, array $pairedOriginIds = []): array
     {
         $keluarTripDetail = null;
         if ($trip->status === 'keluar_trip') {
@@ -339,6 +362,10 @@ class TripPlanningPageController extends Controller
             // untuk hide tombol "Pulang Hari Ini" di origin trip yang sudah paired setelah
             // admin berhasil create SDR. Field nullable FK.
             'same_day_return_origin_trip_id' => $trip->same_day_return_origin_trip_id,
+            // Fase E5 guard: TRUE jika trip ini adalah origin ROHUL→PKB yang sudah
+            // punya SDR pair. Consumed by dashboard.js renderActionButtons sebagai
+            // guard utama visibility tombol "Pulang Hari Ini" post-pair.
+            'has_same_day_return_pair' => in_array((int) $trip->id, $pairedOriginIds, true),
             'keluar_trip_detail' => $keluarTripDetail,
         ];
     }

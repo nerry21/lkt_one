@@ -75,7 +75,7 @@ function renderActionButtons(trip) {
     if (
         trip.direction === 'ROHUL_TO_PKB'
         && (status === 'scheduled' || status === 'berangkat')
-        && !trip.same_day_return_origin_trip_id
+        && !trip.has_same_day_return_pair
     ) {
         const mobilCode = escapeHtml(trip.mobil?.code ?? trip.mobil?.kode_mobil ?? '-');
         const driverId = escapeHtml(trip.driver_id ?? trip.driver?.id ?? '');
