@@ -338,6 +338,23 @@ button {
     transform: translateY(-1px);
 }
 
+/* Sesi 30 warmup fix: browser native <option> popup render di OS-controlled
+   surface yang tidak inherit parent modal dark theme. Force readable light
+   palette untuk option elements supaya slot jam (05:30, 07:00, dst) visible
+   saat admin click dropdown Ganti Jam. Applies ke semua .modal-form select
+   — future modal dropdowns auto-inherit fix ini.
+   Bug discovered Sesi 29 smoke test, root cause: var(--transit-text) mint
+   pucat di background light native popup → invisible. */
+.modal-form select option {
+    background: #ffffff;
+    color: #1f2937;
+}
+
+.modal-form select option:checked {
+    background: #10b981;
+    color: #ffffff;
+}
+
 .password-field {
     position: relative;
 }
