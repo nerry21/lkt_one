@@ -4,14 +4,17 @@ namespace App\Http\Controllers\TripPlanning;
 
 use App\Exceptions\TripGenerationDriverMissingException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TripPlanning\CreateSameDayReturnRequest;
 use App\Http\Requests\TripPlanning\GantiJamRequest;
 use App\Http\Requests\TripPlanning\GenerateTripRequest;
 use App\Http\Requests\TripPlanning\MarkKeluarTripRequest;
 use App\Models\DailyDriverAssignment;
 use App\Models\Trip;
 use App\Services\KeluarTripService;
+use App\Services\SameDayReturnService;
 use App\Services\TripGenerationService;
 use App\Services\TripRotationService;
+use App\Services\TripService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,12 +33,12 @@ use Illuminate\Support\Carbon;
  */
 class TripPlanningPageController extends Controller
 {
-    private const ACTIVE_STATUSES = ['berangkat', 'keluar_trip'];
-
     public function __construct(
         private readonly TripGenerationService $tripGeneration,
         private readonly TripRotationService $rotationService,
         private readonly KeluarTripService $keluarTripService,
+        private readonly TripService $tripService,
+        private readonly SameDayReturnService $sameDayReturnService,
     ) {}
 
     /**
@@ -246,11 +249,35 @@ class TripPlanningPageController extends Controller
     }
 
     /**
+     * POST /trips/{trip}/same-day-return — admin trigger Same-Day Return (Fase E5).
+     *
+     * Origin trip WAJIB direction=ROHUL_TO_PKB, status=scheduled|berangkat, no existing pair.
+     * Trip baru: direction=PKB_TO_ROHUL, sequence=999 marker, same_day_return=true.
+     *
+     * Exception handling:
+     *   - SameDayReturnConflictException → 409 (origin invalid / already paired / slot bad)
+     *   - TripVersionConflictException   → 409 (origin version stale, race mitigation)
+     *   - ValidationException via FormRequest → 422 (slot format/list mismatch)
+     */
+    public function createSameDayReturn(CreateSameDayReturnRequest $request, Trip $trip): JsonResponse
+    {
+        $newTrip = $this->sameDayReturnService->createSameDayReturn(
+            originTripId: $trip->id,
+            expectedVersion: $trip->version,
+            payload: $request->validated(),
+        );
+
+        return response()->json([
+            'message' => 'Same-day return trip created',
+            'trip' => $newTrip->load(['mobil', 'driver']),
+        ], 200);
+    }
+
+    /**
      * PP counting per mobil per date. 1 PP = pulang-pergi starting dari ROHUL.
-     * Formula:
-     *   0.5 × count(ROHUL_TO_PKB with berangkat/keluar_trip)
-     * + 0.5 × count(PKB_TO_ROHUL with berangkat/keluar_trip AND matching
-     *               ROHUL_TO_PKB active same day same mobil)
+     *
+     * Formula tunggal di TripService::computePpForMobil (Fase E5c Sesi 30) —
+     * sebelumnya duplicate di sini dan TripPlanningDashboardViewController.
      */
     private function buildStatistics($trips): array
     {
@@ -259,24 +286,10 @@ class TripPlanningPageController extends Controller
         foreach ($trips->groupBy('mobil_id') as $mobilId => $mobilTrips) {
             $mobil = $mobilTrips->first()->mobil;
 
-            $activeRohulDeparture = $mobilTrips
-                ->where('direction', 'ROHUL_TO_PKB')
-                ->whereIn('status', self::ACTIVE_STATUSES);
-
-            $activePkbReturn = $mobilTrips
-                ->where('direction', 'PKB_TO_ROHUL')
-                ->whereIn('status', self::ACTIVE_STATUSES);
-
-            $ppCount = 0.5 * $activeRohulDeparture->count();
-
-            if ($activeRohulDeparture->isNotEmpty()) {
-                $ppCount += 0.5 * $activePkbReturn->count();
-            }
-
             $perMobilStats[] = [
                 'mobil_id' => $mobilId,
                 'kode_mobil' => $mobil?->kode_mobil ?? 'unknown',
-                'pp_count' => $ppCount,
+                'pp_count' => $this->tripService->computePpForMobil($mobilTrips),
             ];
         }
 

@@ -94,6 +94,10 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
                 ->name('api.trip-planning.assignments.index');
             Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
                 ->name('api.trip-planning.assignments.upsert');
+
+            // E5: same-day return mirror route.
+            Route::post('/trips/{trip}/same-day-return', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'createSameDayReturn'])
+                ->name('api.trip-planning.trips.same-day-return');
         });
     });
 

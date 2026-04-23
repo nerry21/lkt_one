@@ -6,6 +6,7 @@ use App\Exceptions\TripDeleteNotAllowedException;
 use App\Exceptions\TripSlotConflictException;
 use App\Exceptions\TripVersionConflictException;
 use App\Models\Trip;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -55,6 +56,61 @@ class TripService
         'berangkat' => 'trip sudah berangkat',
         'keluar_trip' => 'trip sedang dalam mode keluar trip (close dulu via menu Keluar Trip)',
     ];
+
+    /**
+     * Trip status yang dianggap "aktif" untuk statistics & PP calculation.
+     *
+     * - berangkat   : mobil sudah berangkat, trip kena hitung.
+     * - keluar_trip : mobil keluar rotasi (dropping/rental/other), tetap kena
+     *                 untuk audit PP.
+     *
+     * Status tidak_berangkat / tidak_keluar_trip / scheduled / ganti_jam tidak
+     * dihitung (belum jalan atau batal).
+     *
+     * Fase E5c refactor Sesi 30: single source of truth — sebelumnya duplicate
+     * di TripPlanningPageController + TripPlanningDashboardViewController.
+     */
+    public const ACTIVE_STATUSES = ['berangkat', 'keluar_trip'];
+
+    /**
+     * Hitung PP (pulang-pergi) count untuk satu mobil pada snapshot trip collection.
+     *
+     * Formula:
+     *   0.5 × count(ROHUL_TO_PKB active)
+     *   + 0.5 × count(PKB_TO_ROHUL active)
+     *     — hanya ditambahkan kalau ada ROHUL_TO_PKB active di collection
+     *       (guard: trip PKB→ROHUL standalone tanpa pair ROHUL→PKB tidak
+     *       di-count sebagai pergi-pulang).
+     *
+     * Same-day return trip (same_day_return=true) otomatis terhitung sebagai
+     * PKB_TO_ROHUL biasa (0.5 PP) via filter direction — tidak butuh
+     * special-case logic.
+     *
+     * Fase E5c refactor Sesi 30: sebelumnya duplicate di
+     * TripPlanningPageController::buildStatistics dan
+     * TripPlanningDashboardViewController::computePp. Sekarang single source
+     * of truth di service.
+     *
+     * @param  Collection<int, Trip>  $mobilTrips  Collection trip yang sudah di-filter per mobil.
+     */
+    public function computePpForMobil(Collection $mobilTrips): float
+    {
+        $activeRohulDeparture = $mobilTrips
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->whereIn('status', self::ACTIVE_STATUSES);
+
+        $activePkbReturn = $mobilTrips
+            ->where('direction', 'PKB_TO_ROHUL')
+            ->whereIn('status', self::ACTIVE_STATUSES);
+
+        $pp = 0.5 * $activeRohulDeparture->count();
+
+        if ($activeRohulDeparture->isNotEmpty()) {
+            $pp += 0.5 * $activePkbReturn->count();
+        }
+
+        return $pp;
+    }
 
     /**
      * Atomic check-and-set update dengan guard version.

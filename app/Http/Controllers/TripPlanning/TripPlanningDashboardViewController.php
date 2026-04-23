@@ -5,6 +5,7 @@ namespace App\Http\Controllers\TripPlanning;
 use App\Http\Controllers\Controller;
 use App\Models\Mobil;
 use App\Models\Trip;
+use App\Services\TripService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -24,7 +25,9 @@ use Illuminate\View\View;
  */
 class TripPlanningDashboardViewController extends Controller
 {
-    private const ACTIVE_STATUSES = ['berangkat', 'keluar_trip'];
+    public function __construct(
+        private readonly TripService $tripService,
+    ) {}
 
     public function show(Request $request): View
     {
@@ -89,39 +92,10 @@ class TripPlanningDashboardViewController extends Controller
                 'mobil_id' => $mobil->id,
                 'mobil_code' => $mobil->kode_mobil,
                 'home_pool' => $mobil->home_pool,
-                'pp_count' => $this->computePp($mobilTrips),
+                'pp_count' => $this->tripService->computePpForMobil($mobilTrips),
                 'status_breakdown' => $this->statusBreakdown($mobilTrips),
             ];
         })->all();
-    }
-
-    /**
-     * Hitung PP (pulang-pergi) untuk 1 mobil di 1 tanggal.
-     *
-     * Formula mirror TripPlanningPageController::buildStatistics (D2):
-     *   0.5 × count(ROHUL_TO_PKB dengan status berangkat/keluar_trip)
-     *   + 0.5 × count(PKB_TO_ROHUL dengan status berangkat/keluar_trip)
-     *     — hanya ditambahkan kalau ada keberangkatan ROHUL→PKB aktif.
-     *
-     * @param  Collection<int, Trip>  $mobilTrips
-     */
-    private function computePp(Collection $mobilTrips): float
-    {
-        $activeRohulDeparture = $mobilTrips
-            ->where('direction', 'ROHUL_TO_PKB')
-            ->whereIn('status', self::ACTIVE_STATUSES);
-
-        $activePkbReturn = $mobilTrips
-            ->where('direction', 'PKB_TO_ROHUL')
-            ->whereIn('status', self::ACTIVE_STATUSES);
-
-        $pp = 0.5 * $activeRohulDeparture->count();
-
-        if ($activeRohulDeparture->isNotEmpty()) {
-            $pp += 0.5 * $activePkbReturn->count();
-        }
-
-        return $pp;
     }
 
     /**

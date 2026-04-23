@@ -158,5 +158,9 @@ Route::prefix('dashboard')->group(function () {
             ->name('trip-planning.trips.tidak-keluar-trip');
         Route::patch('/trips/{trip}/ganti-jam', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'gantiJam'])
             ->name('trip-planning.trips.ganti-jam');
+
+        // Trip Planning — Fase E5 Sesi 30: Same-Day Return (admin trigger trip PKB→ROHUL di hari yang sama).
+        Route::post('/trips/{trip}/same-day-return', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'createSameDayReturn'])
+            ->name('trip-planning.trips.same-day-return');
     });
 });
