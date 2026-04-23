@@ -8082,3 +8082,124 @@ button {
         font-size: 0.68rem;
     }
 }
+
+/* Fase E4: Assignments matrix page */
+.trip-planning-assignments-matrix {
+    margin-top: 24px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(167, 243, 208, 0.16);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.trip-planning-assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--transit-text);
+}
+
+.trip-planning-assignments-table thead th {
+    text-align: left;
+    padding: 14px 18px;
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--transit-text-soft);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(167, 243, 208, 0.18);
+}
+
+.trip-planning-assignments-table tbody td {
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(167, 243, 208, 0.1);
+    vertical-align: middle;
+}
+
+.trip-planning-assignments-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.trip-planning-assignments-table tbody tr:hover {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.assignments-cell-mobil strong {
+    font-size: 1rem;
+    color: var(--transit-text);
+}
+
+.assignments-pool-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.assignments-pool-badge--rohul {
+    background: rgba(110, 231, 183, 0.16);
+    color: #6ee7b7;
+    border: 1px solid rgba(110, 231, 183, 0.32);
+}
+
+.assignments-pool-badge--pkb {
+    background: rgba(147, 197, 253, 0.16);
+    color: #93c5fd;
+    border: 1px solid rgba(147, 197, 253, 0.32);
+}
+
+.assignments-driver-select {
+    width: 100%;
+    min-width: 220px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(167, 243, 208, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--transit-text);
+    outline: none;
+    transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.assignments-driver-select:focus {
+    border-color: rgba(52, 211, 153, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.trip-planning-assignments-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 16px 0;
+}
+
+.trip-planning-assignments-empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--transit-text-soft);
+}
+
+.trip-planning-assignments-empty-state h3 {
+    color: var(--transit-text);
+    margin-bottom: 8px;
+    font-size: 1.125rem;
+}
+
+.trip-planning-assignments-empty-state a {
+    color: #6ee7b7;
+    text-decoration: underline;
+}
+
+/* Fase E4: Generate trips modal content */
+.trip-planning-generate-modal-body p {
+    margin: 0 0 8px 0;
+    color: var(--transit-text);
+}
+
+.trip-planning-generate-modal-hint {
+    color: var(--transit-text-soft);
+    font-size: 0.85rem;
+}

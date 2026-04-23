@@ -130,10 +130,10 @@ Route::prefix('dashboard')->group(function () {
         Route::get('/', [\App\Http\Controllers\TripPlanning\TripPlanningDashboardViewController::class, 'show'])
             ->name('trip-planning.dashboard.view');
 
-        Route::get('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'index'])
-            ->name('trip-planning.assignments.index');
-        Route::put('/assignments', [\App\Http\Controllers\TripPlanning\DailyDriverAssignmentPageController::class, 'upsert'])
-            ->name('trip-planning.assignments.upsert');
+        // Trip Planning — Fase E4 Sesi 29: assignments matrix view (Blade).
+        // JSON endpoints (GET/PUT) are at /api/trip-planning/assignments only.
+        Route::get('/assignments', [\App\Http\Controllers\TripPlanning\AssignmentsDashboardViewController::class, 'show'])
+            ->name('trip-planning.assignments.view');
 
         // Trip Planning — Fase D Sesi 22 (dashboard read endpoints + manual generate).
         Route::get('/dashboard', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'dashboard'])

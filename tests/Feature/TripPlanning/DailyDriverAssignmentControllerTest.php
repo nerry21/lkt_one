@@ -12,9 +12,9 @@ use Tests\TestCase;
 /**
  * Feature tests for DailyDriverAssignmentPageController (Sesi 21 Fase D1).
  *
- * Endpoints:
- *   GET /dashboard/trip-planning/assignments?date=YYYY-MM-DD
- *   PUT /dashboard/trip-planning/assignments
+ * Endpoints (migrated ke /api/ prefix di Fase E4 Sesi 29):
+ *   GET /api/trip-planning/assignments?date=YYYY-MM-DD
+ *   PUT /api/trip-planning/assignments
  *
  * Auth: jwt.auth + admin.role:admin (Admin OR Super Admin).
  */
@@ -45,7 +45,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
     public function test_unauthenticated_cannot_access_index(): void
     {
-        $this->getJson('/dashboard/trip-planning/assignments?date=2026-04-23')
+        $this->getJson('/api/trip-planning/assignments?date=2026-04-23')
             ->assertStatus(401);
     }
 
@@ -54,7 +54,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
         $nonAdmin = User::factory()->create(['role' => 'User']);
 
         $this->actingAs($nonAdmin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
@@ -66,7 +66,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_super_admin_can_access_upsert(): void
     {
         $this->actingAs($this->superAdmin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
@@ -93,7 +93,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->getJson('/dashboard/trip-planning/assignments?date=2026-04-23')
+            ->getJson('/api/trip-planning/assignments?date=2026-04-23')
             ->assertStatus(200)
             ->assertJsonPath('date', '2026-04-23')
             ->assertJsonCount(1, 'assignments');
@@ -102,7 +102,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_index_returns_empty_for_date_with_no_assignments(): void
     {
         $this->actingAs($this->admin)
-            ->getJson('/dashboard/trip-planning/assignments?date=2026-12-31')
+            ->getJson('/api/trip-planning/assignments?date=2026-12-31')
             ->assertStatus(200)
             ->assertJsonCount(0, 'assignments');
     }
@@ -112,7 +112,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_rejects_past_date(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2020-01-01',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
@@ -125,7 +125,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_rejects_empty_assignments(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [],
             ])
@@ -136,7 +136,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_rejects_nonexistent_mobil(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     [
@@ -151,7 +151,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_rejects_nonexistent_driver(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     [
@@ -166,7 +166,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_rejects_duplicate_mobil_in_payload(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
@@ -182,7 +182,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     public function test_upsert_creates_new_assignments_with_audit_fields(): void
     {
         $this->actingAs($this->admin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
@@ -220,7 +220,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
         // Super admin updates — driver_id changes, created_by stays, updated_by changes.
         $this->actingAs($this->superAdmin)
-            ->putJson('/dashboard/trip-planning/assignments', [
+            ->putJson('/api/trip-planning/assignments', [
                 'date' => '2026-04-23',
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver2->id],

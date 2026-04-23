@@ -34,6 +34,17 @@
                             <span>Tampilkan</span>
                         </button>
                     </form>
+                    <a href="{{ route('trip-planning.assignments.view', ['date' => $targetDate->toDateString()]) }}"
+                       class="dashboard-ghost-button"
+                       data-testid="trip-planning-atur-assignments-btn">
+                        Atur Assignments
+                    </a>
+                    <button type="button"
+                            class="dashboard-primary-button"
+                            data-action="open-generate-trips-modal"
+                            data-testid="trip-planning-generate-trips-btn">
+                        Generate Trips
+                    </button>
                 </div>
             </section>
 
@@ -198,6 +209,44 @@
                     </div>
                 @endif
             </section>
+        </div>
+
+        <div class="modal-shell" id="trip-planning-generate-trips-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-generate-trips-modal"></div>
+
+            <div class="modal-card modal-card-compact">
+                <div class="modal-head">
+                    <div>
+                        <h3>Generate Trips</h3>
+                        <p class="trip-planning-modal-subtitle">
+                            Scheduler biasanya generate otomatis jam 21:00 WIB. Gunakan ini hanya untuk manual trigger / re-run.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-generate-trips-modal" aria-label="Tutup">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="trip-planning-generate-modal-body">
+                    <p>Generate trips untuk <strong>{{ $targetDate->translatedFormat('l, d F Y') }}</strong>?</p>
+                    <p class="trip-planning-generate-modal-hint">
+                        Trips akan dibuat berdasarkan assignment yang sudah tersimpan. Pastikan semua mobil aktif punya driver di halaman Assignments.
+                    </p>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-generate-trips-modal">
+                        Batal
+                    </button>
+                    <button type="button"
+                            class="dashboard-primary-button"
+                            id="trip-planning-generate-trips-confirm"
+                            data-action="confirm-generate-trips"
+                            data-testid="btn-confirm-generate-trips">
+                        Generate
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div class="modal-shell" id="trip-planning-ganti-jam-modal" hidden>
