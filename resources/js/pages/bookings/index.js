@@ -14,10 +14,11 @@ const SCHEDULES = [
     { value: '19:00', label: 'Malam', time: '19.00 WIB' },
 ];
 
-// Seat rows for the car diagram (top-down view, front-to-back)
+// Seat rows for the car diagram (top-down view, front-to-back).
+// 2B = kursi tambahan opsional (admin-only policy) dengan badge visual.
 const SEAT_ROWS = [
     [{ code: '1A', label: '1A' }, { code: 'SOPIR', label: 'SOPIR', isDriver: true }],
-    [{ code: '2A', label: '2A' }, { code: '3A', label: '3A' }],
+    [{ code: '2A', label: '2A' }, { code: '2B', label: '2B', isOptional: true }, { code: '3A', label: '3A' }],
     [{ code: '4A', label: '4A' }, { code: '5A', label: '5A' }],
 ];
 
@@ -130,9 +131,13 @@ function renderCarDiagram(seatBookingMap) {
             const passengerName = isOccupied
                 ? escapeHtml(booking.nama_pemesanan || '-')
                 : '';
+            const optionalBadge = seat.isOptional
+                ? '<span class="bpg-seat-optional-badge">OPSIONAL</span>'
+                : '';
 
             return `
                 <div class="bpg-seat-item ${stateClass}" title="${isOccupied ? passengerName : 'Tersedia'}">
+                    ${optionalBadge}
                     <div class="bpg-seat-icon">${passengerSeatSvg(isOccupied)}</div>
                     <span class="bpg-seat-label">${seat.label}</span>
                     ${isOccupied ? `<span class="bpg-seat-name">${passengerName}</span>` : ''}
