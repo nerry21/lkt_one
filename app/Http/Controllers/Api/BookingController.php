@@ -275,23 +275,43 @@ class BookingController extends Controller
 
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
-        $query = Booking::query()
-            ->where('trip_date', $tripDate)
-            ->where('trip_time', 'like', $timePrefix . '%')
-            ->where('armada_index', $armadaIndex);
+        $updatedCount = DB::transaction(function () use (
+            $tripDate, $timePrefix, $armadaIndex, $direction, $driverName, $driverId,
+        ): int {
+            // Bug #37 — pessimistic batch lock: prevent concurrent admin race during
+            // bulk slot reassignment. lockForUpdate holds row locks until COMMIT,
+            // blocking concurrent transactions from mutating same rows.
+            $query = Booking::query()
+                ->where('trip_date', $tripDate)
+                ->where('trip_time', 'like', $timePrefix . '%')
+                ->where('armada_index', $armadaIndex);
 
-        if ($direction === 'to_pkb') {
-            $query->where('to_city', 'Pekanbaru');
-        } elseif ($direction === 'from_pkb') {
-            $query->where('from_city', 'Pekanbaru');
-        }
+            if ($direction === 'to_pkb') {
+                $query->where('to_city', 'Pekanbaru');
+            } elseif ($direction === 'from_pkb') {
+                $query->where('from_city', 'Pekanbaru');
+            }
 
-        $query->update([
-            'driver_name' => $driverName !== '' ? $driverName : null,
-            'driver_id' => $driverId,
+            // Acquire row locks for matching set. lockForUpdate() on SELECT ensures
+            // subsequent UPDATE in same transaction is atomic vs concurrent admin.
+            $ids = $query->lockForUpdate()->pluck('id');
+
+            if ($ids->isEmpty()) {
+                return 0;
+            }
+
+            return Booking::query()
+                ->whereIn('id', $ids)
+                ->update([
+                    'driver_name' => $driverName !== '' ? $driverName : null,
+                    'driver_id' => $driverId,
+                ]);
+        });
+
+        return response()->json([
+            'message' => 'Driver berhasil diperbarui pada slot keberangkatan',
+            'updated_count' => $updatedCount,
         ]);
-
-        return response()->json(['message' => 'Driver berhasil diperbarui pada slot keberangkatan']);
     }
 
     public function armadaExtras(Request $request): JsonResponse
