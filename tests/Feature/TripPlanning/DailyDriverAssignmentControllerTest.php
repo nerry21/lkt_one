@@ -45,7 +45,9 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
     public function test_unauthenticated_cannot_access_index(): void
     {
-        $this->getJson('/api/trip-planning/assignments?date=2026-04-23')
+        $date = now()->addDay()->toDateString();
+
+        $this->getJson("/api/trip-planning/assignments?date={$date}")
             ->assertStatus(401);
     }
 
@@ -55,7 +57,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
         $this->actingAs($nonAdmin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
                 ],
@@ -67,7 +69,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->superAdmin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
                 ],
@@ -84,8 +86,10 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
     public function test_index_returns_assignments_for_date(): void
     {
+        $date = now()->addDay()->toDateString();
+
         DailyDriverAssignment::create([
-            'date' => '2026-04-23',
+            'date' => $date,
             'mobil_id' => $this->mobil1->id,
             'driver_id' => $this->driver1->id,
             'created_by' => $this->admin->id,
@@ -93,9 +97,9 @@ class DailyDriverAssignmentControllerTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->getJson('/api/trip-planning/assignments?date=2026-04-23')
+            ->getJson("/api/trip-planning/assignments?date={$date}")
             ->assertStatus(200)
-            ->assertJsonPath('date', '2026-04-23')
+            ->assertJsonPath('date', $date)
             ->assertJsonCount(1, 'assignments');
     }
 
@@ -126,7 +130,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [],
             ])
             ->assertStatus(422)
@@ -137,7 +141,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     [
                         'mobil_id' => '00000000-0000-0000-0000-000000000000',
@@ -152,7 +156,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     [
                         'mobil_id' => $this->mobil1->id,
@@ -167,7 +171,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver2->id],
@@ -183,7 +187,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
     {
         $this->actingAs($this->admin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => now()->addDay()->toDateString(),
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
                     ['mobil_id' => $this->mobil2->id, 'driver_id' => $this->driver2->id],
@@ -209,9 +213,11 @@ class DailyDriverAssignmentControllerTest extends TestCase
 
     public function test_upsert_updates_existing_assignment_last_write_wins(): void
     {
+        $date = now()->addDay()->toDateString();
+
         // Seed first assignment by admin.
         DailyDriverAssignment::create([
-            'date' => '2026-04-23',
+            'date' => $date,
             'mobil_id' => $this->mobil1->id,
             'driver_id' => $this->driver1->id,
             'created_by' => $this->admin->id,
@@ -221,7 +227,7 @@ class DailyDriverAssignmentControllerTest extends TestCase
         // Super admin updates — driver_id changes, created_by stays, updated_by changes.
         $this->actingAs($this->superAdmin)
             ->putJson('/api/trip-planning/assignments', [
-                'date' => '2026-04-23',
+                'date' => $date,
                 'assignments' => [
                     ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver2->id],
                 ],
