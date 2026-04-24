@@ -674,10 +674,14 @@ function passengerCount() {
 }
 
 function allowedSeatCodes() {
-    const count = passengerCount();
+    // Role-based 2B policy (Sesi 37): admin/super admin selalu boleh pilih 2B
+    // (kursi opsional), terlepas dari passenger_count. window.transitAuthUser
+    // sudah di-pass di base.blade.php untuk semua halaman dashboard.
+    const role = window.transitAuthUser?.role ?? null;
+    const isAdmin = ['Super Admin', 'Admin'].includes(role);
 
     return (state.formOptions?.seat_options || [])
-        .filter((item) => !item.is_optional || count >= 6)
+        .filter((item) => !item.is_optional || isAdmin)
         .map((item) => item.code);
 }
 
