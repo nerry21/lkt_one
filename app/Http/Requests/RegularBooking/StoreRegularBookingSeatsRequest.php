@@ -57,15 +57,32 @@ class StoreRegularBookingSeatsRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                // Priority 1: role-based 2B access guard. Non-admin yang mengirim
+                // seat_codes berisi '2B' ditolak dengan pesan role-eksplisit,
+                // terlepas dari generic Rule::in error yang mungkin sudah
+                // ditambahkan di tahap rules().
+                $actor = $this->user();
+                $isAdmin = $actor instanceof User && $actor->isAdmin();
+                $rawSelectedSeats = (array) $this->input('seat_codes', []);
+
+                if (! $isAdmin && in_array('2B', $rawSelectedSeats, true)) {
+                    $validator->errors()->add(
+                        'seat_codes',
+                        'Kursi 2B hanya dapat dipilih oleh Admin atau Super Admin.'
+                    );
+
+                    return;
+                }
+
+                // Priority 2: existing early-return on prior rules() errors
                 if ($validator->errors()->has('seat_codes') || $validator->errors()->has('seat_codes.*')) {
                     return;
                 }
 
+                // Priority 3: existing count-match validation
                 $draft = app(RegularBookingDraftService::class)->get($this->session());
                 $requiredSeatCount = (int) ($draft['passenger_count'] ?? 0);
                 $service = app(RegularBookingService::class);
-                $actor = $this->user();
-                $isAdmin = $actor instanceof User && $actor->isAdmin();
 
                 if ($requiredSeatCount < 1) {
                     $validator->errors()->add('seat_codes', 'Lengkapi informasi pemesanan terlebih dahulu sebelum memilih kursi.');
