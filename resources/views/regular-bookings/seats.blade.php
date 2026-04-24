@@ -53,7 +53,7 @@
                 <section class="regular-booking-section">
                     <div class="regular-booking-section-head">
                         <h2>Penampang Kursi Mobil</h2>
-                        <p>Pilih tepat {{ $seatSelectionState['required_seat_count'] }} kursi. Kursi 2B hanya akan ditampilkan saat jumlah penumpang mencapai 6 orang.</p>
+                        <p>Pilih tepat {{ $seatSelectionState['required_seat_count'] }} kursi. Kursi 2B (opsional) hanya bisa dipilih oleh Admin atau Super Admin.</p>
                     </div>
 
                     <article class="regular-booking-seat-trip-card">
@@ -134,6 +134,39 @@
                                             </div>
                                             <span class="regular-booking-driver-label">{{ $seat['label'] }}</span>
                                         </article>
+                                    @elseif ($seat['code'] === '2B')
+                                        @php
+                                            $isLocked = ! ($isAdmin ?? false);
+                                        @endphp
+                                        <label
+                                            class="regular-booking-seat-card{{ $seat['is_selected'] ? ' is-selected' : '' }}{{ ($seat['is_occupied'] ?? false) ? ' is-occupied' : '' }} is-optional{{ $isLocked ? ' is-admin-only-locked' : '' }}"
+                                            data-seat-card
+                                            data-seat-area="{{ $seat['area'] }}"
+                                            data-seat-code="{{ $seat['code'] }}"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                name="seat_codes[]"
+                                                value="{{ $seat['code'] }}"
+                                                data-seat-input
+                                                @checked($seat['is_selected'])
+                                                @disabled(($seat['is_occupied'] ?? false) || $isLocked)
+                                            >
+
+                                            <span class="regular-booking-seat-admin-badge" data-role-level="{{ $isLocked ? 'locked' : 'admin' }}">ADMIN</span>
+
+                                            <span class="regular-booking-seat-card-shell" aria-hidden="true">
+                                                <svg viewBox="0 0 80 90" fill="none">
+                                                    <path d="M24 18C24 12.4772 28.4772 8 34 8H46C51.5228 8 56 12.4772 56 18V27H58C63.5228 27 68 31.4772 68 37V58C68 69.0457 59.0457 78 48 78H32C20.9543 78 12 69.0457 12 58V37C12 31.4772 16.4772 27 22 27H24V18Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                                                    <path d="M31 58V64C31 68.4183 34.5817 72 39 72H41C45.4183 72 49 68.4183 49 64V58" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </span>
+
+                                            <span class="regular-booking-seat-card-inner">
+                                                <strong>{{ $seat['label'] }}</strong>
+                                                <span class="regular-booking-seat-card-tag">Opsional</span>
+                                            </span>
+                                        </label>
                                     @elseif ($seat['is_visible'] ?? true)
                                         <label
                                             class="regular-booking-seat-card{{ $seat['is_selected'] ? ' is-selected' : '' }}{{ ($seat['is_occupied'] ?? false) ? ' is-occupied' : '' }}{{ $seat['is_optional'] ? ' is-optional' : '' }}"
@@ -238,7 +271,7 @@
 
                     <ul class="regular-booking-note-list">
                         <li>Kursi 1A berada di sebelah supir.</li>
-                        <li>Kursi 2B diposisikan di tengah antara 2A dan 3A, lalu hanya dimunculkan saat jumlah penumpang mencapai 6 orang.</li>
+                        <li>Kursi 2B (opsional) diposisikan di tengah antara 2A dan 3A dan hanya dapat dipilih oleh Admin atau Super Admin.</li>
                         <li>Ketika jumlah kursi yang dipilih sudah penuh, kursi lain akan dinonaktifkan sementara sampai ada kursi yang dibatalkan.</li>
                     </ul>
                 </section>

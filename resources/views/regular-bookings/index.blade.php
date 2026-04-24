@@ -227,7 +227,7 @@
                                 <select id="regular-booking-passenger-count" name="passenger_count" data-booking-passengers required>
                                     @foreach ($passengerCounts as $count)
                                         <option value="{{ $count['value'] }}" @selected($formState['passenger_count'] === $count['value'])>
-                                            {{ $count['value'] === 6 ? $count['label'] . ' (Opsional tambahan)' : $count['label'] }}
+                                            {{ $count['label'] }}
                                         </option>
                                     @endforeach
                                 </select>

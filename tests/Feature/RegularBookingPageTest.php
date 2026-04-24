@@ -129,6 +129,9 @@ class RegularBookingPageTest extends TestCase
 
     public function test_regular_booking_seat_page_shows_vehicle_seat_layout(): void
     {
+        // Non-admin user: 2B tetap dirender di picker (selalu visible) namun
+        // locked + badge merah (role-level locked). Admin-only policy enforced
+        // via CSS + disabled input + FormRequest role guard.
         $this->actingAs(User::factory()->create());
 
         $this->withSession([
@@ -144,14 +147,18 @@ class RegularBookingPageTest extends TestCase
             ->assertSee('3A')
             ->assertSee('4A')
             ->assertSee('5A')
-            ->assertDontSee('data-seat-code="2B"', false)
+            ->assertSee('data-seat-code="2B"', false)
+            ->assertSee('is-admin-only-locked', false)
+            ->assertSee('data-role-level="locked"', false)
             ->assertSee('Lanjut ke Data Penumpang');
     }
 
-    public function test_regular_booking_seat_page_hides_2b_for_non_admin_regardless_of_count(): void
+    public function test_regular_booking_seat_page_shows_2b_locked_for_non_admin(): void
     {
-        // Default factory user = non-admin (role NULL). Role-based rule baru:
-        // non-admin tidak pernah lihat 2B, walau passenger_count = 6.
+        // Default factory user = non-admin (role NULL). PR #4 picker UI update:
+        // 2B selalu dirender untuk semua user; yang berbeda adalah class
+        // is-admin-only-locked + badge role-level="locked" untuk non-admin.
+        // Sebelum PR #4 assertion-nya assertDontSee — sekarang dibalik.
         $this->actingAs(User::factory()->create());
 
         $this->withSession([
@@ -160,7 +167,9 @@ class RegularBookingPageTest extends TestCase
             ]),
         ])->get('/dashboard/regular-bookings/seats')
             ->assertOk()
-            ->assertDontSee('data-seat-code="2B"', false);
+            ->assertSee('data-seat-code="2B"', false)
+            ->assertSee('is-admin-only-locked', false)
+            ->assertSee('data-role-level="locked"', false);
     }
 
     public function test_regular_booking_seat_selection_is_saved_to_session_and_redirects_to_passenger_step(): void
