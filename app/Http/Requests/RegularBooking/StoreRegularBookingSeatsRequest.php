@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RegularBooking;
 
+use App\Models\User;
 use App\Services\RegularBookingDraftService;
 use App\Services\RegularBookingService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,7 +20,9 @@ class StoreRegularBookingSeatsRequest extends FormRequest
     {
         $draft = app(RegularBookingDraftService::class)->get($this->session());
         $requiredSeatCount = (int) ($draft['passenger_count'] ?? 0);
-        $availableSeatCodes = app(RegularBookingService::class)->availableSeatCodesForPassengerCount($requiredSeatCount);
+        $actor = $this->user();
+        $isAdmin = $actor instanceof User && $actor->isAdmin();
+        $availableSeatCodes = app(RegularBookingService::class)->availableSeatCodesForPassengerCount($requiredSeatCount, $isAdmin);
 
         return [
             'seat_codes' => ['required', 'array'],
@@ -61,6 +64,8 @@ class StoreRegularBookingSeatsRequest extends FormRequest
                 $draft = app(RegularBookingDraftService::class)->get($this->session());
                 $requiredSeatCount = (int) ($draft['passenger_count'] ?? 0);
                 $service = app(RegularBookingService::class);
+                $actor = $this->user();
+                $isAdmin = $actor instanceof User && $actor->isAdmin();
 
                 if ($requiredSeatCount < 1) {
                     $validator->errors()->add('seat_codes', 'Lengkapi informasi pemesanan terlebih dahulu sebelum memilih kursi.');
@@ -70,7 +75,7 @@ class StoreRegularBookingSeatsRequest extends FormRequest
 
                 $selectedSeatCodes = $service->sortSeatCodes(
                     (array) $this->input('seat_codes', []),
-                    $service->availableSeatCodesForPassengerCount($requiredSeatCount),
+                    $service->availableSeatCodesForPassengerCount($requiredSeatCount, $isAdmin),
                 );
 
                 if (count($selectedSeatCodes) !== $requiredSeatCount) {

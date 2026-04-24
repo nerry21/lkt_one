@@ -198,11 +198,11 @@ class RegularBookingService
         ];
     }
 
-    public function seatLayoutState(array $selectedSeatCodes = [], ?int $passengerCount = null, array $occupiedSeatCodes = []): array
+    public function seatLayoutState(array $selectedSeatCodes = [], ?int $passengerCount = null, array $occupiedSeatCodes = [], bool $isAdmin = false): array
     {
         $availableSeatCodes = $passengerCount === null
             ? $this->selectableSeatCodes()
-            : $this->availableSeatCodesForPassengerCount($passengerCount);
+            : $this->availableSeatCodesForPassengerCount($passengerCount, $isAdmin);
         $selectedSeatLookup = array_flip($this->sortSeatCodes($selectedSeatCodes, $availableSeatCodes));
         $occupiedLookup = array_flip($occupiedSeatCodes);
 
@@ -229,10 +229,14 @@ class RegularBookingService
             ->all();
     }
 
-    public function availableSeatCodesForPassengerCount(int $passengerCount): array
+    public function availableSeatCodesForPassengerCount(int $passengerCount, bool $isAdmin = false): array
     {
+        // Role-based 2B policy: hanya admin yang boleh lihat/pilih kursi 2B
+        // (opsional). Non-admin tidak pernah mendapat 2B, berapapun jumlah
+        // penumpangnya. Argumen $passengerCount dipertahankan untuk kompatibilitas
+        // signature pemanggil existing.
         return collect($this->selectableSeatCodes())
-            ->filter(fn (string $seatCode): bool => $passengerCount >= 6 || $seatCode !== '2B')
+            ->filter(fn (string $seatCode): bool => $isAdmin || $seatCode !== '2B')
             ->values()
             ->all();
     }

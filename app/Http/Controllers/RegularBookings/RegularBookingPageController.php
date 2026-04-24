@@ -131,6 +131,9 @@ class RegularBookingPageController extends Controller
         $draft['armada_index'] = $targetArmadaIndex;
         $drafts->store($request->session(), $draft);
 
+        $actor = $request->user();
+        $isAdmin = $actor instanceof User && $actor->isAdmin();
+
         return view('regular-bookings.seats', [
             'pageTitle' => 'Pilih Kursi | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'regular-bookings/seats',
@@ -144,8 +147,10 @@ class RegularBookingPageController extends Controller
                 $seatSelectionState['selected_seats'],
                 $seatSelectionState['required_seat_count'],
                 $occupiedSeats,
+                $isAdmin,
             ),
             'seatSelectionState' => $seatSelectionState,
+            'isAdmin' => $isAdmin,
             'flashSuccess' => $request->session()->get('regular_booking_success'),
             'flashNotice' => $request->session()->get('regular_booking_notice'),
         ]);

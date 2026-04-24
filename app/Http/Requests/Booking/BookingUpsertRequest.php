@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Booking;
 
 use App\Models\Booking;
+use App\Models\User;
 use App\Services\BookingManagementService;
 use App\Services\RegularBookingService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -102,6 +103,8 @@ abstract class BookingUpsertRequest extends FormRequest
 
                 $bookingService = app(BookingManagementService::class);
                 $regularBookingService = app(RegularBookingService::class);
+                $actor = $this->user();
+                $isAdmin = $actor instanceof User && $actor->isAdmin();
                 $origin = (string) $this->input('from_city');
                 $destination = (string) $this->input('to_city');
                 $passengerCount = (int) $this->input('passenger_count');
@@ -109,12 +112,12 @@ abstract class BookingUpsertRequest extends FormRequest
                 $paymentStatus = (string) $this->input('payment_status');
                 $selectedSeats = $regularBookingService->sortSeatCodes(
                     (array) $this->input('selected_seats', []),
-                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount),
+                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount, $isAdmin),
                 );
                 $passengers = (array) $this->input('passengers', []);
                 $passengerSeatCodes = $regularBookingService->sortSeatCodes(
                     array_column($passengers, 'seat_no'),
-                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount),
+                    $regularBookingService->availableSeatCodesForPassengerCount($passengerCount, $isAdmin),
                 );
 
                 if ($origin === $destination) {
