@@ -38,7 +38,7 @@ Route::get('/build/assets/{asset}', [BuildAssetController::class, 'show'])
 
 require __DIR__.'/auth.php';
 
-Route::prefix('dashboard')->group(function () {
+Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
     Route::get('/', [DashboardPageController::class, 'index'])->name('dashboard');
     Route::get('/regular-bookings', [RegularBookingPageController::class, 'index'])->name('regular-bookings.index');
     Route::post('/regular-bookings/information', [RegularBookingPageController::class, 'storeInformation'])->name('regular-bookings.information.store');
