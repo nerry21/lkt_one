@@ -5211,6 +5211,39 @@ button {
     transform: none;
 }
 
+.regular-booking-seat-card.is-admin-only-locked {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.regular-booking-seat-card.is-admin-only-locked input {
+    cursor: not-allowed;
+}
+
+.regular-booking-seat-admin-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #ffffff;
+    text-transform: uppercase;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.regular-booking-seat-admin-badge[data-role-level='admin'] {
+    background: #16a34a;
+}
+
+.regular-booking-seat-admin-badge[data-role-level='locked'] {
+    background: #dc2626;
+}
+
 .regular-booking-seat-feedback {
     padding: 18px 20px;
     border-radius: 20px;

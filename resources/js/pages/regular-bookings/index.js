@@ -81,7 +81,7 @@ export default function initRegularBookingsPage() {
             return 'Belum dipilih';
         }
 
-        return total === 6 ? '6 Penumpang (Opsional tambahan)' : `${total} Penumpang`;
+        return `${total} Penumpang`;
     }
 
     function updateSummary() {
