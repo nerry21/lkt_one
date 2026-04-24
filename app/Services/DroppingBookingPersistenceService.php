@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\SeatLockService;
+use App\Traits\GeneratesUniqueBookingCodes;
 use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
 
 class DroppingBookingPersistenceService
 {
+    use GeneratesUniqueBookingCodes;
     use NormalizesTripTime;
 
     public function __construct(
@@ -347,38 +349,22 @@ class DroppingBookingPersistenceService
 
     private function generateBookingCode(): string
     {
-        do {
-            $code = 'DBK-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('booking_code', $code)->exists());
-
-        return $code;
+        return $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'DBK', 4);
     }
 
     private function generateInvoiceNumber(): string
     {
-        do {
-            $num = 'INV-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('invoice_number', $num)->exists());
-
-        return $num;
+        return $this->generateUniqueBookingCode(Booking::class, 'invoice_number', 'INV', 4);
     }
 
     private function generateTicketNumber(): string
     {
-        do {
-            $num = 'ETK-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('ticket_number', $num)->exists());
-
-        return $num;
+        return $this->generateUniqueBookingCode(Booking::class, 'ticket_number', 'ETK', 4);
     }
 
     private function generateQrToken(): string
     {
-        do {
-            $token = 'QRT-' . now()->format('ymd') . '-' . Str::upper(Str::random(6));
-        } while (Booking::query()->where('qr_token', $token)->exists());
-
-        return $token;
+        return $this->generateUniqueBookingCode(Booking::class, 'qr_token', 'QRT', 6);
     }
 
     private function generatePaymentReference(string $paymentMethod): string

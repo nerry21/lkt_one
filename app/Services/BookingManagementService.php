@@ -14,10 +14,12 @@ use Illuminate\Support\Str;
 use App\Services\CustomerLoyaltyService;
 use App\Services\CustomerResolverService;
 use App\Services\SeatLockService;
+use App\Traits\GeneratesUniqueBookingCodes;
 use App\Traits\NormalizesTripTime;
 
 class BookingManagementService
 {
+    use GeneratesUniqueBookingCodes;
     use NormalizesTripTime;
 
     public function __construct(
@@ -669,20 +671,12 @@ class BookingManagementService
 
     private function generateUniqueCode(string $column, string $prefix, int $randomLength = 4): string
     {
-        do {
-            $code = $prefix . '-' . now()->format('ymd') . '-' . Str::upper(Str::random($randomLength));
-        } while (Booking::query()->where($column, $code)->exists());
-
-        return $code;
+        return $this->generateUniqueBookingCode(Booking::class, $column, $prefix, $randomLength);
     }
 
     private function generatePassengerQrToken(): string
     {
-        do {
-            $code = 'PQR-' . now()->format('ymd') . '-' . Str::upper(Str::random(6));
-        } while (BookingPassenger::query()->where('qr_token', $code)->exists());
-
-        return $code;
+        return $this->generateUniqueBookingCode(BookingPassenger::class, 'qr_token', 'PQR', 6);
     }
 
     private function buildSlotKey(Booking $booking): array

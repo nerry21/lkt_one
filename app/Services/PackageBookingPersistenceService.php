@@ -6,6 +6,7 @@ use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
 use App\Models\User;
 use App\Services\SeatLockService;
+use App\Traits\GeneratesUniqueBookingCodes;
 use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
 
 class PackageBookingPersistenceService
 {
+    use GeneratesUniqueBookingCodes;
     use NormalizesTripTime;
 
     public function __construct(
@@ -275,20 +277,12 @@ class PackageBookingPersistenceService
 
     private function generateBookingCode(): string
     {
-        do {
-            $bookingCode = 'PKT-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('booking_code', $bookingCode)->exists());
-
-        return $bookingCode;
+        return $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'PKT', 4);
     }
 
     private function generateInvoiceNumber(): string
     {
-        do {
-            $invoiceNumber = 'SBB-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('invoice_number', $invoiceNumber)->exists());
-
-        return $invoiceNumber;
+        return $this->generateUniqueBookingCode(Booking::class, 'invoice_number', 'SBB', 4);
     }
 
     private function generatePaymentReference(string $paymentMethod): string
