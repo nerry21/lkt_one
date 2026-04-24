@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\RentalData;
 
+use App\Exceptions\BookingVersionConflictException;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Driver;
@@ -180,6 +181,7 @@ class RentalDataPageController extends Controller
             'payment_status'   => ['nullable', 'string'],
             'driver_id'        => ['nullable', 'uuid', 'exists:drivers,id'],
             'mobil_id'         => ['nullable', 'uuid', 'exists:mobil,id'],
+            'version'          => ['required', 'integer'],
         ], [
             'passenger_phone.regex'          => 'Nomor HP harus format Indonesia yang valid.',
             'trip_time.date_format'          => 'Jam keberangkatan harus format HH:MM.',
@@ -187,9 +189,16 @@ class RentalDataPageController extends Controller
             'rental_end_date.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
         ]);
 
+        $expectedVersion = (int) $validated['version'];
+
+        // Bug #38: optimistic lock pre-check. Mirror Api\BookingController::validatePayment.
+        if ($booking->version !== $expectedVersion) {
+            throw new BookingVersionConflictException($booking->id, $expectedVersion);
+        }
+
         $phone = $this->normalizePhone((string) ($validated['passenger_phone'] ?? ''));
 
-        DB::transaction(function () use ($booking, $validated, $phone): void {
+        DB::transaction(function () use ($booking, $validated, $phone, $expectedVersion): void {
             $paymentStatus  = $validated['payment_status'] ?? (string) ($booking->payment_status ?? 'Belum Bayar');
             $isPaid         = in_array($paymentStatus, ['Dibayar', 'Dibayar Tunai'], true);
             $pricePerSeat   = (int) $validated['price_per_seat'];
@@ -200,7 +209,7 @@ class RentalDataPageController extends Controller
                 ? $validated['return_trip_time'] . ':00'
                 : null;
 
-            $booking->fill([
+            $attributes = [
                 'from_city'        => trim($validated['from_city']),
                 'to_city'          => trim($validated['to_city']),
                 'route_label'      => trim($validated['from_city']) . ' - ' . trim($validated['to_city']),
@@ -220,8 +229,13 @@ class RentalDataPageController extends Controller
                 'notes'            => $validated['notes'] ?? null,
                 'driver_id'        => $validated['driver_id'] ?? null,
                 'mobil_id'         => $validated['mobil_id'] ?? null,
-            ]);
-            $booking->save();
+            ];
+
+            // Atomic check-and-set (bug #38). Race guard bila admin lain bump version
+            // antara pre-check dan sini. Failure rolls back passengers update juga.
+            if (! $booking->updateWithVersionCheck($attributes, $expectedVersion)) {
+                throw new BookingVersionConflictException($booking->id, $expectedVersion);
+            }
 
             $booking->passengers()->update([
                 'name'  => trim($validated['passenger_name']),
@@ -233,13 +247,26 @@ class RentalDataPageController extends Controller
             ->with('rental_data_success', "Data {$booking->booking_code} berhasil diperbarui.");
     }
 
-    public function destroy(Booking $booking): RedirectResponse
+    public function destroy(Request $request, Booking $booking): RedirectResponse
     {
         abort_if($booking->category !== 'Rental', 404);
 
+        // Bug #38: version wajib di query string (?version=N). Mirror DELETE API path.
+        $versionRaw = $request->query('version');
+        if ($versionRaw === null || ! is_numeric($versionRaw)) {
+            return redirect()->route('rental-data.index')
+                ->withErrors(['version' => 'Parameter version wajib dikirim.']);
+        }
+        $expectedVersion = (int) $versionRaw;
+
         $code = (string) $booking->booking_code;
 
-        DB::transaction(function () use ($booking): void {
+        DB::transaction(function () use ($booking, $expectedVersion): void {
+            // Pre-check di dalam transaction (mirror BookingManagementService::deleteBooking).
+            if ($booking->version !== $expectedVersion) {
+                throw new BookingVersionConflictException($booking->id, $expectedVersion);
+            }
+
             $booking->passengers()->delete();
             $booking->delete();
         });
