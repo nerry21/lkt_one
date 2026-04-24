@@ -148,8 +148,10 @@ class RegularBookingPageTest extends TestCase
             ->assertSee('Lanjut ke Data Penumpang');
     }
 
-    public function test_regular_booking_seat_page_only_shows_2b_for_six_passengers(): void
+    public function test_regular_booking_seat_page_hides_2b_for_non_admin_regardless_of_count(): void
     {
+        // Default factory user = non-admin (role NULL). Role-based rule baru:
+        // non-admin tidak pernah lihat 2B, walau passenger_count = 6.
         $this->actingAs(User::factory()->create());
 
         $this->withSession([
@@ -158,8 +160,7 @@ class RegularBookingPageTest extends TestCase
             ]),
         ])->get('/dashboard/regular-bookings/seats')
             ->assertOk()
-            ->assertSee('data-seat-code="2B"', false)
-            ->assertSee('Opsional');
+            ->assertDontSee('data-seat-code="2B"', false);
     }
 
     public function test_regular_booking_seat_selection_is_saved_to_session_and_redirects_to_passenger_step(): void

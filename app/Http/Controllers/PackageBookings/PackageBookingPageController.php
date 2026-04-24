@@ -119,6 +119,9 @@ class PackageBookingPageController extends Controller
         $draft['armada_index'] = $targetArmadaIndex;
         $drafts->store($request->session(), $draft);
 
+        $actor = $request->user();
+        $isAdmin = $actor instanceof User && $actor->isAdmin();
+
         return view('package-bookings.package', [
             'pageTitle' => 'Ukuran Paket | JET (JAYA EXCECUTIVE TRANSPORT)',
             'pageScript' => 'package-bookings/package',
@@ -134,7 +137,9 @@ class PackageBookingPageController extends Controller
                 $packageSelectionState['selected_seats'],
                 1,
                 $occupiedSeats,
+                $isAdmin,
             ),
+            'isAdmin' => $isAdmin,
             'flashSuccess' => $request->session()->get('package_booking_success'),
             'flashNotice' => $request->session()->get('package_booking_notice'),
         ]);
