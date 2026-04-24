@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Services\CustomerLoyaltyService;
 use App\Services\SeatLockService;
+use App\Traits\GeneratesUniqueBookingCodes;
 use App\Traits\NormalizesTripTime;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Illuminate\Support\Str;
 
 class RegularBookingPersistenceService
 {
+    use GeneratesUniqueBookingCodes;
     use NormalizesTripTime;
 
     public function __construct(
@@ -347,11 +349,7 @@ class RegularBookingPersistenceService
 
     private function generateBookingCode(): string
     {
-        do {
-            $bookingCode = 'RBK-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('booking_code', $bookingCode)->exists());
-
-        return $bookingCode;
+        return $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'RBK', 4);
     }
 
     private function buildSlotKey(Booking $booking): array
@@ -393,29 +391,17 @@ class RegularBookingPersistenceService
 
     private function generateInvoiceNumber(): string
     {
-        do {
-            $invoiceNumber = 'INV-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('invoice_number', $invoiceNumber)->exists());
-
-        return $invoiceNumber;
+        return $this->generateUniqueBookingCode(Booking::class, 'invoice_number', 'INV', 4);
     }
 
     private function generateTicketNumber(): string
     {
-        do {
-            $ticketNumber = 'ETK-' . now()->format('ymd') . '-' . Str::upper(Str::random(4));
-        } while (Booking::query()->where('ticket_number', $ticketNumber)->exists());
-
-        return $ticketNumber;
+        return $this->generateUniqueBookingCode(Booking::class, 'ticket_number', 'ETK', 4);
     }
 
     private function generateQrToken(): string
     {
-        do {
-            $qrToken = 'QRT-' . now()->format('ymd') . '-' . Str::upper(Str::random(6));
-        } while (Booking::query()->where('qr_token', $qrToken)->exists());
-
-        return $qrToken;
+        return $this->generateUniqueBookingCode(Booking::class, 'qr_token', 'QRT', 6);
     }
 
     private function generatePaymentReference(string $paymentMethod): string
