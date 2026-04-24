@@ -119,6 +119,7 @@ function populateEditModal(data) {
         el.value = value ?? '';
     };
 
+    set('version',         data.version);
     set('passenger_name',  data.passenger_name);
     set('passenger_phone', data.passenger_phone);
     set('from_city',       data.from_city);
@@ -145,7 +146,8 @@ function populateDeleteModal(data) {
     if (!form || !codeEl) return;
 
     const BASE_URL = window.__DROPPING_DATA_UPDATE_BASE__ || '/dashboard/dropping-data';
-    form.action = `${BASE_URL}/${data.id}`;
+    // Bug #38: append ?version=N so destroy() reads it from query string.
+    form.action = `${BASE_URL}/${data.id}?version=${encodeURIComponent(data.version ?? 0)}`;
     codeEl.textContent = data.booking_code;
 }
 

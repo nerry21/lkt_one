@@ -1,5 +1,8 @@
 <div class="ddrop-form-grid">
 
+    {{-- Bug #38: hidden version untuk optimistic lock. Di-set via JS fillEditForm. --}}
+    <input type="hidden" name="version" value="{{ $booking?->version ?? 0 }}">
+
     <div class="ddrop-section-divider">Data Pemesan</div>
 
     <div class="ddrop-form-field">

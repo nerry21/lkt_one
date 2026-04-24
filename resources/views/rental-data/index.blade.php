@@ -114,6 +114,7 @@
                             $additionalFare = max(0, $totalAmt - $pricePerSeat);
                             $rowData = json_encode([
                                 'id'               => $booking->id,
+                                'version'          => $booking->version,
                                 'booking_code'     => $booking->booking_code,
                                 'passenger_name'   => $booking->passenger_name,
                                 'passenger_phone'  => $booking->passenger_phone,
@@ -673,7 +674,9 @@
 
         row.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
             document.getElementById('delete-booking-code').textContent = data.booking_code;
-            document.getElementById('form-delete').action = BASE_DELETE_URL + '/' + data.id;
+            // Bug #38: append ?version=N so destroy() reads it from query string.
+            document.getElementById('form-delete').action =
+                BASE_DELETE_URL + '/' + data.id + '?version=' + encodeURIComponent(data.version ?? 0);
             openModal('modal-delete');
         });
     });
@@ -715,6 +718,7 @@
             if (el) el.value = val ?? '';
         };
 
+        set('version',          d.version);
         set('passenger_name',   d.passenger_name);
         set('passenger_phone',  d.passenger_phone);
         set('from_city',        d.from_city);

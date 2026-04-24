@@ -111,6 +111,7 @@
                             $additionalFare  = max(0, $totalAmt - $pricePerSeat);
                             $rowData = json_encode([
                                 'id'               => $booking->id,
+                                'version'          => $booking->version,
                                 'booking_code'     => $booking->booking_code,
                                 'passenger_name'   => $booking->passenger_name,
                                 'passenger_phone'  => $booking->passenger_phone,
