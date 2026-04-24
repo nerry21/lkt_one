@@ -197,21 +197,24 @@ class RegularBookingPageTest extends TestCase
             ]);
     }
 
-    public function test_regular_booking_rejects_2b_selection_when_passenger_count_is_below_six(): void
+    public function test_regular_booking_non_admin_cannot_select_2b_regardless_of_count(): void
     {
+        // Role-based 2B guard: non-admin tidak boleh pilih 2B di passenger_count
+        // berapa pun. Aturan lama (count-based) sudah dibuang di PR #1 — PR #2
+        // pindahkan rejection dari generic Rule::in ke pesan role eksplisit.
         $this->actingAs(User::factory()->create());
 
         $this->from('/dashboard/regular-bookings/seats')
             ->withSession([
                 'regular_booking.information' => $this->makeDraft([
-                    'passenger_count' => 5,
+                    'passenger_count' => 3,
                 ]),
             ])->post('/dashboard/regular-bookings/seats', [
-                'seat_codes' => ['1A', '2A', '2B', '3A', '4A'],
+                'seat_codes' => ['1A', '2B', '3A'],
             ])
             ->assertRedirect('/dashboard/regular-bookings/seats')
             ->assertSessionHasErrors([
-                'seat_codes.2' => 'Ada kursi yang dipilih tetapi tidak tersedia pada penampang kendaraan.',
+                'seat_codes' => 'Kursi 2B hanya dapat dipilih oleh Admin atau Super Admin.',
             ]);
     }
 

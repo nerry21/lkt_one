@@ -97,14 +97,34 @@ abstract class BookingUpsertRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                // Priority 1: role-based 2B access guard. Non-admin yang
+                // mengirim 2B di selected_seats atau passengers.*.seat_no
+                // ditolak dengan pesan role-eksplisit, sebelum guard
+                // errors->isNotEmpty() existing supaya pesan ini tidak
+                // tertelan error lain di payload yang sama.
+                $actor = $this->user();
+                $isAdmin = $actor instanceof User && $actor->isAdmin();
+
+                if (! $isAdmin) {
+                    $rawSelectedSeats = (array) $this->input('selected_seats', []);
+                    $rawPassengerSeats = array_column((array) $this->input('passengers', []), 'seat_no');
+
+                    if (in_array('2B', $rawSelectedSeats, true) || in_array('2B', $rawPassengerSeats, true)) {
+                        $validator->errors()->add(
+                            'selected_seats',
+                            'Kursi 2B hanya dapat dipilih oleh Admin atau Super Admin.'
+                        );
+
+                        return;
+                    }
+                }
+
                 if ($validator->errors()->isNotEmpty()) {
                     return;
                 }
 
                 $bookingService = app(BookingManagementService::class);
                 $regularBookingService = app(RegularBookingService::class);
-                $actor = $this->user();
-                $isAdmin = $actor instanceof User && $actor->isAdmin();
                 $origin = (string) $this->input('from_city');
                 $destination = (string) $this->input('to_city');
                 $passengerCount = (int) $this->input('passenger_count');
