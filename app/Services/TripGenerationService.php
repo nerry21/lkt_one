@@ -92,7 +92,9 @@ class TripGenerationService
      *            pakai trip_time eksplisit dari pin. Sequence start dari 1,
      *            order by trip_time ASC. Multi-mobil di slot pinned yang sama
      *            diizinkan (DP-2: penumpang ramai). Pin di-skip kalau mobil
-     *            inactive, salah pool, atau driver mapping miss.
+     *            inactive, salah pool aktual (poolForMobil dinamis — konsisten
+     *            dengan Pass 2, bukan home_pool statis), atau driver mapping
+     *            miss.
      *   Pass 2 — auto-fill mobil sisa (yang tidak pinned) pakai
      *            prioritizedMobilList. Slot diambil dari SLOTS minus slot yang
      *            sudah dipakai pinned (kalau pinned slot nyangkut di SLOTS).
@@ -139,14 +141,14 @@ class TripGenerationService
             ->with('assignment.mobil')
             ->orderBy('trip_time')
             ->get()
-            ->filter(function (DailyAssignmentPin $pin) use ($poolOrigin, $driverAssignments): bool {
+            ->filter(function (DailyAssignmentPin $pin) use ($poolOrigin, $tripDate, $driverAssignments): bool {
                 $mobil = $pin->assignment?->mobil;
                 if ($mobil === null) {
                     return false;
                 }
 
                 return $mobil->is_active_in_trip
-                    && $mobil->home_pool === $poolOrigin
+                    && $this->poolState->poolForMobil($mobil->id, $tripDate) === $poolOrigin
                     && isset($driverAssignments[$mobil->id]);
             });
 

@@ -598,6 +598,69 @@ class TripGenerationServiceTest extends TestCase
         $this->assertSame('05:30:00', $pkbTrips[0]->trip_time);
     }
 
+    public function test_pin_skipped_when_mobil_dynamic_pool_differs_from_direction(): void
+    {
+        // Regression test PR #4 Phase E4 hotfix: pin filter harus pakai
+        // poolForMobil dinamis (Pass 2-style), bukan home_pool statis.
+        //
+        // Skenario prod 25 April 2026: JET 01 home_pool=ROHUL, tapi sudah
+        // berangkat kemarin (status=berangkat) → poolForMobil=PKB.
+        // Pin ROHUL_TO_PKB di-pin oleh admin ⇒ harus DI-SKIP karena mobil
+        // tidak di ROHUL pool secara fisik.
+
+        $yesterday = Carbon::parse(self::TRIP_DATE)->subDay()->toDateString();
+
+        $mobilDeparted = Mobil::factory()->create([
+            'home_pool' => 'ROHUL',
+            'kode_mobil' => 'BM 5001 RRR',
+        ]);
+        $driver = Driver::factory()->create();
+
+        // Trip kemarin: berangkat dari ROHUL ke PKB → mobil sekarang di PKB
+        Trip::create([
+            'trip_date' => $yesterday,
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobilDeparted->id,
+            'driver_id' => $driver->id,
+            'status' => 'berangkat',
+        ]);
+
+        // Pin ROHUL_TO_PKB di hari ini (admin tidak sadar mobil masih di PKB)
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobilDeparted->id,
+            'driver_id' => $driver->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:30:00',
+        ]);
+
+        $mapping = [$mobilDeparted->id => $driver->id];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        // Assert: trip ROHUL_TO_PKB TIDAK ter-create (pin di-skip karena pool mismatch)
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->count();
+        $this->assertSame(0, $rohulTrips, 'Pin ke arah ROHUL_TO_PKB harus di-skip kalau mobil tidak di ROHUL pool');
+
+        // Assert: trip PKB_TO_ROHUL ter-create via auto-fill (mobil di PKB)
+        $pkbTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'PKB_TO_ROHUL')
+            ->orderBy('sequence')
+            ->get();
+        $this->assertCount(1, $pkbTrips);
+        $this->assertSame($mobilDeparted->id, $pkbTrips[0]->mobil_id);
+        $this->assertSame('05:30:00', $pkbTrips[0]->trip_time);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     /**
