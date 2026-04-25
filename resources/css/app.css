@@ -8300,6 +8300,77 @@ button {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
+.trip-planning-assignments-info {
+    margin-top: 16px;
+    padding: 10px 16px;
+    background: rgba(16, 185, 129, 0.08);
+    border-left: 3px solid #10b981;
+    border-radius: 6px;
+    color: #047857;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.trip-planning-assignments-info p {
+    margin: 0;
+}
+
+.trip-planning-assignments-info strong {
+    color: #065f46;
+}
+
+.assignments-cell-pin {
+    min-width: 160px;
+}
+
+.assignments-pin-select {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.8125rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.assignments-pin-select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.assignments-pin-custom-input {
+    margin-top: 6px;
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.8125rem;
+    color: #1f2937;
+}
+
+.assignments-pin-custom-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.assignments-pin-custom-input[hidden] {
+    display: none;
+}
+
+/* Header sub-label kecil di kolom pin */
+.trip-planning-assignments-table thead th small {
+    display: block;
+    font-weight: 400;
+    font-size: 0.7rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
 .trip-planning-assignments-footer {
     display: flex;
     justify-content: flex-end;

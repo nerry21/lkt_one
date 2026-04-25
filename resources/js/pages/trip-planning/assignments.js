@@ -10,6 +10,16 @@ const SELECTORS = {
     saveGenerate: '[data-action="save-generate"]',
 };
 
+const STANDARD_SLOTS = ['05:30', '07:00', '09:00', '13:00', '16:00', '19:00'];
+
+const DIRECTIONS = {
+    OUTBOUND: 'ROHUL_TO_PKB',
+    RETURN: 'PKB_TO_ROHUL',
+};
+
+const PIN_VALUE_AUTO = '';
+const PIN_VALUE_CUSTOM = '__custom__';
+
 const state = {
     date: null,
     mobils: [],
@@ -40,8 +50,75 @@ function renderEmptyState(headline, body) {
     `;
 }
 
-function renderRow(mobil, selectedDriverId) {
-    const options = state.drivers
+/**
+ * Normalize trip_time dari API (HH:MM:SS) ke HH:MM.
+ */
+function timeToSlotValue(time) {
+    if (!time) return '';
+    return String(time).slice(0, 5);
+}
+
+/**
+ * Cari pin direction tertentu di assignment.
+ * Returns 'HH:MM' atau null.
+ */
+function findPinTime(assignment, direction) {
+    if (!assignment || !Array.isArray(assignment.pins)) return null;
+    const pin = assignment.pins.find((p) => p.direction === direction);
+    return pin ? timeToSlotValue(pin.trip_time) : null;
+}
+
+/**
+ * Render 1 cell pin (Outbound atau Return).
+ * - currentTime null → "— Auto —" selected
+ * - currentTime ∈ STANDARD_SLOTS → slot tsb selected
+ * - currentTime selain itu → "Custom" selected, input time visible
+ */
+function renderPinCell(mobilKode, direction, currentTime) {
+    const isStandard = currentTime !== null && STANDARD_SLOTS.includes(currentTime);
+    const isCustom = currentTime !== null && !isStandard;
+
+    let selectedValue = PIN_VALUE_AUTO;
+    if (isStandard) selectedValue = currentTime;
+    else if (isCustom) selectedValue = PIN_VALUE_CUSTOM;
+
+    const slotOptions = STANDARD_SLOTS.map((slot) => {
+        const sel = slot === selectedValue ? ' selected' : '';
+        return `<option value="${slot}"${sel}>${slot}</option>`;
+    }).join('');
+
+    const autoSel = selectedValue === PIN_VALUE_AUTO ? ' selected' : '';
+    const customSel = selectedValue === PIN_VALUE_CUSTOM ? ' selected' : '';
+
+    const customInputValue = isCustom ? escapeHtml(currentTime) : '';
+    const customInputHidden = isCustom ? '' : ' hidden';
+
+    const directionAttr = escapeHtml(direction);
+    const testIdSelect = `assignments-pin-${direction === DIRECTIONS.OUTBOUND ? 'outbound' : 'return'}-${escapeHtml(mobilKode)}`;
+    const testIdCustom = `${testIdSelect}-custom`;
+
+    return `
+        <td class="assignments-cell-pin" data-pin-cell data-direction="${directionAttr}">
+            <select class="assignments-pin-select" data-pin-select data-testid="${testIdSelect}">
+                <option value="${PIN_VALUE_AUTO}"${autoSel}>— Auto —</option>
+                ${slotOptions}
+                <option value="${PIN_VALUE_CUSTOM}"${customSel}>Custom...</option>
+            </select>
+            <input
+                type="time"
+                class="assignments-pin-custom-input"
+                data-pin-custom-input
+                data-testid="${testIdCustom}"
+                value="${customInputValue}"${customInputHidden}
+            />
+        </td>
+    `;
+}
+
+function renderRow(mobil, assignment) {
+    const selectedDriverId = assignment ? assignment.driver_id : '';
+
+    const driverOptions = state.drivers
         .map((driver) => {
             const selected = String(driver.id) === String(selectedDriverId) ? ' selected' : '';
             return `<option value="${escapeHtml(driver.id)}"${selected}>${escapeHtml(driver.nama)}</option>`;
@@ -52,6 +129,9 @@ function renderRow(mobil, selectedDriverId) {
     const poolClass = String(poolRaw).toLowerCase();
     const poolLabel = poolRaw || '-';
 
+    const pinOutbound = findPinTime(assignment, DIRECTIONS.OUTBOUND);
+    const pinReturn = findPinTime(assignment, DIRECTIONS.RETURN);
+
     return `
         <tr data-mobil-id="${escapeHtml(mobil.id)}" data-testid="assignments-row-${escapeHtml(mobil.kode_mobil)}">
             <td class="assignments-cell-mobil"><strong>${escapeHtml(mobil.kode_mobil)}</strong></td>
@@ -61,9 +141,11 @@ function renderRow(mobil, selectedDriverId) {
             <td class="assignments-cell-driver">
                 <select class="assignments-driver-select" data-driver-select data-testid="assignments-driver-select-${escapeHtml(mobil.kode_mobil)}">
                     <option value="">— Pilih Driver —</option>
-                    ${options}
+                    ${driverOptions}
                 </select>
             </td>
+            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.OUTBOUND, pinOutbound)}
+            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.RETURN, pinReturn)}
         </tr>
     `;
 }
@@ -80,9 +162,7 @@ function renderMatrix() {
             'Belum ada mobil aktif',
             'Aktifkan mobil di <a href="/dashboard/mobil">halaman Mobil</a> untuk mulai set assignment.',
         );
-        if (footerEl) {
-            footerEl.hidden = true;
-        }
+        if (footerEl) footerEl.hidden = true;
         return;
     }
 
@@ -91,18 +171,16 @@ function renderMatrix() {
             'Belum ada driver terdaftar',
             'Daftarkan driver di <a href="/dashboard/drivers">halaman Driver</a> dulu.',
         );
-        if (footerEl) {
-            footerEl.hidden = true;
-        }
+        if (footerEl) footerEl.hidden = true;
         return;
     }
 
     const assignmentsByMobilId = new Map(
-        (state.assignments || []).map((assignment) => [String(assignment.mobil_id), assignment.driver_id]),
+        (state.assignments || []).map((assignment) => [String(assignment.mobil_id), assignment]),
     );
 
     const rowsHtml = state.mobils
-        .map((mobil) => renderRow(mobil, assignmentsByMobilId.get(String(mobil.id)) || ''))
+        .map((mobil) => renderRow(mobil, assignmentsByMobilId.get(String(mobil.id)) || null))
         .join('');
 
     matrixEl.innerHTML = `
@@ -112,6 +190,8 @@ function renderMatrix() {
                     <th>Mobil</th>
                     <th>Home Pool</th>
                     <th>Driver</th>
+                    <th>Pin Outbound<small>ROHUL → PKB</small></th>
+                    <th>Pin Return<small>PKB → ROHUL</small></th>
                 </tr>
             </thead>
             <tbody>
@@ -120,29 +200,98 @@ function renderMatrix() {
         </table>
     `;
 
-    if (footerEl) {
-        footerEl.hidden = false;
-    }
+    bindPinCellEvents();
+
+    if (footerEl) footerEl.hidden = false;
+}
+
+/**
+ * Toggle visibility custom time input saat dropdown change.
+ */
+function bindPinCellEvents() {
+    rootEl.querySelectorAll('[data-pin-cell]').forEach((cell) => {
+        const select = cell.querySelector('[data-pin-select]');
+        const customInput = cell.querySelector('[data-pin-custom-input]');
+        if (!select || !customInput) return;
+
+        select.addEventListener('change', () => {
+            if (select.value === PIN_VALUE_CUSTOM) {
+                customInput.hidden = false;
+                customInput.focus();
+            } else {
+                customInput.hidden = true;
+                customInput.value = '';
+            }
+        });
+    });
+}
+
+/**
+ * Build pins[] untuk 1 row dari 2 cell pin.
+ * Returns array of {direction, trip_time} — 0 sampai 2 entries.
+ * Throws Error kalau Custom dipilih tapi input time kosong/invalid.
+ */
+function collectPinsForRow(rowEl, mobilKode) {
+    const pins = [];
+
+    rowEl.querySelectorAll('[data-pin-cell]').forEach((cell) => {
+        const direction = cell.dataset.direction;
+        const select = cell.querySelector('[data-pin-select]');
+        const customInput = cell.querySelector('[data-pin-custom-input]');
+
+        if (!select) return;
+        const value = select.value;
+
+        if (value === PIN_VALUE_AUTO) {
+            return;
+        }
+
+        let tripTime;
+        if (value === PIN_VALUE_CUSTOM) {
+            const customVal = (customInput?.value || '').trim();
+            if (!customVal) {
+                throw new Error(`Mobil ${mobilKode}: Pin custom dipilih tapi jam belum diisi.`);
+            }
+            tripTime = customVal;
+        } else {
+            tripTime = value;
+        }
+
+        pins.push({ direction, trip_time: tripTime });
+    });
+
+    return pins;
 }
 
 function collectPayload() {
     const rows = rootEl.querySelectorAll('tr[data-mobil-id]');
     const assignments = [];
     let hasMissing = false;
+    const collectErrors = [];
 
     rows.forEach((row) => {
         const mobilId = row.dataset.mobilId;
         const select = row.querySelector('[data-driver-select]');
         const driverId = select ? select.value : '';
+        const mobilKode = row.dataset.testid?.replace('assignments-row-', '') || mobilId;
 
         if (mobilId && driverId) {
-            assignments.push({ mobil_id: mobilId, driver_id: driverId });
+            try {
+                const pins = collectPinsForRow(row, mobilKode);
+                const item = { mobil_id: mobilId, driver_id: driverId };
+                if (pins.length > 0) {
+                    item.pins = pins;
+                }
+                assignments.push(item);
+            } catch (err) {
+                collectErrors.push(err.message);
+            }
         } else if (mobilId) {
             hasMissing = true;
         }
     });
 
-    return { assignments, hasMissing };
+    return { assignments, hasMissing, collectErrors };
 }
 
 function extractGenerateErrorMessage(error) {
@@ -157,11 +306,23 @@ function extractGenerateErrorMessage(error) {
         return data.message || 'Trips sudah pernah digenerate untuk tanggal ini.';
     }
 
+    if (error?.status === 422 && data.errors) {
+        const firstField = Object.keys(data.errors)[0];
+        if (firstField && firstField.includes('pins')) {
+            return data.errors[firstField][0] || 'Validasi pin gagal.';
+        }
+    }
+
     return data.message || error?.message || 'Generate trips gagal.';
 }
 
 async function handleSave(alsoGenerate, buttonEl) {
-    const { assignments, hasMissing } = collectPayload();
+    const { assignments, hasMissing, collectErrors } = collectPayload();
+
+    if (collectErrors.length > 0) {
+        toastError(collectErrors[0]);
+        return;
+    }
 
     if (assignments.length === 0) {
         toastError('Pilih minimal 1 driver untuk 1 mobil sebelum simpan.');
@@ -172,10 +333,7 @@ async function handleSave(alsoGenerate, buttonEl) {
         const ok = window.confirm(
             'Ada mobil tanpa driver. Generate trips akan gagal untuk mobil aktif yang tidak lengkap. Lanjutkan hanya simpan?',
         );
-        if (!ok) {
-            return;
-        }
-        // Degrade to save-only when user keeps going.
+        if (!ok) return;
         alsoGenerate = false;
     }
 
@@ -191,6 +349,7 @@ async function handleSave(alsoGenerate, buttonEl) {
         toastSuccess(`${assignments.length} assignment tersimpan.`);
 
         if (!alsoGenerate) {
+            renderMatrix();
             setButtonBusy(buttonEl, false);
             return;
         }
@@ -230,9 +389,7 @@ function bindActions() {
 
 export default async function initAssignmentsPage() {
     rootEl = document.querySelector(SELECTORS.container);
-    if (!rootEl) {
-        return;
-    }
+    if (!rootEl) return;
 
     const initial = parseInitialState();
     state.date = initial.date || null;
