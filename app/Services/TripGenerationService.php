@@ -32,13 +32,7 @@ class TripGenerationService
     /**
      * Slot jam keberangkatan untuk trip (HH:MM:SS format match trips.trip_time TIME column).
      *
-     * Source of truth: independent dari Keberangkatan::JAM_KEBERANGKATAN_OPTIONS.
-     * Di-coupled via test invariant (lihat test
-     * `test_slots_constant_matches_keberangkatan_options_with_seconds_suffix`).
-     *
-     * Reasoning DP-C β: trip planning dan keberangkatan booking adalah domain
-     * berbeda yang KEBETULAN sama sekarang. Loose coupling lebih maintainable
-     * kalau diverge.
+     * Source of truth: const SLOTS array (independent legacy schedule).
      */
     public const SLOTS = ['05:30:00', '07:00:00', '09:00:00', '13:00:00', '16:00:00', '19:00:00'];
 

@@ -34,11 +34,6 @@ class Driver extends Model
         ];
     }
 
-    public function keberangkatan(): HasMany
-    {
-        return $this->hasMany(Keberangkatan::class, 'driver_id', 'id');
-    }
-
     public function departures(): HasMany
     {
         return $this->hasMany(Departure::class, 'driver_id', 'id');
