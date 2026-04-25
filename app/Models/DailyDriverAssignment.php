@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Daily driver-to-mobil assignment untuk trip scheduler (Sesi 24).
@@ -49,5 +50,10 @@ class DailyDriverAssignment extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function pins(): HasMany
+    {
+        return $this->hasMany(DailyAssignmentPin::class, 'daily_driver_assignment_id');
     }
 }
