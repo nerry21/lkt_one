@@ -95,6 +95,16 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
             // E5: same-day return mirror route.
             Route::post('/trips/{trip}/same-day-return', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'createSameDayReturn'])
                 ->name('api.trip-planning.trips.same-day-return');
+
+            // E5: Trip Manual CRUD endpoints
+            Route::post('/trips', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'store'])
+                ->name('api.trip-planning.trips.store');
+            Route::put('/trips/{trip}', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'update'])
+                ->name('api.trip-planning.trips.update');
+            Route::delete('/trips/{trip}', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'destroy'])
+                ->name('api.trip-planning.trips.destroy');
+            Route::get('/trips/{trip}/bookings-count', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'bookingsCount'])
+                ->name('api.trip-planning.trips.bookings-count');
         });
     });
 
