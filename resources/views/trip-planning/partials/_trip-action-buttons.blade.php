@@ -62,6 +62,33 @@
             data-testid="btn-keluar-trip-{{ $trip->id }}">
         Keluar Trip
     </button>
+    <button type="button"
+            class="trip-planning-action-btn trip-planning-action-btn--neutral"
+            data-action="open-edit-trip-modal"
+            data-trip-id="{{ $trip->id }}"
+            data-trip-version="{{ $trip->version }}"
+            data-trip-date="{{ $trip->trip_date->format('Y-m-d') }}"
+            data-trip-time="{{ $trip->trip_time ?? '' }}"
+            data-trip-direction="{{ $trip->direction }}"
+            data-trip-sequence="{{ $trip->sequence }}"
+            data-mobil-id="{{ $trip->mobil_id }}"
+            data-mobil-code="{{ $trip->mobil?->kode_mobil ?? '-' }}"
+            data-driver-id="{{ $trip->driver_id }}"
+            data-driver-name="{{ $trip->driver?->nama ?? '-' }}"
+            data-testid="btn-edit-trip-{{ $trip->id }}">
+        Edit
+    </button>
+    <button type="button"
+            class="trip-planning-action-btn trip-planning-action-btn--danger"
+            data-action="open-delete-trip-modal"
+            data-trip-id="{{ $trip->id }}"
+            data-trip-version="{{ $trip->version }}"
+            data-mobil-code="{{ $trip->mobil?->kode_mobil ?? '-' }}"
+            data-trip-time="{{ $trip->trip_time ?? '' }}"
+            data-trip-direction="{{ $trip->direction }}"
+            data-testid="btn-delete-trip-{{ $trip->id }}">
+        Hapus
+    </button>
 @endif
 
 @if ($trip->direction === 'ROHUL_TO_PKB'

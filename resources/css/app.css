@@ -8198,6 +8198,67 @@ button {
     margin-left: 6px;
 }
 
+/* E5 PR #2: Hint kecil block-level di bawah input field (Edit Trip modal). */
+.trip-planning-modal-hint-block {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+/* E5 PR #2: Advanced toggle button di Edit Trip modal. */
+.trip-planning-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    border: none;
+    padding: 0.5rem 0;
+    cursor: pointer;
+    color: #059669;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.trip-planning-advanced-toggle:hover {
+    color: #047857;
+    text-decoration: underline;
+}
+
+.trip-planning-advanced-toggle-icon {
+    font-size: 0.7rem;
+    transition: transform 0.15s ease;
+}
+
+/* E5 PR #2: Warning info delete modal (booking count). */
+.trip-planning-modal-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    color: #78350f;
+    font-size: 0.875rem;
+}
+
+.trip-planning-modal-warning strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.trip-planning-modal-warning p {
+    margin: 0;
+    color: inherit;
+}
+
+/* E5 PR #2: Danger variant primary button untuk delete confirm. */
+.dashboard-primary-button--danger {
+    background: #dc2626;
+}
+
+.dashboard-primary-button--danger:hover {
+    background: #b91c1c;
+}
+
 @media (max-width: 767px) {
     .trip-planning-actions-cell {
         min-width: 180px;
