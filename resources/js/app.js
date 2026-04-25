@@ -23,6 +23,7 @@ import initDroppingBookingsPage from './pages/dropping-bookings/index';
 import initDroppingDataPage from './pages/dropping-data/index';
 import initTripPlanningDashboardPage from './pages/trip-planning/dashboard';
 import initAssignmentsPage from './pages/trip-planning/assignments';
+import initKeuanganJetSiklusDetailPage from './pages/keuangan-jet/siklus-detail';
 
 const pageModules = {
     'admin-users/index': initAdminUsersPage,
@@ -42,6 +43,7 @@ const pageModules = {
     'dropping-data/index': initDroppingDataPage,
     'trip-planning/dashboard': initTripPlanningDashboardPage,
     'trip-planning/assignments': initAssignmentsPage,
+    'keuangan-jet/siklus-detail': initKeuanganJetSiklusDetailPage,
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
