@@ -210,6 +210,9 @@
                     Belum ada data mobil terdaftar
                 </div>
             </section>
+
+            {{-- Sesi 38 PR #4 — Widget Keuangan JET (paralel widget legacy) --}}
+            @include('dashboard.partials.keuangan-jet-widgets')
         </div>
     </section>
 @endsection

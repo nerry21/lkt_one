@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Services\DashboardStatisticsService;
+use App\Services\KeuanganJetStatsService;
 use Illuminate\Contracts\View\View;
 
 class DashboardPageController extends Controller
 {
-    public function index(DashboardStatisticsService $statistics): View
-    {
+    public function index(
+        DashboardStatisticsService $statistics,
+        KeuanganJetStatsService $keuanganJetStats,
+    ): View {
         $payload = $statistics->payload();
+        $keuanganJetPayload = $keuanganJetStats->dashboardPayload();
 
         return view('dashboard.index', [
             'pageTitle' => 'Dashboard | JET (JAYA EXCECUTIVE TRANSPORT)',
@@ -24,6 +28,7 @@ class DashboardPageController extends Controller
             'dashboardState' => $payload,
             'statCards' => $this->statCards($payload['stats']),
             'mobilRevenueColors' => ['#059669', '#10B981', '#34D399', '#6EE7B7', '#A7F3D0'],
+            'keuanganJetStats' => $keuanganJetPayload,
         ]);
     }
 
