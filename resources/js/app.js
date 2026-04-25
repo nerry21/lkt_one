@@ -7,7 +7,6 @@ import { toastError, toastSuccess, toastInfo } from './ui/toast';
 import { setupModalBindings } from './ui/modal';
 
 import initAuthPage from './pages/auth/login';
-import initDashboardPage from './pages/dashboard/index';
 import initDriversPage from './pages/drivers/index';
 import initMobilPage from './pages/mobil/index';
 import initAdminUsersPage from './pages/admin-users/index';
@@ -27,7 +26,6 @@ const pageModules = {
     'admin-users/index': initAdminUsersPage,
     'auth/login': initAuthPage,
     'bookings/index': initBookingsPage,
-    'dashboard/index': initDashboardPage,
     'drivers/index': initDriversPage,
     'mobil/index': initMobilPage,
     'regular-bookings/index': initRegularBookingsPage,

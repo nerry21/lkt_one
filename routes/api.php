@@ -11,7 +11,6 @@ use App\Http\Controllers\Api\KeberangkatanController;
 use App\Http\Controllers\Api\MobilController;
 use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\RootController;
-use App\Http\Controllers\Api\StatisticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', RootController::class)->name('api.root');
@@ -129,10 +128,6 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::get('/passengers-lkt/{id}', [PassengerLktController::class, 'show'])->name('api.passengers-lkt.show');
     Route::put('/passengers-lkt/{id}', [PassengerLktController::class, 'update'])->name('api.passengers-lkt.update');
     Route::delete('/passengers-lkt/{id}', [PassengerLktController::class, 'destroy'])->name('api.passengers-lkt.destroy');
-
-    Route::get('/statistics/dashboard', [StatisticsController::class, 'dashboard'])->name('api.statistics.dashboard');
-    Route::get('/statistics/revenue-chart', [StatisticsController::class, 'revenueChart'])->name('api.statistics.revenue-chart');
-    Route::get('/statistics/mobil-revenue', [StatisticsController::class, 'mobilRevenue'])->name('api.statistics.mobil-revenue');
 
     Route::get('/export/keberangkatan/csv', [ExportController::class, 'keberangkatanCsv'])->name('api.export.keberangkatan');
     Route::get('/export/drivers/csv', [ExportController::class, 'driversCsv'])->name('api.export.drivers');
