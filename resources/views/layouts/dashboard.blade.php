@@ -68,6 +68,15 @@
             'icon' => 'bus',
             'active_patterns' => ['keberangkatan.*'],
         ],
+        // Sesi 38 PR #3A — Data Keuangan JET (parallel dengan Keberangkatan legacy, drop legacy di PR #5).
+        [
+            'route' => 'keuangan-jet.index',
+            'label' => 'Data Keuangan JET',
+            'testid' => 'nav-data-keuangan-jet',
+            'icon' => 'package',
+            'requires_admin' => true,
+            'active_patterns' => ['keuangan-jet.*'],
+        ],
         [
             'route' => 'drivers.index',
             'label' => 'Data Driver',

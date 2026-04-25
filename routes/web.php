@@ -163,4 +163,12 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
         Route::post('/trips/{trip}/same-day-return', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'createSameDayReturn'])
             ->name('trip-planning.trips.same-day-return');
     });
+
+    // Keuangan JET — Sesi 38 PR #3A (read-only listing + detail).
+    Route::middleware(['jwt.auth', 'admin.role:admin'])->prefix('keuangan-jet')->group(function () {
+        Route::get('/', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'index'])
+            ->name('keuangan-jet.index');
+        Route::get('/{siklus}', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'show'])
+            ->name('keuangan-jet.show');
+    });
 });
