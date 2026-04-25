@@ -115,4 +115,22 @@ class AssignmentsDashboardViewTest extends TestCase
         $response->assertSee('PKB_TO_ROHUL', escape: false);
         $response->assertSee('13:00:00', escape: false);
     }
+
+    public function test_view_renders_with_pin_cells_in_dom(): void
+    {
+        $targetDate = Carbon::today()->addDay()->toDateString();
+        $mobil = Mobil::factory()->create(['home_pool' => 'ROHUL']);
+        Driver::factory()->create();
+
+        $response = $this->actingAs($this->admin)
+            ->get('/dashboard/trip-planning/assignments?date='.$targetDate)
+            ->assertStatus(200);
+
+        // Initial state script ada
+        $response->assertSee('assignments-initial-state', escape: false);
+
+        // Info banner pin manual ada
+        $response->assertSee('assignments-info-banner', escape: false);
+        $response->assertSee('Pin Manual:', escape: false);
+    }
 }

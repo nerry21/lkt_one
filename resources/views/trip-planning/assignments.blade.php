@@ -33,6 +33,14 @@
                 </div>
             </section>
 
+            <aside class="trip-planning-assignments-info" data-testid="assignments-info-banner">
+                <p>
+                    <strong>Pin Manual:</strong> Kosongkan (— Auto —) supaya scheduler atur otomatis.
+                    Pilih jam atau Custom untuk override. Pin Outbound = trip dari Rohul,
+                    Pin Return = trip dari Pekanbaru. Multi-mobil di slot yang sama diizinkan.
+                </p>
+            </aside>
+
             <section class="trip-planning-assignments-matrix" data-assignments-matrix data-testid="assignments-matrix">
                 {{-- Rendered via JS dari initial state --}}
             </section>
