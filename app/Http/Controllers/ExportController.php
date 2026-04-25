@@ -1,9 +1,0 @@
-<?php
-namespace App\Http\Controllers;
-use App\Models\Driver; use App\Models\Keberangkatan; use App\Models\Mobil; use Symfony\Component\HttpFoundation\StreamedResponse;
-class ExportController extends Controller {
-    public function keberangkatan(): StreamedResponse { $rows=Keberangkatan::orderByDesc('tanggal')->get(); return $this->csv('keberangkatan.csv',['Hari','Tanggal','Tahun','Kode Mobil','Driver','Jumlah Penumpang','Jumlah Tarif','Total Tarif','Jumlah Paket','Uang Paket','Jumlah Snack','Biaya Snack','Jumlah Air Mineral','Biaya Air Mineral','Uang PC','Uang Bersih','Trip Ke'], function($out) use($rows){ foreach($rows as $row){ fputcsv($out,[$row->hari,optional($row->tanggal)->format('Y-m-d'),$row->tahun,$row->kode_mobil,$row->driver_nama,$row->jumlah_penumpang,$row->tarif_penumpang,$row->jumlah_uang_penumpang,$row->jumlah_paket,$row->uang_paket,$row->jumlah_snack,$row->biaya_snack,$row->jumlah_air_mineral,$row->biaya_air_mineral,$row->uang_pc,$row->uang_bersih,$row->trip_ke]); }}); }
-    public function drivers(): StreamedResponse { $rows=Driver::orderBy('nama')->get(); return $this->csv('drivers.csv',['Nama Driver','Lokasi'], function($out) use($rows){ foreach($rows as $row){ fputcsv($out,[$row->nama,$row->lokasi]); }}); }
-    public function mobil(): StreamedResponse { $rows=Mobil::orderBy('kode_mobil')->get(); return $this->csv('mobil.csv',['Kode Mobil','Jenis Mobil'], function($out) use($rows){ foreach($rows as $row){ fputcsv($out,[$row->kode_mobil,$row->jenis_mobil]); }}); }
-    protected function csv(string $filename, array $header, callable $callback): StreamedResponse { return response()->streamDownload(function() use($header,$callback){ $out=fopen('php://output','w'); fputcsv($out,$header); $callback($out); fclose($out); }, $filename, ['Content-Type'=>'text/csv']); }
-}

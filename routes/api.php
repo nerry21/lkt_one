@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\TicketBackupController;
 use App\Http\Controllers\Api\PassengerLktController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\ExportController;
-use App\Http\Controllers\Api\KeberangkatanController;
 use App\Http\Controllers\Api\MobilController;
 use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\RootController;
@@ -115,13 +114,6 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::put('/mobil/{mobil}', [MobilController::class, 'update'])->name('api.mobil.update');
     Route::delete('/mobil/{mobil}', [MobilController::class, 'destroy'])->name('api.mobil.destroy');
 
-    Route::get('/keberangkatan', [KeberangkatanController::class, 'index'])->name('api.keberangkatan.index');
-    Route::post('/keberangkatan', [KeberangkatanController::class, 'store'])->name('api.keberangkatan.store');
-    Route::get('/keberangkatan/count', [KeberangkatanController::class, 'count'])->name('api.keberangkatan.count');
-    Route::get('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'show'])->name('api.keberangkatan.show');
-    Route::put('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'update'])->name('api.keberangkatan.update');
-    Route::delete('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'destroy'])->name('api.keberangkatan.destroy');
-
     Route::get('/passengers-lkt', [PassengerLktController::class, 'index'])->name('api.passengers-lkt.index');
     Route::get('/passengers-lkt/count', [PassengerLktController::class, 'count'])->name('api.passengers-lkt.count');
     Route::get('/passengers-lkt/loyalty-chart', [PassengerLktController::class, 'loyaltyChart'])->name('api.passengers-lkt.loyalty-chart');
@@ -129,7 +121,6 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::put('/passengers-lkt/{id}', [PassengerLktController::class, 'update'])->name('api.passengers-lkt.update');
     Route::delete('/passengers-lkt/{id}', [PassengerLktController::class, 'destroy'])->name('api.passengers-lkt.destroy');
 
-    Route::get('/export/keberangkatan/csv', [ExportController::class, 'keberangkatanCsv'])->name('api.export.keberangkatan');
     Route::get('/export/drivers/csv', [ExportController::class, 'driversCsv'])->name('api.export.drivers');
     Route::get('/export/mobil/csv', [ExportController::class, 'mobilCsv'])->name('api.export.mobil');
 });

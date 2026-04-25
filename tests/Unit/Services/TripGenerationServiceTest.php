@@ -5,7 +5,6 @@ namespace Tests\Unit\Services;
 use App\Exceptions\TripGenerationDriverMissingException;
 use App\Exceptions\TripSlotConflictException;
 use App\Models\Driver;
-use App\Models\Keberangkatan;
 use App\Models\Mobil;
 use App\Models\Trip;
 use App\Services\TripGenerationService;
@@ -355,18 +354,6 @@ class TripGenerationServiceTest extends TestCase
         }
 
         $this->assertSame(0, Trip::query()->count());
-    }
-
-    // ── Group 5: coupling invariant ─────────────────────────────────────────
-
-    public function test_slots_constant_matches_keberangkatan_options_with_seconds_suffix(): void
-    {
-        $expected = array_map(
-            fn (string $key): string => $key . ':00',
-            array_keys(Keberangkatan::JAM_KEBERANGKATAN_OPTIONS),
-        );
-
-        $this->assertSame($expected, TripGenerationService::SLOTS);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

@@ -40,11 +40,6 @@ class Mobil extends Model
         ];
     }
 
-    public function keberangkatan(): HasMany
-    {
-        return $this->hasMany(Keberangkatan::class, 'kode_mobil', 'kode_mobil');
-    }
-
     public function departures(): HasMany
     {
         return $this->hasMany(Departure::class, 'mobil_id', 'id');
