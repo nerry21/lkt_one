@@ -93,12 +93,21 @@ class RegularBookingPageController extends Controller
         $passengerCount = max(1, (int) ($draft['passenger_count'] ?? 1));
         $totalSeatCount = count($service->selectableSeatCodes());
 
-        // Build per-armada occupied-seat map for this date/time slot
+        // Bug #47: filter occupied seats by route. Booking di trip_date+trip_time
+        // yang sama tapi rute berbeda menempati physical vehicle slot terpisah,
+        // jadi tidak boleh saling klaim seat. Pattern sama dengan
+        // BookingController::occupiedSeats().
+        $fromCity = trim((string) ($draft['pickup_location'] ?? ''));
+        $toCity = trim((string) ($draft['destination_location'] ?? ''));
+
+        // Build per-armada occupied-seat map for this date/time slot + route
         $allSlotBookings = ($tripDate !== '' && $tripTime !== '')
             ? Booking::query()
                 ->where('trip_date', $tripDate)
                 ->where('trip_time', 'like', $timePrefix . '%')
                 ->whereNotIn('booking_status', ['Dibatalkan'])
+                ->when($fromCity !== '', fn ($q) => $q->where('from_city', $fromCity))
+                ->when($toCity !== '', fn ($q) => $q->where('to_city', $toCity))
                 ->when($persistedBookingId, fn ($q) => $q->where('id', '!=', $persistedBookingId))
                 ->get()
             : collect();
