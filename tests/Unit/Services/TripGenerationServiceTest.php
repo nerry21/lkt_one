@@ -4,6 +4,8 @@ namespace Tests\Unit\Services;
 
 use App\Exceptions\TripGenerationDriverMissingException;
 use App\Exceptions\TripSlotConflictException;
+use App\Models\DailyAssignmentPin;
+use App\Models\DailyDriverAssignment;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Models\Trip;
@@ -354,6 +356,246 @@ class TripGenerationServiceTest extends TestCase
         }
 
         $this->assertSame(0, Trip::query()->count());
+    }
+
+    // ── Group 5: Phase E4 manual pin overrides (DP-7) ───────────────────────
+
+    public function test_pinned_trip_creates_at_specified_time(): void
+    {
+        // 3 active mobil ROHUL pool, 1 pinned ke 05:00 (custom time, bukan
+        // member SLOTS), 2 mobil sisa auto-fill dari SLOTS standar.
+        $mobilPinned = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 0001 RRR']);
+        $mobilA = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 0002 RRR']);
+        $mobilB = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 0003 RRR']);
+        $driverPinned = Driver::factory()->create();
+        $driverA = Driver::factory()->create();
+        $driverB = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobilPinned->id,
+            'driver_id' => $driverPinned->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
+
+        $mapping = [
+            $mobilPinned->id => $driverPinned->id,
+            $mobilA->id => $driverA->id,
+            $mobilB->id => $driverB->id,
+        ];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->orderBy('sequence')
+            ->get();
+
+        $this->assertCount(3, $rohulTrips);
+        $this->assertSame($mobilPinned->id, $rohulTrips[0]->mobil_id);
+        $this->assertSame('05:00:00', $rohulTrips[0]->trip_time);
+        $this->assertSame(1, $rohulTrips[0]->sequence);
+
+        // Sisa 2 mobil dapat slot dari SLOTS standar (05:00 bukan member SLOTS,
+        // jadi semua 6 slot tetap available).
+        $this->assertSame('05:30:00', $rohulTrips[1]->trip_time);
+        $this->assertSame('07:00:00', $rohulTrips[2]->trip_time);
+    }
+
+    public function test_two_mobils_pinned_to_same_slot_both_created(): void
+    {
+        // DP-2: penumpang ramai → boleh ada 2 mobil di slot pinned yang sama.
+        $mobilPin1 = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 1001 RRR']);
+        $mobilPin2 = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 1002 RRR']);
+        $mobilA = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 1003 RRR']);
+        $mobilB = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 1004 RRR']);
+        $driverPin1 = Driver::factory()->create();
+        $driverPin2 = Driver::factory()->create();
+        $driverA = Driver::factory()->create();
+        $driverB = Driver::factory()->create();
+
+        foreach ([$mobilPin1, $mobilPin2] as $m) {
+            $assignment = DailyDriverAssignment::factory()->create([
+                'date' => self::TRIP_DATE,
+                'mobil_id' => $m->id,
+                'driver_id' => Driver::factory()->create()->id,
+            ]);
+            DailyAssignmentPin::factory()->create([
+                'daily_driver_assignment_id' => $assignment->id,
+                'direction' => 'ROHUL_TO_PKB',
+                'trip_time' => '05:00:00',
+            ]);
+        }
+
+        $mapping = [
+            $mobilPin1->id => $driverPin1->id,
+            $mobilPin2->id => $driverPin2->id,
+            $mobilA->id => $driverA->id,
+            $mobilB->id => $driverB->id,
+        ];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->orderBy('sequence')
+            ->get();
+
+        $this->assertCount(4, $rohulTrips);
+        $this->assertSame('05:00:00', $rohulTrips[0]->trip_time);
+        $this->assertSame('05:00:00', $rohulTrips[1]->trip_time);
+        $this->assertSame(1, $rohulTrips[0]->sequence);
+        $this->assertSame(2, $rohulTrips[1]->sequence);
+        // Sisa 2 mobil ambil dari SLOTS (05:00 bukan member SLOTS).
+        $this->assertSame('05:30:00', $rohulTrips[2]->trip_time);
+        $this->assertSame('07:00:00', $rohulTrips[3]->trip_time);
+    }
+
+    public function test_pinned_slot_within_standard_slots_excluded_from_auto_fill(): void
+    {
+        // Pin ke 07:00 (slot standar) → harus di-skip dari auto-fill supaya
+        // tidak ada double-booking di 07:00.
+        $mobilPinned = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 2001 RRR']);
+        $mobilA = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 2002 RRR']);
+        $mobilB = Mobil::factory()->create(['home_pool' => 'ROHUL', 'kode_mobil' => 'BM 2003 RRR']);
+        $driverPinned = Driver::factory()->create();
+        $driverA = Driver::factory()->create();
+        $driverB = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobilPinned->id,
+            'driver_id' => $driverPinned->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '07:00:00',
+        ]);
+
+        $mapping = [
+            $mobilPinned->id => $driverPinned->id,
+            $mobilA->id => $driverA->id,
+            $mobilB->id => $driverB->id,
+        ];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->orderBy('sequence')
+            ->get();
+
+        $this->assertCount(3, $rohulTrips);
+        $this->assertSame($mobilPinned->id, $rohulTrips[0]->mobil_id);
+        $this->assertSame('07:00:00', $rohulTrips[0]->trip_time);
+
+        // Sisa 2 mobil ambil dari SLOTS minus 07:00 → 05:30, 09:00.
+        $this->assertSame('05:30:00', $rohulTrips[1]->trip_time);
+        $this->assertSame('09:00:00', $rohulTrips[2]->trip_time);
+
+        // Tidak ada double-booking di 07:00.
+        $tripsAt0700 = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->where('trip_time', '07:00:00')
+            ->count();
+        $this->assertSame(1, $tripsAt0700);
+    }
+
+    public function test_pin_with_inactive_mobil_silently_skipped(): void
+    {
+        // Pin yang menargetkan mobil inactive harus di-drop oleh filter pass 1.
+        // Auto-fill juga skip mobil inactive (prioritizedMobilList only active).
+        $mobilActive = Mobil::factory()->create([
+            'home_pool' => 'ROHUL',
+            'kode_mobil' => 'BM 3001 RRR',
+            'is_active_in_trip' => true,
+        ]);
+        $mobilInactive = Mobil::factory()->create([
+            'home_pool' => 'ROHUL',
+            'kode_mobil' => 'BM 3002 RRR',
+            'is_active_in_trip' => false,
+        ]);
+        $driverActive = Driver::factory()->create();
+        $driverInactive = Driver::factory()->create();
+
+        $assignmentInactive = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobilInactive->id,
+            'driver_id' => $driverInactive->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignmentInactive->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
+
+        // Pre-flight di generateForDate hanya cek active mobil → mapping tanpa
+        // inactive aman.
+        $mapping = [
+            $mobilActive->id => $driverActive->id,
+        ];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->get();
+
+        $this->assertCount(1, $rohulTrips);
+        $this->assertSame($mobilActive->id, $rohulTrips[0]->mobil_id);
+        $this->assertSame(1, $rohulTrips[0]->sequence);
+        $this->assertSame('05:30:00', $rohulTrips[0]->trip_time, 'Mobil active dapat slot SLOTS standar, bukan dari pin inactive');
+    }
+
+    public function test_pin_for_other_pool_excluded_from_direction(): void
+    {
+        // Mobil home_pool=PKB punya pin direction=ROHUL_TO_PKB (cross-pool).
+        // Pin di-drop di filter ROHUL_TO_PKB (mobil bukan ROHUL pool).
+        // Mobil ini tetap dapat slot via auto-fill di arah PKB_TO_ROHUL.
+        $mobil = Mobil::factory()->create(['home_pool' => 'PKB', 'kode_mobil' => 'BM 4001 PPP']);
+        $driver = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
+
+        $mapping = [$mobil->id => $driver->id];
+
+        $this->svc->generateForDate(self::TRIP_DATE, $mapping);
+
+        // ROHUL_TO_PKB: cross-pool pin di-drop, no other ROHUL mobil → 0 trips.
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->count();
+        $this->assertSame(0, $rohulTrips);
+
+        // PKB_TO_ROHUL: mobil masuk auto-fill, dapat slot pertama SLOTS.
+        $pkbTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'PKB_TO_ROHUL')
+            ->orderBy('sequence')
+            ->get();
+        $this->assertCount(1, $pkbTrips);
+        $this->assertSame($mobil->id, $pkbTrips[0]->mobil_id);
+        $this->assertSame('05:30:00', $pkbTrips[0]->trip_time);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

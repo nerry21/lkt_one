@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\TripGenerationDriverMissingException;
 use App\Exceptions\TripSlotConflictException;
+use App\Models\DailyAssignmentPin;
 use App\Models\Mobil;
 use App\Models\Trip;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +87,18 @@ class TripGenerationService
      * NOT wrapped in DB::transaction (caller responsibility). Kalau dipanggil
      * standalone dari luar generateForDate, caller should wrap if atomic needed.
      *
+     * Algoritma 2-pass (Phase E4 DP-7):
+     *   Pass 1 — pinned trips dari daily_assignment_pins di (date, direction),
+     *            pakai trip_time eksplisit dari pin. Sequence start dari 1,
+     *            order by trip_time ASC. Multi-mobil di slot pinned yang sama
+     *            diizinkan (DP-2: penumpang ramai). Pin di-skip kalau mobil
+     *            inactive, salah pool, atau driver mapping miss.
+     *   Pass 2 — auto-fill mobil sisa (yang tidak pinned) pakai
+     *            prioritizedMobilList. Slot diambil dari SLOTS minus slot yang
+     *            sudah dipakai pinned (kalau pinned slot nyangkut di SLOTS).
+     *            Pin custom yang bukan member SLOTS tidak mempengaruhi
+     *            availability standar slots.
+     *
      * @param  array<string, string>  $driverAssignments
      * @return array{direction: string, slots_filled: int, waiting_list_count: int, trip_ids: array<int, int>}
      *
@@ -113,25 +126,71 @@ class TripGenerationService
         }
 
         $poolOrigin = $this->poolOriginFor($direction);
-        $mobils = $this->poolState->prioritizedMobilList($poolOrigin, $tripDate);
 
         $slotsFilled = 0;
         $waitingListCount = 0;
         $tripIds = [];
         $sequence = 0;
 
-        foreach ($mobils->values() as $mobil) {
+        // ── Pass 1: pinned trips ────────────────────────────────────────────
+        $pins = DailyAssignmentPin::query()
+            ->where('direction', $direction)
+            ->whereHas('assignment', fn ($q) => $q->where('date', $tripDate))
+            ->with('assignment.mobil')
+            ->orderBy('trip_time')
+            ->get()
+            ->filter(function (DailyAssignmentPin $pin) use ($poolOrigin, $driverAssignments): bool {
+                $mobil = $pin->assignment?->mobil;
+                if ($mobil === null) {
+                    return false;
+                }
+
+                return $mobil->is_active_in_trip
+                    && $mobil->home_pool === $poolOrigin
+                    && isset($driverAssignments[$mobil->id]);
+            });
+
+        $pinnedMobilIds = [];
+        $pinnedSlots = [];
+
+        foreach ($pins as $pin) {
+            $mobilId = $pin->assignment->mobil_id;
+            $sequence++;
+            $slotsFilled++;
+
+            $trip = Trip::create([
+                'trip_date'  => $tripDate,
+                'trip_time'  => $pin->trip_time,
+                'direction'  => $direction,
+                'sequence'   => $sequence,
+                'mobil_id'   => $mobilId,
+                'driver_id'  => $driverAssignments[$mobilId],
+                'status'     => 'scheduled',
+            ]);
+
+            // Hook: auto-sync ke Keuangan JET (Sesi 38 PR #2)
+            $this->keuanganJetSync->syncTripToKeuanganJet($trip);
+
+            $tripIds[] = $trip->id;
+            $pinnedMobilIds[] = $mobilId;
+            $pinnedSlots[] = $pin->trip_time;
+        }
+
+        // ── Pass 2: auto-fill sisa mobil ────────────────────────────────────
+        $allMobils = $this->poolState->prioritizedMobilList($poolOrigin, $tripDate);
+        $remainingMobils = $allMobils->reject(fn (Mobil $m): bool => in_array($m->id, $pinnedMobilIds, true));
+
+        // Slot custom (bukan member SLOTS) tidak ngurangin availability standar.
+        $availableSlots = array_values(array_diff(self::SLOTS, $pinnedSlots));
+
+        foreach ($remainingMobils->values() as $mobil) {
             // Defensive: skip mobil tanpa driver di mapping (DP-B q lenient reverse).
             // Pre-flight di generateForDate sudah catch missing forward case.
-            // Kalau generateForDirection dipanggil standalone tanpa pre-flight,
-            // mobil aktif tanpa driver ter-skip (silent). Nerry acknowledge sebagai
-            // acceptable tradeoff untuk Fase D admin "regenerate 1 arah" yang
-            // boleh partial generate.
             if (! isset($driverAssignments[$mobil->id])) {
                 continue;
             }
 
-            $tripTime = $sequence < count(self::SLOTS) ? self::SLOTS[$sequence] : null;
+            $tripTime = array_shift($availableSlots) ?? null;
             if ($tripTime !== null) {
                 $slotsFilled++;
             } else {
