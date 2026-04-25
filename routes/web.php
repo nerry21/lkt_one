@@ -158,6 +158,16 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
         // Trip Planning — Fase E5 Sesi 30: Same-Day Return (admin trigger trip PKB→ROHUL di hari yang sama).
         Route::post('/trips/{trip}/same-day-return', [\App\Http\Controllers\TripPlanning\TripPlanningPageController::class, 'createSameDayReturn'])
             ->name('trip-planning.trips.same-day-return');
+
+        // E5: Trip Manual CRUD endpoints (mirror dari /api/)
+        Route::post('/trips', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'store'])
+            ->name('trip-planning.trips.store');
+        Route::put('/trips/{trip}', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'update'])
+            ->name('trip-planning.trips.update');
+        Route::delete('/trips/{trip}', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'destroy'])
+            ->name('trip-planning.trips.destroy');
+        Route::get('/trips/{trip}/bookings-count', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'bookingsCount'])
+            ->name('trip-planning.trips.bookings-count');
     });
 
     // Keuangan JET — Sesi 38 PR #3A (read-only) + PR #3B (edit actions).
