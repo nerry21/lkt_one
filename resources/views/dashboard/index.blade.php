@@ -23,22 +23,7 @@
                 </div>
 
                 <div class="dashboard-page-actions">
-                    <a
-                        class="dashboard-primary-button"
-                        href="{{ route('stock.index') }}"
-                        data-testid="stock-dashboard-btn"
-                    >
-                        <span class="dashboard-button-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 3L19 7V17L12 21L5 17V7L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                                <path d="M12 12L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M12 12L5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M12 12V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            </svg>
-                        </span>
-                        <span>Stok Snack & Air Mineral</span>
-                    </a>
-
+                    {{-- Sesi 38 PR #5B — tombol "Stok Snack & Air Mineral" dropped (fitur obsolete). --}}
                     <button
                         class="dashboard-ghost-button"
                         id="dashboard-refresh-btn"

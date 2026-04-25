@@ -13,7 +13,6 @@ use App\Http\Controllers\PackageBookings\PackageBookingPageController;
 use App\Http\Controllers\DroppingBookings\DroppingBookingPageController;
 use App\Http\Controllers\RentalBookings\RentalBookingPageController;
 use App\Http\Controllers\RegularBookings\RegularBookingPageController;
-use App\Http\Controllers\Stock\StockPageController;
 use App\Http\Controllers\Survey\PublicSurveyController;
 use App\Http\Controllers\Survey\CustomerSurveyDashboardController;
 use App\Http\Controllers\DroppingData\DroppingBookingDataPageController;
@@ -87,7 +86,6 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');
-    Route::get('/stock', [StockPageController::class, 'index'])->name('stock.index');
     Route::get('/scan-qr', [QrScanPageController::class, 'index'])->name('scan-qr.index');
     Route::get('/passengers-lkt', [PassengerLktPageController::class, 'index'])->name('passengers-lkt.index');
     Route::get('/customers', [CustomerPageController::class, 'index'])->name('customers.index');
