@@ -8336,3 +8336,362 @@ button {
     color: var(--transit-text-soft);
     font-size: 0.85rem;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Sesi 38 PR #3A — Data Keuangan JET page styling
+   ════════════════════════════════════════════════════════════ */
+
+.keuangan-jet-page,
+.keuangan-jet-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+.keuangan-jet-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.keuangan-jet-page-copy h1 {
+    font-size: 1.625rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.keuangan-jet-page-copy p {
+    color: #6b7280;
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+}
+
+.keuangan-jet-page-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.keuangan-jet-primary-button,
+.keuangan-jet-secondary-button,
+.keuangan-jet-link-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+    border: 1px solid transparent;
+}
+
+.keuangan-jet-primary-button {
+    background: #4f46e5;
+    color: #fff;
+    border-color: #4f46e5;
+}
+
+.keuangan-jet-primary-button:hover {
+    background: #4338ca;
+}
+
+.keuangan-jet-secondary-button {
+    background: #fff;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.keuangan-jet-secondary-button:hover {
+    background: #f9fafb;
+}
+
+.keuangan-jet-link-button {
+    background: transparent;
+    color: #4f46e5;
+    padding: 0.25rem 0.5rem;
+}
+
+.keuangan-jet-link-button:hover {
+    background: #eef2ff;
+}
+
+.keuangan-jet-filter-bar {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.keuangan-jet-filter-form {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.keuangan-jet-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 180px;
+}
+
+.keuangan-jet-filter-field label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.keuangan-jet-filter-field input,
+.keuangan-jet-filter-field select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background: #fff;
+}
+
+.keuangan-jet-filter-field input:focus,
+.keuangan-jet-filter-field select:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.keuangan-jet-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.keuangan-jet-stat-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.keuangan-jet-stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.keuangan-jet-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.keuangan-jet-stat-detail {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.keuangan-jet-table-section,
+.keuangan-jet-info-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.keuangan-jet-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 0.75rem;
+}
+
+.keuangan-jet-table-wrapper {
+    overflow-x: auto;
+}
+
+.keuangan-jet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.keuangan-jet-table th {
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.keuangan-jet-table td {
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #1f2937;
+    vertical-align: top;
+}
+
+.keuangan-jet-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.keuangan-jet-empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #6b7280;
+}
+
+.keuangan-jet-empty-state-hint {
+    font-size: 0.8125rem;
+    color: #9ca3af;
+    margin-top: 0.5rem;
+}
+
+.keuangan-jet-info-warning {
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #78350f;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.keuangan-jet-info-card-readonly {
+    background: #f0f9ff;
+    border-color: #93c5fd;
+    color: #1e40af;
+    font-size: 0.875rem;
+}
+
+.keuangan-jet-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 0;
+}
+
+.keuangan-jet-info-grid-financial {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.keuangan-jet-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    background: #f9fafb;
+    border-radius: 0.5rem;
+}
+
+.keuangan-jet-info-item dt {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.keuangan-jet-info-item dd {
+    margin: 0;
+    color: #111827;
+    font-size: 0.9375rem;
+    font-weight: 500;
+}
+
+.keuangan-jet-info-item-emphasis {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+}
+
+.keuangan-jet-info-item-driver {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+}
+
+.keuangan-jet-info-item-driver dd {
+    color: #064e3b;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.keuangan-jet-info-item-mobil {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+}
+
+.keuangan-jet-info-item-mobil dd {
+    color: #78350f;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+/* Status pills */
+.keuangan-jet-status-pill,
+.keuangan-jet-payout-pill,
+.keuangan-jet-direction-pill,
+.keuangan-jet-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.keuangan-jet-status-berjalan {
+    background: #fef3c7;
+    color: #78350f;
+}
+
+.keuangan-jet-status-complete {
+    background: #d1fae5;
+    color: #064e3b;
+}
+
+.keuangan-jet-status-locked {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.keuangan-jet-payout-belum {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.keuangan-jet-payout-sudah {
+    background: #d1fae5;
+    color: #064e3b;
+}
+
+.keuangan-jet-direction-keberangkatan {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.keuangan-jet-direction-kepulangan {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.keuangan-jet-badge-amber {
+    background: #fef3c7;
+    color: #78350f;
+    margin-left: 0.5rem;
+}
