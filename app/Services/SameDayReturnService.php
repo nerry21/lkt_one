@@ -50,6 +50,7 @@ class SameDayReturnService
     public function __construct(
         private readonly TripService $tripService,
         private readonly PoolStateService $poolState,
+        private readonly KeuanganJetSyncService $keuanganJetSync,
     ) {}
 
     /**
@@ -137,6 +138,9 @@ class SameDayReturnService
                 $expectedVersion,
                 [],
             );
+
+            // Hook: sync SDR trip ke Keuangan JET (siklus pair-up dengan origin)
+            $this->keuanganJetSync->syncTripToKeuanganJet($newTrip);
 
             return $newTrip->refresh();
         });

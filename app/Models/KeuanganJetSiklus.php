@@ -149,4 +149,20 @@ class KeuanganJetSiklus extends Model
     {
         return $this->hasMany(KeuanganJet::class, 'keuangan_jet_siklus_id');
     }
+
+    public function scopeBerjalan($query)
+    {
+        return $query->where('status_siklus', 'berjalan');
+    }
+
+    public function scopeForMobil($query, string $mobilId)
+    {
+        return $query->where('mobil_id', $mobilId);
+    }
+
+    public function scopeActiveForMobil($query, string $mobilId)
+    {
+        return $query->where('mobil_id', $mobilId)
+            ->where('status_siklus', 'berjalan');
+    }
 }
