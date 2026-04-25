@@ -849,16 +849,23 @@ async function fetchOccupiedSeats() {
     const excludeId = state.editItem?.id || '';
     const armadaIndex = state.currentFormArmadaIndex || 1;
 
-    if (!tripDate || !tripTime) {
+    // Bug #47b: skip API call kalau route belum lengkap. Backend agregat
+    // semua booking lintas rute saat from/to kosong, menyebabkan seat
+    // dari rute lain salah ditampilkan TERISI di modal.
+    if (!tripDate || !tripTime || !fromCity || !toCity) {
         state.occupiedSeatsForForm = [];
         return;
     }
 
     try {
-        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime, armada_index: armadaIndex });
+        const params = new URLSearchParams({
+            trip_date: tripDate,
+            trip_time: tripTime,
+            armada_index: armadaIndex,
+            from_city: fromCity,
+            to_city: toCity,
+        });
 
-        if (fromCity) params.set('from_city', fromCity);
-        if (toCity) params.set('to_city', toCity);
         if (excludeId) params.set('exclude_id', excludeId);
 
         const res = await apiRequest(`/bookings/occupied-seats?${params}`);
@@ -876,16 +883,21 @@ async function fetchOccupiedSeatsForPackage() {
     const toCity      = document.getElementById('pkg-to-city')?.value || '';
     const armadaIndex = parseInt(document.getElementById('package-armada-index')?.value || '1', 10);
 
-    if (!tripDate || !tripTime) {
+    // Bug #47b: skip API call kalau route belum lengkap (sama dengan fetchOccupiedSeats).
+    if (!tripDate || !tripTime || !fromCity || !toCity) {
         state.occupiedSeatsForPackageForm = [];
         renderPackageSeatOptions();
         return;
     }
 
     try {
-        const params = new URLSearchParams({ trip_date: tripDate, trip_time: tripTime, armada_index: armadaIndex });
-        if (fromCity) params.set('from_city', fromCity);
-        if (toCity)   params.set('to_city', toCity);
+        const params = new URLSearchParams({
+            trip_date: tripDate,
+            trip_time: tripTime,
+            armada_index: armadaIndex,
+            from_city: fromCity,
+            to_city: toCity,
+        });
 
         const res = await apiRequest(`/bookings/occupied-seats?${params}`);
         state.occupiedSeatsForPackageForm = Array.isArray(res?.occupied_seats) ? res.occupied_seats : [];

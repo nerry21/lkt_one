@@ -97,7 +97,11 @@ class BookingController extends Controller
         $toCity    = trim((string) $request->query('to_city', ''));
         $armadaIndex = max(1, (int) $request->query('armada_index', 1));
 
-        if ($tripDate === '' || $tripTime === '') {
+        // Bug #47b: defensive — required filter trip_date+trip_time DAN route
+        // (from_city + to_city). Tanpa route, query agregat semua booking lintas
+        // rute fisik berbeda menyebabkan contamination antar rute. Frontend
+        // bookings/index.js sudah skip call kalau route empty, ini double-guard.
+        if ($tripDate === '' || $tripTime === '' || $fromCity === '' || $toCity === '') {
             return response()->json(['occupied_seats' => []]);
         }
 
