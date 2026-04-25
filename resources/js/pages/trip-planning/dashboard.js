@@ -593,7 +593,7 @@ function rebuildDirectionColumn(directionKey, directionTrips) {
     `).join('');
 }
 
-async function refetchDashboardAfterSdr() {
+async function reloadDashboardData() {
     const date = state.targetDate;
     if (!date) {
         // Fallback: hard reload kalau tidak bisa determine tanggal.
@@ -624,9 +624,9 @@ async function refetchDashboardAfterSdr() {
             window.location.reload();
         }
     } catch (error) {
-        // Refetch gagal — hard reload supaya user tetap lihat trip baru.
+        // Refetch gagal — hard reload supaya user tetap lihat data baru.
         if (window.console) {
-            console.warn('[trip-planning] Dashboard refetch after SDR failed, falling back to reload:', error.message);
+            console.warn('[trip-planning] Dashboard refetch failed, falling back to reload:', error.message);
         }
         window.location.reload();
     }
@@ -700,9 +700,190 @@ async function submitSameDayReturn(event) {
         toastSuccess(response?.message || 'Trip pulang berhasil dibuat');
 
         // Refetch dashboard supaya trip baru muncul di tabel + stats ter-update.
-        await refetchDashboardAfterSdr();
+        await reloadDashboardData();
     } catch (error) {
         toastError(extractSameDayReturnErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
+// ── E5 PR #2: Edit Trip Modal ───────────────────────────────────────────────
+
+function openEditTripModal(meta) {
+    const form = document.getElementById('trip-planning-edit-trip-form');
+    if (!form) return;
+
+    form.reset();
+
+    document.getElementById('trip-planning-edit-trip-id').value = String(meta.tripId);
+    document.getElementById('trip-planning-edit-trip-version').value = String(meta.version);
+
+    const subtitle = document.getElementById('trip-planning-edit-trip-subtitle');
+    if (subtitle) {
+        subtitle.textContent = `${meta.mobilCode} — ${meta.tripTime || '(waiting list)'} (${meta.direction})`;
+    }
+
+    document.getElementById('trip-planning-edit-trip-time').value = meta.tripTime || '';
+    document.getElementById('trip-planning-edit-trip-mobil').value = meta.mobilId || '';
+    document.getElementById('trip-planning-edit-trip-driver').value = meta.driverId || '';
+
+    document.getElementById('trip-planning-edit-trip-date').value = meta.tripDate || '';
+    document.getElementById('trip-planning-edit-trip-direction').value = meta.direction || 'PKB_TO_ROHUL';
+    document.getElementById('trip-planning-edit-trip-sequence').value = meta.sequence || 1;
+
+    // Reset advanced toggle ke collapsed setiap modal dibuka
+    const toggle = document.getElementById('trip-planning-edit-trip-advanced-toggle');
+    const advFields = document.getElementById('trip-planning-edit-trip-advanced-fields');
+    if (toggle) {
+        toggle.dataset.expanded = 'false';
+        const icon = toggle.querySelector('.trip-planning-advanced-toggle-icon');
+        const label = toggle.querySelector('.trip-planning-advanced-toggle-label');
+        if (icon) icon.textContent = '▶'; // ▶
+        if (label) label.textContent = 'Tampilkan opsi lanjutan';
+    }
+    if (advFields) advFields.hidden = true;
+
+    openModal('trip-planning-edit-trip-modal');
+}
+
+function toggleEditTripAdvanced() {
+    const toggle = document.getElementById('trip-planning-edit-trip-advanced-toggle');
+    const advFields = document.getElementById('trip-planning-edit-trip-advanced-fields');
+    if (!toggle || !advFields) return;
+
+    const isExpanded = toggle.dataset.expanded === 'true';
+    const newExpanded = !isExpanded;
+
+    toggle.dataset.expanded = String(newExpanded);
+    advFields.hidden = !newExpanded;
+
+    const icon = toggle.querySelector('.trip-planning-advanced-toggle-icon');
+    const label = toggle.querySelector('.trip-planning-advanced-toggle-label');
+    if (icon) icon.textContent = newExpanded ? '▼' : '▶'; // ▼ / ▶
+    if (label) label.textContent = newExpanded ? 'Sembunyikan opsi lanjutan' : 'Tampilkan opsi lanjutan';
+}
+
+async function submitEditTrip(event) {
+    event.preventDefault();
+
+    const tripId = document.getElementById('trip-planning-edit-trip-id').value;
+    const version = parseInt(document.getElementById('trip-planning-edit-trip-version').value, 10);
+    const submitButton = document.getElementById('trip-planning-edit-trip-submit');
+
+    const tripTime = document.getElementById('trip-planning-edit-trip-time').value;
+    const mobilId = document.getElementById('trip-planning-edit-trip-mobil').value;
+    const driverId = document.getElementById('trip-planning-edit-trip-driver').value;
+
+    const advExpanded = document.getElementById('trip-planning-edit-trip-advanced-toggle')?.dataset.expanded === 'true';
+
+    if (!tripId || !tripTime || !mobilId || !driverId) {
+        toastError('Lengkapi field jam, mobil, dan driver.');
+        return;
+    }
+
+    const payload = {
+        version,
+        trip_time: tripTime,
+        mobil_id: mobilId,
+        driver_id: driverId,
+    };
+
+    if (advExpanded) {
+        const tripDate = document.getElementById('trip-planning-edit-trip-date').value;
+        const direction = document.getElementById('trip-planning-edit-trip-direction').value;
+        const sequenceStr = document.getElementById('trip-planning-edit-trip-sequence').value;
+
+        if (tripDate) payload.trip_date = tripDate;
+        if (direction) payload.direction = direction;
+        if (sequenceStr) payload.sequence = parseInt(sequenceStr, 10);
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(tripId)}`, {
+            method: 'PUT',
+            body: payload,
+        });
+
+        if (response?.data) {
+            toastSuccess(response.message || 'Trip berhasil diupdate');
+            closeModal('trip-planning-edit-trip-modal');
+            await reloadDashboardData();
+        }
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
+// ── E5 PR #2: Delete Trip Modal ─────────────────────────────────────────────
+
+async function openDeleteTripModal(meta) {
+    const form = document.getElementById('trip-planning-delete-trip-form');
+    if (!form) return;
+
+    form.reset();
+
+    document.getElementById('trip-planning-delete-trip-id').value = String(meta.tripId);
+    document.getElementById('trip-planning-delete-trip-version').value = String(meta.version);
+
+    const detail = document.getElementById('trip-planning-delete-trip-detail');
+    if (detail) {
+        detail.textContent = `${meta.mobilCode} — ${meta.tripTime || '(waiting list)'} (${meta.direction})`;
+    }
+
+    const warnInfo = document.getElementById('trip-planning-delete-trip-bookings-info');
+    const noBookingsInfo = document.getElementById('trip-planning-delete-trip-no-bookings-info');
+    if (warnInfo) warnInfo.hidden = true;
+    if (noBookingsInfo) noBookingsInfo.hidden = true;
+
+    openModal('trip-planning-delete-trip-modal');
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(meta.tripId)}/bookings-count`);
+        const count = Number(response?.bookings_count ?? 0);
+
+        if (count > 0) {
+            const countEl = document.getElementById('trip-planning-delete-trip-bookings-count');
+            if (countEl) countEl.textContent = String(count);
+            if (warnInfo) warnInfo.hidden = false;
+        } else if (noBookingsInfo) {
+            noBookingsInfo.hidden = false;
+        }
+    } catch (error) {
+        toastError('Gagal cek jumlah booking — periksa koneksi.');
+    }
+}
+
+async function submitDeleteTrip(event) {
+    event.preventDefault();
+
+    const tripId = document.getElementById('trip-planning-delete-trip-id').value;
+    const version = parseInt(document.getElementById('trip-planning-delete-trip-version').value, 10);
+    const submitButton = document.getElementById('trip-planning-delete-trip-submit');
+
+    if (!tripId) {
+        toastError('Trip ID tidak valid.');
+        return;
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest(`/trip-planning/trips/${encodeURIComponent(tripId)}?version=${version}`, {
+            method: 'DELETE',
+        });
+
+        if (response?.success) {
+            toastSuccess(response.message || 'Trip berhasil dihapus');
+            closeModal('trip-planning-delete-trip-modal');
+            await reloadDashboardData();
+        }
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
     } finally {
         setButtonBusy(submitButton, false);
     }
@@ -759,6 +940,35 @@ function handleActionClick(event) {
             tripTime: button.dataset.tripTime || '',
         };
         openSameDayReturnModal(tripId, meta);
+        return;
+    }
+
+    // E5 PR #2: Edit trip handler
+    if (action === 'open-edit-trip-modal') {
+        openEditTripModal({
+            tripId,
+            version: parseInt(button.dataset.tripVersion, 10),
+            tripDate: button.dataset.tripDate,
+            tripTime: button.dataset.tripTime,
+            direction: button.dataset.tripDirection,
+            sequence: parseInt(button.dataset.tripSequence, 10),
+            mobilId: button.dataset.mobilId,
+            mobilCode: button.dataset.mobilCode,
+            driverId: button.dataset.driverId,
+            driverName: button.dataset.driverName,
+        });
+        return;
+    }
+
+    // E5 PR #2: Delete trip handler
+    if (action === 'open-delete-trip-modal') {
+        openDeleteTripModal({
+            tripId,
+            version: parseInt(button.dataset.tripVersion, 10),
+            mobilCode: button.dataset.mobilCode,
+            tripTime: button.dataset.tripTime,
+            direction: button.dataset.tripDirection,
+        });
         return;
     }
 
@@ -844,5 +1054,21 @@ export default async function initTripPlanningDashboardPage() {
     const sameDayReturnForm = document.getElementById('trip-planning-same-day-return-form');
     if (sameDayReturnForm) {
         sameDayReturnForm.addEventListener('submit', submitSameDayReturn);
+    }
+
+    // E5 PR #2: Edit + Delete trip form listeners
+    const editTripForm = document.getElementById('trip-planning-edit-trip-form');
+    if (editTripForm) {
+        editTripForm.addEventListener('submit', submitEditTrip);
+    }
+
+    const editTripAdvancedToggle = document.getElementById('trip-planning-edit-trip-advanced-toggle');
+    if (editTripAdvancedToggle) {
+        editTripAdvancedToggle.addEventListener('click', toggleEditTripAdvanced);
+    }
+
+    const deleteTripForm = document.getElementById('trip-planning-delete-trip-form');
+    if (deleteTripForm) {
+        deleteTripForm.addEventListener('submit', submitDeleteTrip);
     }
 }

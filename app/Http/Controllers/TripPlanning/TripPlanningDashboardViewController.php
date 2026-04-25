@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TripPlanning;
 
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
+use App\Models\Mobil;
 use App\Models\Trip;
 use App\Services\TripStatsService;
 use Illuminate\Http\Request;
@@ -58,6 +59,15 @@ class TripPlanningDashboardViewController extends Controller
             ->orderBy('nama')
             ->get(['id', 'nama']);
 
+        // Fase E5 PR #2: dropdown source untuk modal Edit Trip — mobil hanya yang
+        // aktif di trip planning (filter is_active_in_trip), driver semua.
+        $mobilList = Mobil::query()
+            ->where('is_active_in_trip', true)
+            ->orderBy('kode_mobil')
+            ->get(['id', 'kode_mobil']);
+
+        $driverList = $drivers;
+
         $statistics = $this->tripStatsService->buildPerMobilStats($trips);
 
         $dashboardState = [
@@ -78,6 +88,8 @@ class TripPlanningDashboardViewController extends Controller
             'statistics' => $statistics,
             'dashboardState' => $dashboardState,
             'pairedOriginIds' => $pairedOriginIds,
+            'mobilList' => $mobilList,
+            'driverList' => $driverList,
         ]);
     }
 
