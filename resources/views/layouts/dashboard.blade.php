@@ -61,14 +61,7 @@
             'requires_admin' => true,
             'active_patterns' => ['admin-users.*'],
         ],
-        [
-            'route' => 'keberangkatan.index',
-            'label' => 'Data Keberangkatan',
-            'testid' => 'nav-data-keberangkatan',
-            'icon' => 'bus',
-            'active_patterns' => ['keberangkatan.*'],
-        ],
-        // Sesi 38 PR #3A — Data Keuangan JET (parallel dengan Keberangkatan legacy, drop legacy di PR #5).
+        // Sesi 38 PR #5A — entry "Data Keberangkatan" dropped (replaced by Data Keuangan JET).
         [
             'route' => 'keuangan-jet.index',
             'label' => 'Data Keuangan JET',

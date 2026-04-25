@@ -10,7 +10,6 @@ import initAuthPage from './pages/auth/login';
 import initDashboardPage from './pages/dashboard/index';
 import initDriversPage from './pages/drivers/index';
 import initMobilPage from './pages/mobil/index';
-import initKeberangkatanPage from './pages/keberangkatan/index';
 import initStockPage from './pages/stock/index';
 import initAdminUsersPage from './pages/admin-users/index';
 import initBookingsPage from './pages/bookings/index';
@@ -32,7 +31,6 @@ const pageModules = {
     'dashboard/index': initDashboardPage,
     'drivers/index': initDriversPage,
     'mobil/index': initMobilPage,
-    'keberangkatan/index': initKeberangkatanPage,
     'regular-bookings/index': initRegularBookingsPage,
     'regular-bookings/seats': initRegularBookingSeatsPage,
     'stock/index': initStockPage,

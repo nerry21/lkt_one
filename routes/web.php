@@ -8,7 +8,6 @@ use App\Http\Controllers\Passengers\PassengerLktPageController;
 use App\Http\Controllers\QrScan\QrScanPageController;
 use App\Http\Controllers\Dashboard\DashboardPageController;
 use App\Http\Controllers\Drivers\DriverPageController;
-use App\Http\Controllers\Keberangkatan\KeberangkatanPageController;
 use App\Http\Controllers\Mobil\MobilPageController;
 use App\Http\Controllers\PackageBookings\PackageBookingPageController;
 use App\Http\Controllers\DroppingBookings\DroppingBookingPageController;
@@ -88,7 +87,6 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
     Route::get('/admin-users', [AdminUserPageController::class, 'index'])->name('admin-users.index');
     Route::get('/drivers', [DriverPageController::class, 'index'])->name('drivers.index');
     Route::get('/mobil', [MobilPageController::class, 'index'])->name('mobil.index');
-    Route::get('/keberangkatan', [KeberangkatanPageController::class, 'index'])->name('keberangkatan.index');
     Route::get('/stock', [StockPageController::class, 'index'])->name('stock.index');
     Route::get('/scan-qr', [QrScanPageController::class, 'index'])->name('scan-qr.index');
     Route::get('/passengers-lkt', [PassengerLktPageController::class, 'index'])->name('passengers-lkt.index');
