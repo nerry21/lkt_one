@@ -8457,6 +8457,12 @@ button {
     border-radius: 0.5rem;
     font-size: 0.875rem;
     background: #fff;
+    color: #1f2937;
+}
+
+.keuangan-jet-filter-field select option {
+    background: #fff;
+    color: #1f2937;
 }
 
 .keuangan-jet-filter-field input:focus,
