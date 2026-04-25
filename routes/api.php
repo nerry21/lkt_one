@@ -11,7 +11,6 @@ use App\Http\Controllers\Api\KeberangkatanController;
 use App\Http\Controllers\Api\MobilController;
 use App\Http\Controllers\Api\QrScanController;
 use App\Http\Controllers\Api\RootController;
-use App\Http\Controllers\Api\StockController;
 use App\Http\Controllers\Api\StatisticsController;
 use Illuminate\Support\Facades\Route;
 
@@ -123,13 +122,6 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::get('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'show'])->name('api.keberangkatan.show');
     Route::put('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'update'])->name('api.keberangkatan.update');
     Route::delete('/keberangkatan/{keberangkatan}', [KeberangkatanController::class, 'destroy'])->name('api.keberangkatan.destroy');
-
-    Route::get('/stock', [StockController::class, 'index'])->name('api.stock.index');
-    Route::post('/stock', [StockController::class, 'store'])->name('api.stock.store');
-    Route::get('/stock/count', [StockController::class, 'count'])->name('api.stock.count');
-    Route::get('/stock/{stock}', [StockController::class, 'show'])->name('api.stock.show');
-    Route::put('/stock/{stock}', [StockController::class, 'update'])->name('api.stock.update');
-    Route::delete('/stock/{stock}', [StockController::class, 'destroy'])->name('api.stock.destroy');
 
     Route::get('/passengers-lkt', [PassengerLktController::class, 'index'])->name('api.passengers-lkt.index');
     Route::get('/passengers-lkt/count', [PassengerLktController::class, 'count'])->name('api.passengers-lkt.count');

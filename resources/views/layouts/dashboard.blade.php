@@ -84,13 +84,7 @@
             'icon' => 'car',
             'active_patterns' => ['mobil.*'],
         ],
-        [
-            'route' => 'stock.index',
-            'label' => 'Stok Snack & Air Mineral',
-            'testid' => 'nav-stock-snack-air',
-            'icon' => 'package',
-            'active_patterns' => ['stock.*'],
-        ],
+        // Sesi 38 PR #5B — entry "Stok Snack & Air Mineral" dropped (fitur obsolete, snack manual input di Keuangan JET).
         [
             'route' => 'scan-qr.index',
             'label' => 'Scan QR Tiket',

@@ -10,7 +10,6 @@ import initAuthPage from './pages/auth/login';
 import initDashboardPage from './pages/dashboard/index';
 import initDriversPage from './pages/drivers/index';
 import initMobilPage from './pages/mobil/index';
-import initStockPage from './pages/stock/index';
 import initAdminUsersPage from './pages/admin-users/index';
 import initBookingsPage from './pages/bookings/index';
 import initRegularBookingsPage from './pages/regular-bookings/index';
@@ -33,7 +32,6 @@ const pageModules = {
     'mobil/index': initMobilPage,
     'regular-bookings/index': initRegularBookingsPage,
     'regular-bookings/seats': initRegularBookingSeatsPage,
-    'stock/index': initStockPage,
     'qr-scan/index': initQrScanPage,
     'passengers-lkt/index': initPassengerLktPage,
     'customers/index': initCustomersPage,

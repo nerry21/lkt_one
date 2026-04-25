@@ -7,7 +7,6 @@ use App\Http\Requests\Keberangkatan\StoreKeberangkatanRequest;
 use App\Http\Requests\Keberangkatan\UpdateKeberangkatanRequest;
 use App\Models\Driver;
 use App\Models\Keberangkatan;
-use App\Services\StockAllocationService;
 use App\Services\TransportCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +17,6 @@ class KeberangkatanController extends Controller
 {
     public function __construct(
         protected TransportCalculationService $calculationService,
-        protected StockAllocationService $stockAllocationService,
     ) {
     }
 
@@ -52,7 +50,6 @@ class KeberangkatanController extends Controller
     public function store(StoreKeberangkatanRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        $this->stockAllocationService->ensureStockAvailability($validated);
         $driver = $this->findDriver($validated['driver_id']);
         $derived = array_merge(
             $this->calculationService->dateParts($validated['tanggal']),
@@ -67,7 +64,6 @@ class KeberangkatanController extends Controller
             'driver_nama' => $driver->nama,
             'status_pembayaran' => $validated['status_pembayaran'] ?? Keberangkatan::STATUS_BELUM_LUNAS,
         ]));
-        $this->stockAllocationService->syncByDate($validated['tanggal']);
 
         return response()->json($this->payload($item));
     }
@@ -75,9 +71,7 @@ class KeberangkatanController extends Controller
     public function update(UpdateKeberangkatanRequest $request, string $keberangkatan): JsonResponse
     {
         $item = $this->findKeberangkatan($keberangkatan);
-        $oldDate = $item->tanggal;
         $validated = array_merge($this->payload($item), $request->validated());
-        $this->stockAllocationService->ensureStockAvailability($validated, $item);
         $derived = array_merge(
             $this->calculationService->dateParts($validated['tanggal']),
             $this->calculationService->calculate(
@@ -101,7 +95,6 @@ class KeberangkatanController extends Controller
             'driver_nama' => $driverName,
         ]));
         $item->save();
-        $this->stockAllocationService->syncByDates([$oldDate, $item->tanggal]);
 
         return response()->json($this->payload($item->fresh()));
     }
@@ -109,9 +102,7 @@ class KeberangkatanController extends Controller
     public function destroy(string $keberangkatan): JsonResponse
     {
         $item = $this->findKeberangkatan($keberangkatan);
-        $tanggal = $item->tanggal;
         $item->delete();
-        $this->stockAllocationService->syncByDate($tanggal);
 
         return response()->json(['message' => 'Data keberangkatan berhasil dihapus']);
     }
