@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TripPlanning;
 
+use App\Models\DailyAssignmentPin;
 use App\Models\DailyDriverAssignment;
 use App\Models\Driver;
 use App\Models\Mobil;
@@ -78,5 +79,40 @@ class AssignmentsDashboardViewTest extends TestCase
         $response->assertSee($targetDate, escape: false);
         $response->assertSee($mobil->id, escape: false);
         $response->assertSee($driver->id, escape: false);
+    }
+
+    public function test_view_state_includes_pins_for_assignments(): void
+    {
+        $targetDate = Carbon::today()->addDay()->toDateString();
+        $mobil = Mobil::factory()->create(['home_pool' => 'ROHUL']);
+        $driver = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::create([
+            'date' => $targetDate,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+
+        DailyAssignmentPin::create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:30:00',
+        ]);
+        DailyAssignmentPin::create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_time' => '13:00:00',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->get('/dashboard/trip-planning/assignments?date='.$targetDate)
+            ->assertStatus(200);
+
+        $response->assertSee('ROHUL_TO_PKB', escape: false);
+        $response->assertSee('05:30:00', escape: false);
+        $response->assertSee('PKB_TO_ROHUL', escape: false);
+        $response->assertSee('13:00:00', escape: false);
     }
 }

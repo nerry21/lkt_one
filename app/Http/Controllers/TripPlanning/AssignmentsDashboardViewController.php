@@ -37,7 +37,11 @@ class AssignmentsDashboardViewController extends Controller
 
         $assignments = DailyDriverAssignment::query()
             ->where('date', $targetDate->toDateString())
-            ->with(['mobil:id,kode_mobil,home_pool', 'driver:id,nama'])
+            ->with([
+                'mobil:id,kode_mobil,home_pool',
+                'driver:id,nama',
+                'pins:id,daily_driver_assignment_id,direction,trip_time',
+            ])
             ->get();
 
         $state = [

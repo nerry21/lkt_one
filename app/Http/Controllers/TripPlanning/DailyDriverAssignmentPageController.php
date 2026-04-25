@@ -4,6 +4,7 @@ namespace App\Http\Controllers\TripPlanning;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TripPlanning\UpsertDriverAssignmentRequest;
+use App\Models\DailyAssignmentPin;
 use App\Models\DailyDriverAssignment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,11 @@ class DailyDriverAssignmentPageController extends Controller
 
         $assignments = DailyDriverAssignment::query()
             ->where('date', $validated['date'])
-            ->with(['mobil:id,kode_mobil,home_pool', 'driver:id,nama'])
+            ->with([
+                'mobil:id,kode_mobil,home_pool',
+                'driver:id,nama',
+                'pins:id,daily_driver_assignment_id,direction,trip_time',
+            ])
             ->get();
 
         return response()->json([
@@ -44,6 +49,10 @@ class DailyDriverAssignmentPageController extends Controller
      * di-set saat insert dan tidak ke-overwrite saat update. updateOrCreate tidak
      * membedakan insert vs update di second-arg values, jadi pendekatan ini lebih
      * eksplisit & mudah dibaca.
+     *
+     * Pin strategy (Phase E4): delete-and-recreate per assignment per submit.
+     * Atomic via DB::transaction yang sudah wrap upsert. Audit pin tetap di
+     * parent assignment (created_by/updated_by).
      */
     public function upsert(UpsertDriverAssignmentRequest $request): JsonResponse
     {
@@ -63,11 +72,29 @@ class DailyDriverAssignmentPageController extends Controller
                         'driver_id' => $row['driver_id'],
                         'updated_by' => $userId,
                     ]);
+                    $assignmentRecord = $existing;
                 } else {
-                    DailyDriverAssignment::create([
+                    $assignmentRecord = DailyDriverAssignment::create([
                         'date' => $date,
                         'mobil_id' => $row['mobil_id'],
                         'driver_id' => $row['driver_id'],
+                        'created_by' => $userId,
+                        'updated_by' => $userId,
+                    ]);
+                }
+
+                DailyAssignmentPin::where('daily_driver_assignment_id', $assignmentRecord->id)->delete();
+
+                foreach ($row['pins'] ?? [] as $pin) {
+                    $tripTime = $pin['trip_time'];
+                    if (preg_match('/^\d{2}:\d{2}$/', $tripTime)) {
+                        $tripTime .= ':00';
+                    }
+
+                    DailyAssignmentPin::create([
+                        'daily_driver_assignment_id' => $assignmentRecord->id,
+                        'direction' => $pin['direction'],
+                        'trip_time' => $tripTime,
                         'created_by' => $userId,
                         'updated_by' => $userId,
                     ]);
@@ -77,7 +104,11 @@ class DailyDriverAssignmentPageController extends Controller
 
         $saved = DailyDriverAssignment::query()
             ->where('date', $date)
-            ->with(['mobil:id,kode_mobil,home_pool', 'driver:id,nama'])
+            ->with([
+                'mobil:id,kode_mobil,home_pool',
+                'driver:id,nama',
+                'pins:id,daily_driver_assignment_id,direction,trip_time',
+            ])
             ->get();
 
         return response()->json([

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TripPlanning;
 
+use App\Models\DailyAssignmentPin;
 use App\Models\DailyDriverAssignment;
 use App\Models\Driver;
 use App\Models\Mobil;
@@ -242,5 +243,194 @@ class DailyDriverAssignmentControllerTest extends TestCase
         ]);
 
         $this->assertEquals(1, DailyDriverAssignment::count());
+    }
+
+    // ── Group 5: Phase E4 pin overrides ────────────────────────────────────
+
+    public function test_upsert_creates_pins_for_assignment(): void
+    {
+        $date = now()->addDay()->toDateString();
+
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => $date,
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'ROHUL_TO_PKB', 'trip_time' => '05:00:00'],
+                            ['direction' => 'PKB_TO_ROHUL', 'trip_time' => '13:00:00'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('count', 1)
+            ->assertJsonCount(2, 'assignments.0.pins');
+
+        $assignment = DailyDriverAssignment::where('mobil_id', $this->mobil1->id)->firstOrFail();
+        $this->assertSame(2, DailyAssignmentPin::where('daily_driver_assignment_id', $assignment->id)->count());
+
+        $this->assertDatabaseHas('daily_assignment_pins', [
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
+        $this->assertDatabaseHas('daily_assignment_pins', [
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_time' => '13:00:00',
+        ]);
+    }
+
+    public function test_upsert_updates_pins_replaces_old_set(): void
+    {
+        $date = now()->addDay()->toDateString();
+
+        // Seed 1 existing pin (outbound 05:00).
+        $assignment = DailyDriverAssignment::create([
+            'date' => $date,
+            'mobil_id' => $this->mobil1->id,
+            'driver_id' => $this->driver1->id,
+            'created_by' => $this->admin->id,
+            'updated_by' => $this->admin->id,
+        ]);
+        DailyAssignmentPin::create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
+
+        // Re-submit dengan pin berbeda — return 13:00 saja.
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => $date,
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'PKB_TO_ROHUL', 'trip_time' => '13:00:00'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200);
+
+        $this->assertSame(1, DailyAssignmentPin::where('daily_driver_assignment_id', $assignment->id)->count());
+        $this->assertDatabaseHas('daily_assignment_pins', [
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_time' => '13:00:00',
+        ]);
+        $this->assertDatabaseMissing('daily_assignment_pins', [
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+        ]);
+    }
+
+    public function test_upsert_rejects_pin_with_invalid_direction(): void
+    {
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => now()->addDay()->toDateString(),
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'INVALID', 'trip_time' => '05:00:00'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['assignments.0.pins.0.direction']);
+    }
+
+    public function test_upsert_rejects_pin_with_invalid_trip_time_format(): void
+    {
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => now()->addDay()->toDateString(),
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'ROHUL_TO_PKB', 'trip_time' => '25:99'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['assignments.0.pins.0.trip_time']);
+    }
+
+    public function test_upsert_rejects_duplicate_direction_in_pins(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => now()->addDay()->toDateString(),
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'ROHUL_TO_PKB', 'trip_time' => '05:00:00'],
+                            ['direction' => 'ROHUL_TO_PKB', 'trip_time' => '07:00:00'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(422);
+
+        $errors = $response->json('errors');
+        $this->assertArrayHasKey('assignments.0.pins', $errors);
+        $this->assertStringContainsString('unik', $errors['assignments.0.pins'][0]);
+    }
+
+    public function test_upsert_accepts_assignment_without_pins(): void
+    {
+        // Backward compat: payload tanpa key `pins` valid, tidak ada pin row.
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => now()->addDay()->toDateString(),
+                'assignments' => [
+                    ['mobil_id' => $this->mobil1->id, 'driver_id' => $this->driver1->id],
+                ],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('count', 1);
+
+        $assignment = DailyDriverAssignment::where('mobil_id', $this->mobil1->id)->firstOrFail();
+        $this->assertSame(0, DailyAssignmentPin::where('daily_driver_assignment_id', $assignment->id)->count());
+    }
+
+    public function test_upsert_normalizes_trip_time_format(): void
+    {
+        // Payload pakai HH:MM, DB row harus jadi HH:MM:SS.
+        $this->actingAs($this->admin)
+            ->putJson('/api/trip-planning/assignments', [
+                'date' => now()->addDay()->toDateString(),
+                'assignments' => [
+                    [
+                        'mobil_id' => $this->mobil1->id,
+                        'driver_id' => $this->driver1->id,
+                        'pins' => [
+                            ['direction' => 'ROHUL_TO_PKB', 'trip_time' => '05:00'],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertStatus(200);
+
+        $assignment = DailyDriverAssignment::where('mobil_id', $this->mobil1->id)->firstOrFail();
+        $this->assertDatabaseHas('daily_assignment_pins', [
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:00:00',
+        ]);
     }
 }
