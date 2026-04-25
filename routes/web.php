@@ -164,11 +164,31 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
             ->name('trip-planning.trips.same-day-return');
     });
 
-    // Keuangan JET — Sesi 38 PR #3A (read-only listing + detail).
+    // Keuangan JET — Sesi 38 PR #3A (read-only) + PR #3B (edit actions).
     Route::middleware(['jwt.auth', 'admin.role:admin'])->prefix('keuangan-jet')->group(function () {
+        // PR #3A — read-only
         Route::get('/', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'index'])
             ->name('keuangan-jet.index');
+
+        // PR #3B — row-level edit (declared before {siklus} to avoid the dynamic
+        // segment swallowing the literal /jet prefix).
+        Route::post('/jet/{row}', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'updateRow'])
+            ->name('keuangan-jet.update-row');
+        Route::post('/jet/{row}/admin-paid', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'markAdminPaid'])
+            ->name('keuangan-jet.admin-paid');
+
+        // PR #3A — read-only siklus detail
         Route::get('/{siklus}', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'show'])
             ->name('keuangan-jet.show');
+
+        // PR #3B — siklus-level edit actions
+        Route::post('/{siklus}/refresh', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'refresh'])
+            ->name('keuangan-jet.refresh');
+        Route::post('/{siklus}/biaya', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'updateBiaya'])
+            ->name('keuangan-jet.update-biaya');
+        Route::post('/{siklus}/driver-paid', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'markDriverPaid'])
+            ->name('keuangan-jet.driver-paid');
+        Route::post('/{siklus}/driver-override', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'overrideDriver'])
+            ->name('keuangan-jet.driver-override');
     });
 });
