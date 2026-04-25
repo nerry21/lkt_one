@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\TripInvalidTransitionException;
+use App\Helpers\KeuanganJetDirectionMapper;
 use App\Models\Trip;
 
 /**
@@ -28,6 +29,7 @@ class TripRotationService
 {
     public function __construct(
         private readonly TripService $tripService,
+        private readonly KeuanganJetSyncService $keuanganJetSync,
     ) {}
 
     /**
@@ -62,11 +64,24 @@ class TripRotationService
             );
         }
 
-        return $this->tripService->updateWithVersionCheck(
+        $updated = $this->tripService->updateWithVersionCheck(
             $tripId,
             $expectedVersion,
             ['status' => 'berangkat'],
         );
+
+        // Hook: sync trip_status + refresh booking + check siklus complete
+        $row = $this->keuanganJetSync->syncTripToKeuanganJet($updated);
+        $this->keuanganJetSync->refreshFromBookings($row);
+
+        if (KeuanganJetDirectionMapper::isKepulangan($updated->direction)) {
+            $siklus = $row->siklus;
+            if ($siklus !== null && $siklus->status_siklus === 'berjalan') {
+                $this->keuanganJetSync->completeSiklus($siklus, 'regular_return');
+            }
+        }
+
+        return $updated;
     }
 
     /**

@@ -130,4 +130,14 @@ class KeuanganJet extends Model
     {
         return $this->belongsTo(User::class, 'admin_paid_by');
     }
+
+    public function scopeForTrip($query, $tripId)
+    {
+        return $query->where('trip_id', $tripId);
+    }
+
+    public function scopeForDirection($query, string $direction)
+    {
+        return $query->where('direction', $direction);
+    }
 }

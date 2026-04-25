@@ -46,6 +46,7 @@ class TripGenerationService
 
     public function __construct(
         private readonly PoolStateService $poolState,
+        private readonly KeuanganJetSyncService $keuanganJetSync,
     ) {}
 
     /**
@@ -154,6 +155,9 @@ class TripGenerationService
                 'driver_id'  => $driverAssignments[$mobil->id],
                 'status'     => 'scheduled',
             ]);
+
+            // Hook: auto-sync ke Keuangan JET (Sesi 38 PR #2)
+            $this->keuanganJetSync->syncTripToKeuanganJet($trip);
 
             $tripIds[] = $trip->id;
         }
