@@ -301,6 +301,9 @@ class BookingPageController extends Controller
         $tripTime    = trim((string) $request->query('trip_time', ''));
         $armadaIndex = max(1, (int) $request->query('armada_index', 1));
         $direction   = trim((string) $request->query('direction', ''));
+        // Sesi 46 PR #57: cluster-aware filter (D-PR57-1 backwards-compat).
+        $routeVia    = strtoupper(trim((string) $request->query('route_via', '')));
+        $routeViaFilter = in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true) ? $routeVia : null;
         $driverName  = trim((string) $request->query('driver_name', ''));
         $noPol       = trim((string) $request->query('no_pol', ''));
 
@@ -311,6 +314,7 @@ class BookingPageController extends Controller
             ->when($timePrefix !== '', fn ($q) => $q->where('trip_time', 'like', $timePrefix . '%'))
             ->when($direction === 'to_pkb', fn ($q) => $q->where('direction', 'to_pkb'))
             ->when($direction === 'from_pkb', fn ($q) => $q->where('direction', 'from_pkb'))
+            ->when($routeViaFilter !== null, fn ($q) => $q->where('route_via', $routeViaFilter))
             ->where(function ($q) use ($armadaIndex) {
                 $q->where('armada_index', $armadaIndex);
                 if ($armadaIndex === 1) {
