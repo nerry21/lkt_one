@@ -274,6 +274,9 @@ class BookingController extends Controller
         $tripDate = trim((string) $request->input('trip_date', ''));
         $tripTime = trim((string) $request->input('trip_time', ''));
         $direction = trim((string) $request->input('direction', ''));
+        // Sesi 46 PR #57: cluster-aware filter. Empty/invalid = no cluster constraint.
+        $routeVia = strtoupper(trim((string) $request->input('route_via', '')));
+        $routeViaFilter = in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true) ? $routeVia : null;
         $driverName = trim((string) $request->input('driver_name', ''));
         $driverId = $request->input('driver_id') ?: null;
         $armadaIndex = max(1, (int) $request->input('armada_index', 1));
@@ -285,7 +288,7 @@ class BookingController extends Controller
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
         $updatedCount = DB::transaction(function () use (
-            $tripDate, $timePrefix, $armadaIndex, $direction, $driverName, $driverId,
+            $tripDate, $timePrefix, $armadaIndex, $direction, $routeViaFilter, $driverName, $driverId,
         ): int {
             // Bug #37 — pessimistic batch lock: prevent concurrent admin race during
             // bulk slot reassignment. lockForUpdate holds row locks until COMMIT,
@@ -299,6 +302,11 @@ class BookingController extends Controller
                 $query->where('direction', 'to_pkb');
             } elseif ($direction === 'from_pkb') {
                 $query->where('direction', 'from_pkb');
+            }
+
+            // Sesi 46 PR #57: cluster filter (D-PR57-1 backwards-compat).
+            if ($routeViaFilter !== null) {
+                $query->where('route_via', $routeViaFilter);
             }
 
             // Acquire row locks for matching set. lockForUpdate() on SELECT ensures
@@ -331,11 +339,21 @@ class BookingController extends Controller
             return response()->json([]);
         }
 
+        // Sesi 46 PR #57: response cluster-aware composite key.
+        // Format: { "HH:MM__DIRECTION__CLUSTER": max_armada_index, ... }
+        // Mirror pola slotKey di JS state (D-PR57-2).
+        // Backwards-compat: existing rows (semua direction='to_pkb' route_via='BANGKINANG'
+        // post-backfill PR #56) tetap return composite key.
         $extras = BookingArmadaExtra::query()
             ->where('trip_date', $date)
             ->get()
             ->mapWithKeys(fn (BookingArmadaExtra $e) => [
-                $e->trip_time => $e->max_armada_index,
+                sprintf(
+                    '%s__%s__%s',
+                    $e->trip_time,
+                    $e->direction ?? 'to_pkb',
+                    $e->route_via ?? 'BANGKINANG',
+                ) => $e->max_armada_index,
             ]);
 
         return response()->json($extras);
@@ -345,23 +363,43 @@ class BookingController extends Controller
     {
         $this->actor($request);
 
-        $tripDate  = trim((string) $request->input('trip_date', ''));
-        $tripTime  = trim((string) $request->input('trip_time', ''));
+        $tripDate    = trim((string) $request->input('trip_date', ''));
+        $tripTime    = trim((string) $request->input('trip_time', ''));
         $armadaIndex = max(1, (int) $request->input('armada_index', 1));
+
+        // Sesi 46 PR #57: cluster-aware composite key untuk firstOrNew.
+        // Backwards-compat default: kalau frontend belum kirim direction/route_via
+        // (PR #58 belum deploy), default ke ('to_pkb', 'BANGKINANG'). Ini konsisten
+        // dengan pola backfill Sesi 44A PR #1A + PR #56.
+        // Whitelist value untuk reject input invalid (e.g. typo client).
+        $direction = trim((string) $request->input('direction', ''));
+        $direction = in_array($direction, ['to_pkb', 'from_pkb'], true) ? $direction : 'to_pkb';
+
+        $routeVia = strtoupper(trim((string) $request->input('route_via', '')));
+        $routeVia = in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true) ? $routeVia : 'BANGKINANG';
 
         if ($tripDate === '' || $tripTime === '') {
             return response()->json(['message' => 'trip_date dan trip_time wajib diisi'], 422);
         }
 
         $extra = BookingArmadaExtra::query()
-            ->firstOrNew(['trip_date' => $tripDate, 'trip_time' => $tripTime]);
+            ->firstOrNew([
+                'trip_date' => $tripDate,
+                'trip_time' => $tripTime,
+                'direction' => $direction,
+                'route_via' => $routeVia,
+            ]);
 
         if ($armadaIndex > ($extra->max_armada_index ?? 0)) {
             $extra->max_armada_index = $armadaIndex;
             $extra->save();
         }
 
-        return response()->json(['max_armada_index' => $extra->max_armada_index]);
+        return response()->json([
+            'max_armada_index' => $extra->max_armada_index,
+            'direction'        => $extra->direction,
+            'route_via'        => $extra->route_via,
+        ]);
     }
 
     public function quickPackageStore(

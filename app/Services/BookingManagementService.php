@@ -161,11 +161,17 @@ class BookingManagementService
         $search = trim((string) $request->query('search', ''));
         $date = trim((string) $request->query('date', ''));
         $direction = trim((string) $request->query('direction', ''));
+        // Sesi 46 PR #57: cluster-aware filter. Kalau empty/missing, return semua cluster.
+        // Whitelist value supaya tidak ada SQL injection via query string.
+        $routeVia = strtoupper(trim((string) $request->query('route_via', '')));
+        $validClusters = ['BANGKINANG', 'PETAPAHAN'];
+        $routeViaFilter = in_array($routeVia, $validClusters, true) ? $routeVia : null;
 
         return Booking::query()
             ->when($date !== '', fn (Builder $q) => $q->where('trip_date', $date))
             ->when($direction === 'to_pkb', fn (Builder $q) => $q->where('direction', 'to_pkb'))
             ->when($direction === 'from_pkb', fn (Builder $q) => $q->where('direction', 'from_pkb'))
+            ->when($routeViaFilter !== null, fn (Builder $q) => $q->where('route_via', $routeViaFilter))
             ->when($search !== '', function (Builder $query) use ($search) {
                 $query->where(function (Builder $subQuery) use ($search) {
                     $subQuery
