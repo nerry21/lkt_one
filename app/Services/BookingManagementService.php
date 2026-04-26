@@ -465,10 +465,17 @@ class BookingManagementService
             ? $this->paymentService->qrisAccount()
             : null;
 
+        // Sesi 44A PR #1A: resolve direction dari from_city/to_city.
+        $fromCity = trim((string) $validated['from_city']);
+        $toCity   = trim((string) $validated['to_city']);
+        $bookingDirection = $this->regularBookingService->resolveDirection($fromCity, $toCity);
+
         $booking->fill([
             'category' => trim((string) $validated['category']),
-            'from_city' => trim((string) $validated['from_city']),
-            'to_city' => trim((string) $validated['to_city']),
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => $bookingDirection,
+            'route_via' => $booking->route_via ?? 'BANGKINANG',
             'trip_date' => $validated['trip_date'],
             'trip_time' => $this->normalizeTripTime((string) $validated['trip_time']),
             'booking_for' => trim((string) $validated['booking_for']),
@@ -551,8 +558,10 @@ class BookingManagementService
                     ? $validated['trip_date']->format('Y-m-d')
                     : (string) $validated['trip_date'],
                 'trip_time' => $this->normalizeTripTime((string) $validated['trip_time']),
-                'from_city' => trim((string) $validated['from_city']),
-                'to_city' => trim((string) $validated['to_city']),
+                'from_city' => $fromCity,
+                'to_city' => $toCity,
+                'direction' => $bookingDirection,
+                'route_via' => $booking->route_via ?? 'BANGKINANG',
                 'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
             ];
             $lockType = $isPaid ? 'hard' : 'soft';
@@ -681,26 +690,37 @@ class BookingManagementService
 
     private function buildSlotKey(Booking $booking): array
     {
+        $fromCity = trim((string) $booking->from_city);
+        $toCity = trim((string) $booking->to_city);
+
         return [
             'trip_date' => $booking->trip_date instanceof \DateTimeInterface
                 ? $booking->trip_date->format('Y-m-d')
                 : (string) $booking->trip_date,
             'trip_time' => $this->normalizeTripTime((string) $booking->trip_time),
-            'from_city' => trim((string) $booking->from_city),
-            'to_city' => trim((string) $booking->to_city),
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => $booking->direction
+                ?? $this->regularBookingService->resolveDirection($fromCity, $toCity),
+            'route_via' => $booking->route_via ?? 'BANGKINANG',
             'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
         ];
     }
 
     private function buildSlotKeyFromValidated(array $validated): array
     {
+        $fromCity = trim((string) ($validated['from_city'] ?? ''));
+        $toCity = trim((string) ($validated['to_city'] ?? ''));
+
         return [
             'trip_date' => $validated['trip_date'] instanceof \DateTimeInterface
                 ? $validated['trip_date']->format('Y-m-d')
                 : (string) ($validated['trip_date'] ?? ''),
             'trip_time' => $this->normalizeTripTime((string) ($validated['trip_time'] ?? '')),
-            'from_city' => trim((string) ($validated['from_city'] ?? '')),
-            'to_city' => trim((string) ($validated['to_city'] ?? '')),
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => $this->regularBookingService->resolveDirection($fromCity, $toCity),
+            'route_via' => 'BANGKINANG',
             'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
         ];
     }

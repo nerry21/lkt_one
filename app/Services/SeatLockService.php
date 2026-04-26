@@ -41,7 +41,15 @@ class SeatLockService
      *   4. Sync booking.selected_seats JSON cache
      *   5. Return Collection<BookingSeat> yang ter-lock
      *
-     * @param  array<int, array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int}>  $slots
+     * @param  array<int, array{
+     *   trip_date: string,
+     *   trip_time: string,
+     *   from_city: string,
+     *   to_city: string,
+     *   direction?: string,
+     *   route_via?: string,
+     *   armada_index: int
+     * }>  $slots
      * @param  array<int, string>  $seatNumbers
      * @param  'soft'|'hard'  $lockType
      * @return Collection<int, BookingSeat>
@@ -54,14 +62,21 @@ class SeatLockService
         array $seatNumbers,
         string $lockType = 'soft',
     ): Collection {
-        // 1. Normalisasi trip_time di semua slot entries (defense-in-depth — caller
-        //    juga normalisasi, tapi jaga konsistensi sebelum build WHERE clause).
+        // 1. Normalisasi trip_time + resolve direction/route_via fallback.
+        //    Sesi 44A PR #1A: direction + route_via adalah bagian slot key fisik mobil.
+        //    Backward-compat resolve kalau caller (legacy/test) tidak provide.
         $normalizedSlots = array_map(
             fn (array $slot): array => [
                 'trip_date' => $slot['trip_date'],
                 'trip_time' => $this->normalizeTripTime((string) $slot['trip_time']),
                 'from_city' => $slot['from_city'],
                 'to_city' => $slot['to_city'],
+                'direction' => $slot['direction']
+                    ?? $this->resolveDirectionFromCities(
+                        (string) $slot['from_city'],
+                        (string) $slot['to_city'],
+                    ),
+                'route_via' => $slot['route_via'] ?? 'BANGKINANG',
                 'armada_index' => (int) $slot['armada_index'],
             ],
             $slots,
@@ -78,6 +93,8 @@ class SeatLockService
                     'trip_time' => $slot['trip_time'],
                     'from_city' => $slot['from_city'],
                     'to_city' => $slot['to_city'],
+                    'direction' => $slot['direction'],
+                    'route_via' => $slot['route_via'],
                     'armada_index' => $slot['armada_index'],
                     'seat_number' => $seat,
                     'lock_type' => $lockType,
@@ -260,18 +277,27 @@ class SeatLockService
      * seat milik booking yang sedang di-edit tidak boleh tampak "occupied" ke diri
      * sendiri, atau user tidak bisa confirm seat-nya).
      *
-     * @param  array{trip_date: string, trip_time: string, from_city: string, to_city: string, armada_index: int}  $slot
+     * @param  array{trip_date: string, trip_time: string, from_city?: string, to_city?: string, direction?: string, route_via?: string, armada_index: int}  $slot
      * @param  int|null  $excludeBookingId  Exclude seat milik booking ini dari hasil
      * @return Collection<int, string>  Array seat_number unique, flat 0-indexed (JSON-ready)
      */
     public function getOccupiedSeats(array $slot, ?int $excludeBookingId = null): Collection
     {
+        // Sesi 44A PR #1A: filter slot fisik mobil pakai (direction, route_via, armada_index)
+        // — bukan (from_city, to_city). Backward-compat resolve kalau caller belum provide.
+        $direction = $slot['direction']
+            ?? $this->resolveDirectionFromCities(
+                (string) ($slot['from_city'] ?? ''),
+                (string) ($slot['to_city'] ?? ''),
+            );
+        $routeVia = $slot['route_via'] ?? 'BANGKINANG';
+
         return BookingSeat::query()
             ->active()
             ->where('trip_date', $slot['trip_date'])
             ->where('trip_time', $this->normalizeTripTime((string) $slot['trip_time']))
-            ->where('from_city', $slot['from_city'])
-            ->where('to_city', $slot['to_city'])
+            ->where('direction', $direction)
+            ->where('route_via', $routeVia)
             ->where('armada_index', $slot['armada_index'])
             ->when($excludeBookingId, fn (Builder $q, int $id) => $q->where('booking_id', '!=', $id))
             ->pluck('seat_number')
@@ -285,18 +311,33 @@ class SeatLockService
      */
     private function applySlotSeatWhereClause(Builder $query, array $candidateRows): Builder
     {
+        // Sesi 44A PR #1A: slot fisik mobil di-key dengan (direction, route_via, armada_index).
+        // from_city/to_city stored di row untuk audit, tapi bukan bagian slot collision check.
         return $query->where(function (Builder $q) use ($candidateRows): void {
             foreach ($candidateRows as $row) {
                 $q->orWhere(function (Builder $sub) use ($row): void {
                     $sub->where('trip_date', $row['trip_date'])
                         ->where('trip_time', $row['trip_time'])
-                        ->where('from_city', $row['from_city'])
-                        ->where('to_city', $row['to_city'])
+                        ->where('direction', $row['direction'])
+                        ->where('route_via', $row['route_via'])
                         ->where('armada_index', $row['armada_index'])
                         ->where('seat_number', $row['seat_number']);
                 });
             }
         });
+    }
+
+    /**
+     * Helper internal: resolve direction dari from_city/to_city untuk backward-compat
+     * caller yang belum provide direction di slot. Sesi 44A PR #1A.
+     */
+    private function resolveDirectionFromCities(string $fromCity, string $toCity): string
+    {
+        return match (true) {
+            $toCity === 'Pekanbaru' => 'to_pkb',
+            $fromCity === 'Pekanbaru' => 'from_pkb',
+            default => 'to_pkb',
+        };
     }
 
     /**

@@ -130,10 +130,18 @@ class PackageBookingPersistenceService
                 'package_size' => $reviewState['package_size'],
             ], JSON_UNESCAPED_UNICODE);
 
+            // Sesi 44A PR #1A: resolve direction; route_via default 'BANGKINANG'.
+            $bookingDirection = app(RegularBookingService::class)->resolveDirection(
+                (string) $reviewState['pickup_city'],
+                (string) $reviewState['destination_city'],
+            );
+
             $booking->fill([
                 'category' => 'Paket',
                 'from_city' => $reviewState['pickup_city'],
                 'to_city' => $reviewState['destination_city'],
+                'direction' => $bookingDirection,
+                'route_via' => $booking->route_via ?? 'BANGKINANG',
                 'trip_date' => $tripDate,
                 'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for' => $reviewState['package_size'],
@@ -185,6 +193,8 @@ class PackageBookingPersistenceService
                     'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                     'from_city' => $reviewState['pickup_city'],
                     'to_city' => $reviewState['destination_city'],
+                    'direction' => $bookingDirection,
+                    'route_via' => $booking->route_via ?? 'BANGKINANG',
                     'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
                 ];
                 $this->seatLockService->lockSeats(
@@ -205,6 +215,8 @@ class PackageBookingPersistenceService
                     'trip_time' => $this->normalizeTripTime($reviewState['departure_time_value']),
                     'from_city' => $reviewState['pickup_city'],
                     'to_city' => $reviewState['destination_city'],
+                    'direction' => $bookingDirection,
+                    'route_via' => $booking->route_via ?? 'BANGKINANG',
                     'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
                 ];
                 $this->seatLockService->lockSeats(
@@ -317,13 +329,19 @@ class PackageBookingPersistenceService
      */
     private function buildSlotKey(Booking $booking): array
     {
+        $fromCity = trim((string) $booking->from_city);
+        $toCity = trim((string) $booking->to_city);
+
         return [
             'trip_date' => $booking->trip_date instanceof \DateTimeInterface
                 ? $booking->trip_date->format('Y-m-d')
                 : (string) $booking->trip_date,
             'trip_time' => $this->normalizeTripTime((string) ($booking->trip_time ?? '')),
-            'from_city' => trim((string) $booking->from_city),
-            'to_city' => trim((string) $booking->to_city),
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => $booking->direction
+                ?? app(RegularBookingService::class)->resolveDirection($fromCity, $toCity),
+            'route_via' => $booking->route_via ?? 'BANGKINANG',
             'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
             'package_size' => trim((string) ($booking->booking_for ?? '')),
         ];
@@ -339,13 +357,18 @@ class PackageBookingPersistenceService
      */
     private function buildSlotKeyFromReviewState(array $reviewState): array
     {
+        $fromCity = trim((string) ($reviewState['pickup_city'] ?? ''));
+        $toCity = trim((string) ($reviewState['destination_city'] ?? ''));
+
         return [
             'trip_date' => filled($reviewState['trip_date'] ?? null)
                 ? (string) $reviewState['trip_date']
                 : now()->toDateString(),
             'trip_time' => $this->normalizeTripTime((string) ($reviewState['departure_time_value'] ?? '')),
-            'from_city' => trim((string) ($reviewState['pickup_city'] ?? '')),
-            'to_city' => trim((string) ($reviewState['destination_city'] ?? '')),
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => app(RegularBookingService::class)->resolveDirection($fromCity, $toCity),
+            'route_via' => 'BANGKINANG',
             'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
             'package_size' => trim((string) ($reviewState['package_size'] ?? '')),
         ];
