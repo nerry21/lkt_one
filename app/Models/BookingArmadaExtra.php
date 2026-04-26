@@ -11,6 +11,8 @@ class BookingArmadaExtra extends Model
     protected $fillable = [
         'trip_date',
         'trip_time',
+        'direction',
+        'route_via',
         'max_armada_index',
     ];
 
