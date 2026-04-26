@@ -889,6 +889,76 @@ async function submitDeleteTrip(event) {
     }
 }
 
+// ── E5 PR #3: Create Trip Modal ─────────────────────────────────────────────
+
+function openCreateTripModal() {
+    const form = document.getElementById('trip-planning-create-trip-form');
+    if (!form) return;
+
+    form.reset();
+
+    // Pre-fill tanggal dengan targetDate dashboard untuk UX
+    const dateInput = document.getElementById('trip-planning-create-trip-date');
+    if (dateInput && state.targetDate) {
+        dateInput.value = state.targetDate;
+    }
+
+    // Default direction PKB_TO_ROHUL setelah form.reset (select pertama option)
+    const directionInput = document.getElementById('trip-planning-create-trip-direction');
+    if (directionInput) directionInput.value = 'PKB_TO_ROHUL';
+
+    openModal('trip-planning-create-trip-modal');
+}
+
+async function submitCreateTrip(event) {
+    event.preventDefault();
+
+    const submitButton = document.getElementById('trip-planning-create-trip-submit');
+
+    const tripDate = document.getElementById('trip-planning-create-trip-date').value;
+    const tripTime = document.getElementById('trip-planning-create-trip-time').value;
+    const direction = document.getElementById('trip-planning-create-trip-direction').value;
+    const mobilId = document.getElementById('trip-planning-create-trip-mobil').value;
+    const driverId = document.getElementById('trip-planning-create-trip-driver').value;
+    const sequenceStr = document.getElementById('trip-planning-create-trip-sequence').value;
+
+    if (!tripDate || !tripTime || !direction || !mobilId || !driverId) {
+        toastError('Lengkapi semua field wajib (tanggal, jam, arah, mobil, driver).');
+        return;
+    }
+
+    const payload = {
+        trip_date: tripDate,
+        trip_time: tripTime,
+        direction,
+        mobil_id: mobilId,
+        driver_id: driverId,
+    };
+
+    if (sequenceStr) {
+        payload.sequence = parseInt(sequenceStr, 10);
+    }
+
+    setButtonBusy(submitButton, true);
+
+    try {
+        const response = await apiRequest('/trip-planning/trips', {
+            method: 'POST',
+            body: payload,
+        });
+
+        if (response?.data) {
+            toastSuccess(response.message || 'Trip berhasil dibuat.');
+            closeModal('trip-planning-create-trip-modal');
+            await reloadDashboardData();
+        }
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
 function handleActionClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) {
@@ -907,6 +977,12 @@ function handleActionClick(event) {
 
     if (action === 'confirm-generate-trips') {
         confirmGenerateTrips(button);
+        return;
+    }
+
+    // E5 PR #3: Create trip handler
+    if (action === 'open-create-trip-modal') {
+        openCreateTripModal();
         return;
     }
 
@@ -1070,5 +1146,11 @@ export default async function initTripPlanningDashboardPage() {
     const deleteTripForm = document.getElementById('trip-planning-delete-trip-form');
     if (deleteTripForm) {
         deleteTripForm.addEventListener('submit', submitDeleteTrip);
+    }
+
+    // E5 PR #3 form listener
+    const createTripForm = document.getElementById('trip-planning-create-trip-form');
+    if (createTripForm) {
+        createTripForm.addEventListener('submit', submitCreateTrip);
     }
 }
