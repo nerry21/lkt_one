@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PackageBooking\StorePackageBookingInformationRequest;
 use App\Http\Requests\PackageBooking\StorePackageBookingPackageRequest;
 use App\Http\Requests\PackageBooking\StorePackageBookingPaymentRequest;
+use App\Services\BookingClusterService;
 use App\Services\PackageBookingDraftService;
 use App\Services\PackageBookingPersistenceService;
 use App\Services\PackageBookingService;
@@ -26,6 +27,7 @@ class PackageBookingPageController extends Controller
         Request $request,
         PackageBookingService $service,
         PackageBookingDraftService $drafts,
+        BookingClusterService $clusterService,
     ): View {
         $draft = $drafts->get($request->session());
         $formState = $drafts->buildFormState($request, $draft, $service);
@@ -39,6 +41,8 @@ class PackageBookingPageController extends Controller
             'steps' => $this->steps(1),
             'departureSchedules' => $service->departureSchedules(),
             'locations' => $service->locations(),
+            'clusterMap' => $clusterService->locationClusterMap(),
+            'forbiddenPairs' => $clusterService->forbiddenPairs(),
             'formState' => $formState,
             'draftSummary' => $drafts->buildSummary($draft, $service),
             'flashNotice' => $request->session()->get('package_booking_notice'),

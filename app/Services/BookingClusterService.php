@@ -208,4 +208,26 @@ class BookingClusterService
 
         return true;
     }
+
+    /**
+     * Sesi 44D PR #1D: expose location cluster map untuk frontend
+     * (JS-side dropdown auto-resolve).
+     *
+     * @return array<string, string|null>
+     */
+    public function locationClusterMap(): array
+    {
+        return self::LOCATION_CLUSTER_MAP;
+    }
+
+    /**
+     * Sesi 44D PR #1D: expose forbidden pairs untuk frontend
+     * (JS-side pre-validation).
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    public function forbiddenPairs(): array
+    {
+        return self::FORBIDDEN_PAIRS;
+    }
 }
