@@ -391,4 +391,25 @@ class RegularBookingService
     {
         return trim($value);
     }
+
+    /**
+     * Resolve direction (to_pkb | from_pkb) dari pasangan from_city/to_city.
+     * Sesi 44A PR #1A.
+     *
+     * Aturan:
+     *   - to_city = Pekanbaru → to_pkb
+     *   - from_city = Pekanbaru → from_pkb
+     *   - Keduanya non-PKB (inter-titik): default to_pkb (admin revisi via PR #1D nanti)
+     */
+    public function resolveDirection(string $fromCity, string $toCity): string
+    {
+        $from = trim($fromCity);
+        $to = trim($toCity);
+
+        return match (true) {
+            $to === 'Pekanbaru' => 'to_pkb',
+            $from === 'Pekanbaru' => 'from_pkb',
+            default => 'to_pkb',
+        };
+    }
 }

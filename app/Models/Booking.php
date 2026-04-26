@@ -23,6 +23,8 @@ class Booking extends Model
         'category',
         'from_city',
         'to_city',
+        'direction',
+        'route_via',
         'trip_date',
         'trip_time',
         'booking_for',
@@ -111,6 +113,21 @@ class Booking extends Model
 
             if (blank($booking->driver_id) && blank($booking->driver_name)) {
                 $booking->driver_name = null;
+            }
+
+            // Sesi 44A PR #1A — auto-resolve direction kalau caller belum set.
+            // Defensive: legacy code path / direct Booking::create([...]) dari test fixtures.
+            // route_via default 'BANGKINANG' kalau belum di-set (admin revisi di UI PR #1D).
+            if (blank($booking->direction) && filled($booking->from_city) && filled($booking->to_city)) {
+                $booking->direction = match (true) {
+                    $booking->to_city === 'Pekanbaru' => 'to_pkb',
+                    $booking->from_city === 'Pekanbaru' => 'from_pkb',
+                    default => 'to_pkb',
+                };
+            }
+
+            if (blank($booking->route_via)) {
+                $booking->route_via = 'BANGKINANG';
             }
         });
     }

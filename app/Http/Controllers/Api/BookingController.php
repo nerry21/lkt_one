@@ -105,6 +105,13 @@ class BookingController extends Controller
             return response()->json(['occupied_seats' => []]);
         }
 
+        // Sesi 44A PR #1A: filter slot fisik mobil pakai (date, time, direction, armada_index)
+        // — bukan (date, time, from_city, to_city). Booking dari Simpang D dan Pasirpengaraian
+        // sama-sama direction=to_pkb di mobil sama akan saling block kursi.
+        // route_via belum di-filter di PR #1A (default semua BANGKINANG); PR #1C aktifkan.
+        $regularBookingService = app(\App\Services\RegularBookingService::class);
+        $direction = $regularBookingService->resolveDirection($fromCity, $toCity);
+
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
         $occupied = Booking::query()
@@ -117,9 +124,7 @@ class BookingController extends Controller
                     $q->orWhereNull('armada_index');
                 }
             })
-            // Filter by route direction so different physical routes don't share seat availability
-            ->when($fromCity !== '', fn ($q) => $q->where('from_city', $fromCity))
-            ->when($toCity !== '', fn ($q) => $q->where('to_city', $toCity))
+            ->where('direction', $direction)
             ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))

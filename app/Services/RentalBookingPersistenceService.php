@@ -129,10 +129,18 @@ class RentalBookingPersistenceService
                 ]);
             }
 
+            // Sesi 44A PR #1A: resolve direction; route_via default 'BANGKINANG'.
+            $bookingDirection = app(RegularBookingService::class)->resolveDirection(
+                (string) $reviewState['pickup_location'],
+                (string) $reviewState['destination_location'],
+            );
+
             $booking->fill([
                 'category'         => 'Rental',
                 'from_city'        => $reviewState['pickup_location'],
                 'to_city'          => $reviewState['destination_location'],
+                'direction'        => $bookingDirection,
+                'route_via'        => $booking->route_via ?? 'BANGKINANG',
                 'trip_date'        => $tripDate,
                 'rental_end_date'  => $endDate,
                 'trip_time'        => '00:00:00',
@@ -510,6 +518,9 @@ class RentalBookingPersistenceService
         string $toCity,
         int $armadaIndex,
     ): array {
+        // Sesi 44A PR #1A: resolve direction sekali per range; route_via default 'BANGKINANG'.
+        $direction = app(RegularBookingService::class)->resolveDirection($fromCity, $toCity);
+
         $slots = [];
         foreach (CarbonPeriod::create($startDate, $endDate) as $date) {
             $slots[] = [
@@ -517,6 +528,8 @@ class RentalBookingPersistenceService
                 'trip_time' => '00:00:00',
                 'from_city' => $fromCity,
                 'to_city' => $toCity,
+                'direction' => $direction,
+                'route_via' => 'BANGKINANG',
                 'armada_index' => $armadaIndex,
             ];
         }
