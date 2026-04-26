@@ -69,6 +69,13 @@ class RegularBookingService
             'Aliantan',
             'Bangkinang',
             'Ujung Batu',
+            // Sesi 44B PR #1B — locations baru
+            'Rambah Samo',
+            'SKPA',
+            'SKPB',
+            'Silam',
+            'Kasikan',
+            'Kuok',
         ];
     }
 
@@ -299,6 +306,8 @@ class RegularBookingService
             return $this->fareMap;
         }
 
+        // Sesi 44B PR #1B: extended sharedOrigins (10 lokasi sub-area Pasirpengaraian).
+        // Tambahan: Rambah Samo, SKPA, SKPB. Semua tarif sama 150k ke PKB.
         $sharedOrigins = [
             'SKPD',
             'Simpang D',
@@ -307,9 +316,13 @@ class RegularBookingService
             'Muara Rumbai',
             'Surau Tinggi',
             'Pasirpengaraian',
+            'Rambah Samo',
+            'SKPA',
+            'SKPB',
         ];
 
         $specifications = [
+            // Tarif tunggal sub-area Pasirpengaraian → titik tujuan (bidirectional via routeKey sort)
             ['origins' => $sharedOrigins, 'destinations' => ['Pekanbaru'], 'fare' => 150000],
             ['origins' => $sharedOrigins, 'destinations' => ['Kabun'], 'fare' => 120000],
             ['origins' => $sharedOrigins, 'destinations' => ['Tandun'], 'fare' => 100000],
@@ -317,10 +330,23 @@ class RegularBookingService
             ['origins' => $sharedOrigins, 'destinations' => ['Suram'], 'fare' => 120000],
             ['origins' => $sharedOrigins, 'destinations' => ['Aliantan'], 'fare' => 120000],
             ['origins' => $sharedOrigins, 'destinations' => ['Bangkinang'], 'fare' => 130000],
+
+            // Tarif tunggal lokasi cabang/tengah → PKB
             ['origins' => ['Bangkinang'], 'destinations' => ['Pekanbaru'], 'fare' => 100000],
+            ['origins' => ['Aliantan'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
+            ['origins' => ['Kuok'], 'destinations' => ['Pekanbaru'], 'fare' => 100000],
+            ['origins' => ['Kabun'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
+            ['origins' => ['Tandun'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
+            ['origins' => ['Silam'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
             ['origins' => ['Ujung Batu'], 'destinations' => ['Pekanbaru'], 'fare' => 130000],
-            ['origins' => ['Suram'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
             ['origins' => ['Petapahan'], 'destinations' => ['Pekanbaru'], 'fare' => 100000],
+            ['origins' => ['Kasikan'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
+            ['origins' => ['Suram'], 'destinations' => ['Pekanbaru'], 'fare' => 120000],
+
+            // Tarif khusus inter-titik (bidirectional)
+            ['origins' => ['Ujung Batu'], 'destinations' => ['Pasirpengaraian'], 'fare' => 50000],
+            ['origins' => ['Tandun'], 'destinations' => ['Pasirpengaraian'], 'fare' => 100000],
+            ['origins' => ['Kabun'], 'destinations' => ['Pasirpengaraian'], 'fare' => 120000],
         ];
 
         $fareMap = [];
