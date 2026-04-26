@@ -959,6 +959,55 @@ async function submitCreateTrip(event) {
     }
 }
 
+// ── E5 PR #5: Reset Trip Data ────────────────────────────────────────────────
+
+async function submitResetToday() {
+    const submitButton = document.getElementById('trip-planning-reset-today-submit');
+    const date = state.targetDate;
+    if (!date) {
+        toastError('Tanggal target tidak valid.');
+        return;
+    }
+    setButtonBusy(submitButton, true);
+    try {
+        const response = await apiRequest('/trip-planning/reset/today', {
+            method: 'POST',
+            body: { date },
+        });
+        if (response?.success) {
+            const s = response.summary || {};
+            toastSuccess(`Reset OK — ${s.trips_deleted || 0} trip dihapus, ${s.assignments_pins_cleared || 0} pin clear.`);
+            closeModal('trip-planning-reset-today-modal');
+            await reloadDashboardData();
+        }
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
+async function submitResetAll() {
+    const submitButton = document.getElementById('trip-planning-reset-all-submit');
+    setButtonBusy(submitButton, true);
+    try {
+        const response = await apiRequest('/trip-planning/reset/all', {
+            method: 'POST',
+            body: {},
+        });
+        if (response?.success) {
+            const s = response.summary || {};
+            toastSuccess(`Reset Semua OK — ${s.trips_deleted || 0} trip dihapus, ${s.assignments_pins_cleared || 0} pin clear lintas tanggal.`);
+            closeModal('trip-planning-reset-all-modal');
+            await reloadDashboardData();
+        }
+    } catch (error) {
+        toastError(extractErrorDisplay(error));
+    } finally {
+        setButtonBusy(submitButton, false);
+    }
+}
+
 function handleActionClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) {
@@ -983,6 +1032,29 @@ function handleActionClick(event) {
     // E5 PR #3: Create trip handler
     if (action === 'open-create-trip-modal') {
         openCreateTripModal();
+        return;
+    }
+
+    // E5 PR #5: Reset menu toggle.
+    if (action === 'open-reset-menu') {
+        const menu = document.getElementById('trip-planning-reset-menu');
+        if (menu) menu.hidden = !menu.hidden;
+        return;
+    }
+
+    // E5 PR #5: Reset Hari Ini.
+    if (action === 'open-reset-today-modal') {
+        const menu = document.getElementById('trip-planning-reset-menu');
+        if (menu) menu.hidden = true;
+        openModal('trip-planning-reset-today-modal');
+        return;
+    }
+
+    // E5 PR #5: Reset Semua.
+    if (action === 'open-reset-all-modal') {
+        const menu = document.getElementById('trip-planning-reset-menu');
+        if (menu) menu.hidden = true;
+        openModal('trip-planning-reset-all-modal');
         return;
     }
 
@@ -1153,4 +1225,25 @@ export default async function initTripPlanningDashboardPage() {
     if (createTripForm) {
         createTripForm.addEventListener('submit', submitCreateTrip);
     }
+
+    // E5 PR #5 reset button listeners.
+    const resetTodayBtn = document.getElementById('trip-planning-reset-today-submit');
+    if (resetTodayBtn) {
+        resetTodayBtn.addEventListener('click', submitResetToday);
+    }
+
+    const resetAllBtn = document.getElementById('trip-planning-reset-all-submit');
+    if (resetAllBtn) {
+        resetAllBtn.addEventListener('click', submitResetAll);
+    }
+
+    // E5 PR #5: close reset menu kalau klik di luar trigger/menu.
+    document.addEventListener('click', (event) => {
+        const wrapper = document.querySelector('.trip-planning-reset-wrapper');
+        const menu = document.getElementById('trip-planning-reset-menu');
+        if (!wrapper || !menu || menu.hidden) return;
+        if (!wrapper.contains(event.target)) {
+            menu.hidden = true;
+        }
+    });
 }

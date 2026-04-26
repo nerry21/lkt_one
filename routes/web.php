@@ -168,6 +168,15 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
             ->name('trip-planning.trips.destroy');
         Route::get('/trips/{trip}/bookings-count', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'bookingsCount'])
             ->name('trip-planning.trips.bookings-count');
+
+        // E5 PR #5: Reset Trip Data endpoints (mirror dari /api/).
+        // Parent group sudah admin.role:admin → resetToday Admin+Super pass.
+        // resetAll chain admin.role:super → Super Admin only.
+        Route::post('/trips/reset/today', [\App\Http\Controllers\TripPlanning\ResetTripDataController::class, 'resetToday'])
+            ->name('trip-planning.reset.today');
+        Route::post('/trips/reset/all', [\App\Http\Controllers\TripPlanning\ResetTripDataController::class, 'resetAll'])
+            ->middleware('admin.role:super')
+            ->name('trip-planning.reset.all');
     });
 
     // Keuangan JET — Sesi 38 PR #3A (read-only) + PR #3B (edit actions).
