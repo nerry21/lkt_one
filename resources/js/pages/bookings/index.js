@@ -712,13 +712,21 @@ function defaultBookingStatus(method) {
     return 'Draft';
 }
 
+// Sesi 44D PR #1D: return struct so caller can show "tarif tidak terdaftar"
+// banner kalau rute valid tapi belum ada di route_matrix.
 function resolveFare(origin, destination) {
-    if (!origin || !destination || origin === destination) return null;
+    if (!origin || !destination || origin === destination) {
+        return { fare: null, isListed: false };
+    }
 
     const routeMatrix = state.formOptions?.route_matrix || {};
     const fare = routeMatrix?.[origin]?.[destination];
 
-    return fare === undefined || fare === null ? null : Number(fare);
+    if (fare === undefined || fare === null) {
+        return { fare: null, isListed: false };
+    }
+
+    return { fare: Number(fare), isListed: true };
 }
 
 function additionalFareValue() {
@@ -729,16 +737,68 @@ function updatePricing() {
     const origin = document.getElementById('booking-from-city')?.value || '';
     const destination = document.getElementById('booking-to-city')?.value || '';
     const count = passengerCount();
-    const fare = resolveFare(origin, destination);
+    const fareResult = resolveFare(origin, destination);
     const additionalFare = additionalFareValue();
-    const effectiveFare = fare !== null ? fare + additionalFare : null;
-    const total = effectiveFare !== null ? effectiveFare * count : null;
+    // Sesi 44D PR #1D: kalau tarif null, treat sebagai 0 — admin bisa save
+    // dengan ongkos tambahan saja. Banner UI sudah notify.
+    const fareValue = fareResult.fare !== null ? fareResult.fare : 0;
+    const effectiveFare = fareValue + additionalFare;
+    const showTotal = origin && destination && origin !== destination;
+    const total = showTotal ? effectiveFare * count : null;
 
     const fareInput = document.getElementById('booking-price-per-seat');
     const totalInput = document.getElementById('booking-total-amount');
+    const banner = document.querySelector('[data-fare-not-listed-banner]');
 
-    if (fareInput) fareInput.value = fare !== null ? formatCurrency(fare) : '';
-    if (totalInput) totalInput.value = total !== null ? formatCurrency(total) : '';
+    if (fareInput) {
+        fareInput.value = showTotal ? formatCurrency(fareValue) : '';
+    }
+    if (totalInput) {
+        totalInput.value = total !== null ? formatCurrency(total) : '';
+    }
+
+    if (banner) {
+        const showBanner = origin && destination && origin !== destination && !fareResult.isListed;
+        banner.hidden = !showBanner;
+    }
+}
+
+// Sesi 44D PR #1D: auto-resolve dropdown jalur mobil dari cluster_map.
+// Rute fixed (Aliantan↔PKB) → auto-set BANGKINANG/PETAPAHAN.
+// Rute ambigu (Pasir↔PKB) → kosongkan, helper text muncul, user wajib pilih.
+function updateRouteViaDropdown() {
+    const origin = document.getElementById('booking-from-city')?.value || '';
+    const destination = document.getElementById('booking-to-city')?.value || '';
+    const select = document.getElementById('booking-route-via');
+    const helper = document.querySelector('[data-route-via-helper]');
+
+    if (!select) return;
+
+    const clusterMap = state.formOptions?.cluster_map || {};
+    const fromCluster = clusterMap[origin] ?? null;
+    const toCluster = clusterMap[destination] ?? null;
+
+    let resolvedCluster = null;
+    if (fromCluster && fromCluster !== 'HUB') {
+        resolvedCluster = fromCluster;
+    } else if (toCluster && toCluster !== 'HUB') {
+        resolvedCluster = toCluster;
+    }
+
+    const userTouched = select.dataset.userTouched === '1';
+
+    if (resolvedCluster) {
+        if (!userTouched || select.value === '') {
+            select.value = resolvedCluster;
+        }
+    } else if (!userTouched) {
+        select.value = '';
+    }
+
+    if (helper) {
+        const isAmbiguous = !resolvedCluster && origin && destination && origin !== destination;
+        helper.hidden = !isAmbiguous;
+    }
 }
 
 function updatePaymentFieldVisibility() {
@@ -989,11 +1049,19 @@ function resetForm(armadaIndex = 1, tripTime = '') {
     if (fromCityEl) fromCityEl.value = '';
     if (toCityEl) toCityEl.value = '';
 
+    // Sesi 44D PR #1D: reset jalur mobil dropdown + clear user-touch flag
+    const routeViaEl = document.getElementById('booking-route-via');
+    if (routeViaEl) {
+        routeViaEl.value = '';
+        routeViaEl.dataset.userTouched = '0';
+    }
+
     document.getElementById('booking-passenger-count').value = '1';
     document.getElementById('booking-additional-fare').value = '0';
     document.getElementById('booking-payment-method').value = '';
     document.getElementById('booking-booking-status').value = 'Draft';
     updatePaymentFieldVisibility();
+    updateRouteViaDropdown();
     updatePricing();
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
     fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
@@ -1025,10 +1093,19 @@ function fillForm(item) {
     document.getElementById('booking-bank-account-code').value = item.bank_account_code || '';
     document.getElementById('booking-notes').value = item.notes || '';
 
+    // Sesi 44D PR #1D: load route_via dari item, treat sebagai user-touched
+    // supaya tidak ke-overwrite oleh auto-resolve cluster_map.
+    const routeViaEl = document.getElementById('booking-route-via');
+    if (routeViaEl) {
+        routeViaEl.value = item.route_via || '';
+        routeViaEl.dataset.userTouched = item.route_via ? '1' : '0';
+    }
+
     const armadaLabel = (item.armada_index || 1) > 1 ? ` (Armada ${item.armada_index})` : '';
     document.getElementById('booking-form-title').textContent = 'Edit Pemesanan';
     document.getElementById('booking-form-description').textContent = `Perbarui data pemesanan reguler yang dipilih${armadaLabel}.`;
 
+    updateRouteViaDropdown();
     updatePricing();
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
     fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(item.passengers || []); });
@@ -1061,6 +1138,7 @@ function buildPayload() {
         bank_account_code: document.getElementById('booking-bank-account-code')?.value || '',
         notes: document.getElementById('booking-notes')?.value.trim() || '',
         armada_index: state.currentFormArmadaIndex || 1,
+        route_via: document.getElementById('booking-route-via')?.value || '',
     };
 }
 
@@ -1713,6 +1791,11 @@ export default function initBookingsPage({ user } = {}) {
     // fire 'input' instead of 'change' when autofill fills a <select>.
     let _cityChangePending = false;
     function handleCityChange() {
+        // Sesi 44D PR #1D: reset route_via user-touched flag saat from/to berubah
+        // supaya auto-resolve cluster_map aktif lagi untuk rute baru.
+        const routeViaEl = document.getElementById('booking-route-via');
+        if (routeViaEl) routeViaEl.dataset.userTouched = '0';
+        updateRouteViaDropdown();
         updatePricing();
         if (_cityChangePending) return;
         _cityChangePending = true;
@@ -1724,6 +1807,12 @@ export default function initBookingsPage({ user } = {}) {
     ['change', 'input'].forEach((evt) => {
         document.getElementById('booking-from-city')?.addEventListener(evt, handleCityChange);
         document.getElementById('booking-to-city')?.addEventListener(evt, handleCityChange);
+    });
+
+    // Sesi 44D PR #1D: track user manual change pada dropdown route_via supaya
+    // auto-resolve tidak overwrite pilihan user (untuk rute ambigu).
+    document.getElementById('booking-route-via')?.addEventListener('change', (event) => {
+        event.target.dataset.userTouched = '1';
     });
 
     // Payment method
@@ -1750,11 +1839,28 @@ export default function initBookingsPage({ user } = {}) {
 
         const submitButton = document.getElementById('booking-submit-btn');
 
+        // Sesi 44D PR #1D: warning kalau mark Dibayar/Dibayar Tunai dengan
+        // tarif total Rp 0 (tarif rute null + tidak ada ongkos tambahan).
+        // Build payload sebelum setButtonBusy supaya dialog cancel tidak
+        // meninggalkan tombol stuck di state busy.
+        const payload = buildPayload();
+        const fareResult = resolveFare(payload.from_city, payload.to_city);
+        const fareValue = fareResult.fare !== null ? fareResult.fare : 0;
+        const additionalFareNum = parseInt(payload.additional_fare_per_passenger || 0, 10) || 0;
+        const totalPerSeat = fareValue + additionalFareNum;
+        const isPaidStatus = ['Dibayar', 'Dibayar Tunai'].includes(payload.payment_status);
+
+        if (isPaidStatus && totalPerSeat === 0) {
+            const confirmed = window.confirm(
+                'Status pembayaran "' + payload.payment_status + '" akan disimpan dengan tarif Rp 0. Lanjutkan?\n\n'
+                + 'OK untuk lanjut, Cancel untuk kembali edit.'
+            );
+            if (!confirmed) return;
+        }
+
         setButtonBusy(submitButton, true, 'Menyimpan...');
 
         try {
-            const payload = buildPayload();
-
             if (state.editItem) {
                 // Bug #30: include version for optimistic lock (design §9.2).
                 const editPayload = { ...payload, version: state.editItem.version };

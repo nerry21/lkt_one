@@ -263,4 +263,36 @@ class BookingClusterServiceTest extends TestCase
             BookingClusterService::CLUSTER_BANGKINANG,
         ));
     }
+
+    /**
+     * Sesi 44D PR #1D: locationClusterMap getter exposes 21 lokasi ke frontend.
+     */
+    public function test_location_cluster_map_returns_full_map(): void
+    {
+        $map = $this->svc->locationClusterMap();
+
+        $this->assertArrayHasKey('Pekanbaru', $map);
+        $this->assertSame(BookingClusterService::CLUSTER_HUB, $map['Pekanbaru']);
+        $this->assertSame(BookingClusterService::CLUSTER_BANGKINANG, $map['Bangkinang']);
+        $this->assertSame(BookingClusterService::CLUSTER_BANGKINANG, $map['Aliantan']);
+        $this->assertSame(BookingClusterService::CLUSTER_PETAPAHAN, $map['Petapahan']);
+        $this->assertSame(BookingClusterService::CLUSTER_PETAPAHAN, $map['Suram']);
+        $this->assertNull($map['Tandun']);
+        $this->assertNull($map['Pasirpengaraian']);
+        $this->assertCount(21, $map, '1 HUB + 5 BANGKINANG + 3 PETAPAHAN + 12 ambigu = 21');
+    }
+
+    /**
+     * Sesi 44D PR #1D: forbiddenPairs getter exposes 15 pasang ke frontend.
+     */
+    public function test_forbidden_pairs_returns_15_pairs(): void
+    {
+        $pairs = $this->svc->forbiddenPairs();
+
+        $this->assertCount(15, $pairs);
+        $this->assertContains(['Bangkinang', 'Petapahan'], $pairs);
+        $this->assertContains(['Aliantan', 'Petapahan'], $pairs);
+        $this->assertContains(['Silam', 'Kasikan'], $pairs);
+        $this->assertContains(['Kuok', 'Suram'], $pairs);
+    }
 }

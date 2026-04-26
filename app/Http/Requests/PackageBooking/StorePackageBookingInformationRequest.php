@@ -4,6 +4,7 @@ namespace App\Http\Requests\PackageBooking;
 
 use App\Services\PackageBookingService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StorePackageBookingInformationRequest extends FormRequest
 {
@@ -33,6 +34,16 @@ class StorePackageBookingInformationRequest extends FormRequest
             'item_qty' => ['required', 'integer', 'min:1', 'max:999'],
             'fare_amount' => ['required', 'integer', 'min:1000'],
             'additional_fare' => ['nullable', 'integer', 'min:0'],
+            // Sesi 44D PR #1D: jalur mobil. Wajib (validated di after()) kalau
+            // rute ambigu, optional kalau rute fixed.
+            'route_via' => ['nullable', 'string', \Illuminate\Validation\Rule::in(['BANGKINANG', 'PETAPAHAN'])],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'route_via' => 'jalur mobil',
         ];
     }
 
@@ -44,5 +55,51 @@ class StorePackageBookingInformationRequest extends FormRequest
             'destination_city.different' => 'Lokasi asal dan tujuan tidak boleh sama.',
             'fare_amount.min' => 'Ongkos tarif minimal Rp 1.000.',
         ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->has('pickup_city') || $validator->errors()->has('destination_city')) {
+                    return;
+                }
+
+                $origin = (string) $this->input('pickup_city');
+                $destination = (string) $this->input('destination_city');
+
+                $clusterService = app(\App\Services\BookingClusterService::class);
+
+                // Sesi 44D PR #1D: forbidden route check (defense layer 1).
+                if ($clusterService->isForbiddenRoute($origin, $destination)) {
+                    $validator->errors()->add(
+                        'destination_city',
+                        sprintf('Rute %s ↔ %s tidak tersedia karena cabang fisik berbeda.', $origin, $destination),
+                    );
+
+                    return;
+                }
+
+                // Sesi 44D PR #1D: route_via wajib kalau rute ambigu.
+                $fromCluster = $clusterService->clusterForLocation($origin);
+                $toCluster = $clusterService->clusterForLocation($destination);
+                $needsExplicitRouteVia = ($fromCluster === null && $toCluster === null)
+                    || ($fromCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $toCluster === null)
+                    || ($toCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $fromCluster === null);
+
+                if ($needsExplicitRouteVia && empty(trim((string) $this->input('route_via')))) {
+                    $validator->errors()->add('route_via', 'Jalur mobil wajib dipilih untuk rute ini.');
+                }
+            },
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'route_via' => filled($this->input('route_via'))
+                ? strtoupper(trim((string) $this->input('route_via')))
+                : null,
+        ]);
     }
 }

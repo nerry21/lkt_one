@@ -10,6 +10,7 @@ use App\Http\Requests\RegularBooking\StoreRegularBookingPassengersRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingPaymentRequest;
 use App\Http\Requests\RegularBooking\StoreRegularBookingSeatsRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\BookingClusterService;
 use App\Services\RegularBookingDraftService;
 use App\Services\RegularBookingPaymentService;
 use App\Services\RegularBookingPersistenceService;
@@ -25,6 +26,7 @@ class RegularBookingPageController extends Controller
         Request $request,
         RegularBookingService $service,
         RegularBookingDraftService $drafts,
+        BookingClusterService $clusterService,
     ): View
     {
         $draft = $drafts->get($request->session());
@@ -42,6 +44,8 @@ class RegularBookingPageController extends Controller
             'passengerCounts' => $service->passengerCounts(),
             'locations' => $service->locations(),
             'routeMatrix' => $service->routeMatrix(),
+            'clusterMap' => $clusterService->locationClusterMap(),
+            'forbiddenPairs' => $clusterService->forbiddenPairs(),
             'formState' => $formState,
             'draftSummary' => $drafts->buildSummary($formState, $service),
             'flashNotice' => $request->session()->get('regular_booking_notice'),

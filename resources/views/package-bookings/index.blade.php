@@ -2,6 +2,8 @@
 
 @section('content')
     <section class="regular-booking-page animate-fade-in" data-package-booking-page>
+        <script id="package-booking-cluster-map" type="application/json">@json($clusterMap)</script>
+        <script id="package-booking-forbidden-pairs" type="application/json">@json($forbiddenPairs)</script>
 
         <section class="regular-booking-page-header">
             <div class="regular-booking-page-copy">
@@ -78,6 +80,23 @@
                                 </select>
                             </div>
                             @error('destination_city')
+                                <p class="regular-booking-field-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="regular-booking-field">
+                            <label for="pkg-route-via">Jalur Mobil</label>
+                            <div class="regular-booking-input-shell">
+                                <select id="pkg-route-via" name="route_via">
+                                    <option value="">Pilih jalur mobil</option>
+                                    <option value="BANGKINANG" @selected(($formState['route_via'] ?? '') === 'BANGKINANG')>Bangkinang</option>
+                                    <option value="PETAPAHAN" @selected(($formState['route_via'] ?? '') === 'PETAPAHAN')>Petapahan</option>
+                                </select>
+                            </div>
+                            <p class="regular-booking-field-helper" id="pkg-route-via-helper" hidden>
+                                Untuk rute ini, jalur mobil wajib dipilih karena lokasi bisa dilewati kedua cabang.
+                            </p>
+                            @error('route_via')
                                 <p class="regular-booking-field-error">{{ $message }}</p>
                             @enderror
                         </div>
@@ -345,4 +364,49 @@
             </aside>
         </div>
     </section>
+
+    {{-- Sesi 44D PR #1D: inline script auto-resolve dropdown jalur. Package
+         booking tidak punya pageScript dedicated, jadi inline cukup ringan. --}}
+    <script>
+    (function () {
+        const clusterMap = JSON.parse(document.getElementById('package-booking-cluster-map')?.textContent || '{}');
+        const pickup = document.getElementById('pkg-pickup-city');
+        const destination = document.getElementById('pkg-destination-city');
+        const routeVia = document.getElementById('pkg-route-via');
+        const helper = document.getElementById('pkg-route-via-helper');
+
+        if (!pickup || !destination || !routeVia) return;
+
+        function update() {
+            const fromCluster = clusterMap[pickup.value] ?? null;
+            const toCluster = clusterMap[destination.value] ?? null;
+            let resolved = null;
+            if (fromCluster && fromCluster !== 'HUB') resolved = fromCluster;
+            else if (toCluster && toCluster !== 'HUB') resolved = toCluster;
+
+            const userTouched = routeVia.dataset.userTouched === '1';
+            if (resolved && !userTouched) {
+                routeVia.value = resolved;
+            } else if (!resolved && !userTouched) {
+                routeVia.value = '';
+            }
+
+            if (helper) {
+                const ambiguous = !resolved && pickup.value && destination.value && pickup.value !== destination.value;
+                helper.hidden = !ambiguous;
+            }
+        }
+
+        routeVia.addEventListener('change', () => { routeVia.dataset.userTouched = '1'; });
+        pickup.addEventListener('change', () => { routeVia.dataset.userTouched = '0'; update(); });
+        destination.addEventListener('change', () => { routeVia.dataset.userTouched = '0'; update(); });
+
+        // Restore user-touched flag kalau formState sudah punya value (back-edit wizard)
+        if (routeVia.value !== '') {
+            routeVia.dataset.userTouched = '1';
+        }
+
+        update();
+    })();
+    </script>
 @endsection

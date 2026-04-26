@@ -166,9 +166,24 @@ abstract class BookingUpsertRequest extends FormRequest
                     return;
                 }
 
-                if ($regularBookingService->resolveFare($origin, $destination) === null) {
-                    $validator->errors()->add('to_city', 'Rute yang dipilih belum tersedia pada layanan reguler.');
+                // Sesi 44D PR #1D: kalau rute butuh jalur eksplisit (kedua sisi
+                // ambigu, atau salah satu HUB dan sisi lain ambigu), route_via
+                // wajib dipilih oleh user. Untuk rute fixed (mis. Aliantan↔PKB)
+                // cluster ter-resolve dari lokasi, route_via informational only.
+                $fromCluster = $clusterService->clusterForLocation($origin);
+                $toCluster = $clusterService->clusterForLocation($destination);
+                $needsExplicitRouteVia = ($fromCluster === null && $toCluster === null)
+                    || ($fromCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $toCluster === null)
+                    || ($toCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $fromCluster === null);
+
+                if ($needsExplicitRouteVia && empty(trim((string) $this->input('route_via')))) {
+                    $validator->errors()->add('route_via', 'Jalur mobil wajib dipilih untuk rute ini.');
+
+                    return;
                 }
+
+                // Sesi 44D PR #1D: NO LONGER block kalau resolveFare null —
+                // admin bisa save dengan tarif Rp 0, banner UI sudah notify.
 
                 if (count($selectedSeats) !== $passengerCount) {
                     $validator->errors()->add('selected_seats', 'Jumlah kursi yang dipilih harus sama dengan jumlah penumpang.');
@@ -268,10 +283,13 @@ abstract class BookingUpsertRequest extends FormRequest
             'additional_fare_per_passenger' => max(0, (int) ($this->input('additional_fare_per_passenger') ?? 0)),
             'notes' => trim((string) $this->input('notes')),
             'armada_index' => max(1, (int) ($this->input('armada_index') ?? 1)),
-            // Sesi 44C PR #1C: default 'BANGKINANG' sampai UI #1D ready expose dropdown.
+            // Sesi 44D PR #1D: UI dropdown sudah ready. Tidak default ke
+            // BANGKINANG — biarkan null supaya validasi ambigu bisa trigger.
+            // Untuk rute fixed (Aliantan↔PKB), cluster di-resolve dari lokasi
+            // di service layer, route_via cuma informational.
             'route_via' => filled($this->input('route_via'))
                 ? strtoupper(trim((string) $this->input('route_via')))
-                : 'BANGKINANG',
+                : null,
         ]);
     }
 }

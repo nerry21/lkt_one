@@ -256,6 +256,8 @@ class BookingVersionConflictHttpTest extends TestCase
             'bank_account_code' => '',
             'notes' => 'Booking dibuat dari dashboard admin.',
             'version' => 0,
+            // Sesi 44D PR #1D: SKPD↔PKB butuh route_via eksplisit (HUB + ambigu).
+            'route_via' => 'BANGKINANG',
         ], $overrides);
     }
 }

@@ -439,6 +439,10 @@ class BookingManagementService
             'service_type_options' => $this->serviceTypeOptions(),
             'transfer_bank_account_options' => $this->transferBankAccountOptions(),
             'route_matrix' => $this->routeMatrix(),
+            // Sesi 44D PR #1D: expose cluster_map + forbidden_pairs ke frontend
+            // untuk dropdown auto-resolve + pre-validation.
+            'cluster_map' => app(\App\Services\BookingClusterService::class)->locationClusterMap(),
+            'forbidden_pairs' => app(\App\Services\BookingClusterService::class)->forbiddenPairs(),
         ];
     }
 

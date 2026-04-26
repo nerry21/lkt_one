@@ -3,6 +3,8 @@
 @section('content')
     <section class="regular-booking-page animate-fade-in" data-regular-booking-page>
         <script id="regular-booking-route-matrix" type="application/json">@json($routeMatrix)</script>
+        <script id="regular-booking-cluster-map" type="application/json">@json($clusterMap)</script>
+        <script id="regular-booking-forbidden-pairs" type="application/json">@json($forbiddenPairs)</script>
 
         <section class="regular-booking-page-header">
             <div class="regular-booking-page-copy">
@@ -118,6 +120,31 @@
                             @error('destination_location')
                                 <p class="regular-booking-field-error">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        <div class="regular-booking-field">
+                            <label for="regular-booking-route-via">Jalur Mobil</label>
+                            <div class="regular-booking-input-shell">
+                                <select id="regular-booking-route-via" name="route_via" data-booking-route-via>
+                                    <option value="">Pilih jalur mobil</option>
+                                    <option value="BANGKINANG" @selected(($formState['route_via'] ?? '') === 'BANGKINANG')>Bangkinang</option>
+                                    <option value="PETAPAHAN" @selected(($formState['route_via'] ?? '') === 'PETAPAHAN')>Petapahan</option>
+                                </select>
+                            </div>
+                            <p class="regular-booking-field-helper" data-route-via-helper hidden>
+                                Untuk rute ini, jalur mobil wajib dipilih karena lokasi bisa dilewati kedua cabang.
+                            </p>
+                            @error('route_via')
+                                <p class="regular-booking-field-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="regular-booking-field regular-booking-field--full booking-fare-banner" data-fare-not-listed-banner hidden>
+                            <div class="booking-fare-banner__icon" aria-hidden="true">!</div>
+                            <div class="booking-fare-banner__copy">
+                                <strong>Tarif tidak terdaftar</strong>
+                                <p>Rute yang dipilih belum ada di tarif resmi. Tarif per kursi akan tersimpan Rp 0. Silakan input ongkos tambahan secara manual.</p>
+                            </div>
                         </div>
 
                         <div class="regular-booking-field">

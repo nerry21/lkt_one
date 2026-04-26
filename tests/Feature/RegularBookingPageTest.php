@@ -47,6 +47,8 @@ class RegularBookingPageTest extends TestCase
             'passenger_count' => 3,
             'pickup_address' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
             'dropoff_address' => 'Jl. Sudirman No. 8 Pekanbaru',
+            // Sesi 44D PR #1D: SKPD↔PKB butuh route_via eksplisit (HUB + ambigu).
+            'route_via' => 'BANGKINANG',
         ]);
 
         $response->assertRedirect('/dashboard/regular-bookings/seats');
@@ -59,8 +61,10 @@ class RegularBookingPageTest extends TestCase
         $response->assertSessionHas('regular_booking.information.pickup_address', 'Jl. Tuanku Tambusai No. 12 Pekanbaru');
         $response->assertSessionHas('regular_booking.information.dropoff_address', 'Jl. Sudirman No. 8 Pekanbaru');
         $response->assertSessionHas('regular_booking.information.fare_amount', 150000);
+        $response->assertSessionHas('regular_booking.information.route_via', 'BANGKINANG');
         $response->assertSessionHas('regular_booking.information', function (array $draft): bool {
-            // Match actual normalizeDraft output order (RegularBookingDraftService:278).
+            // Match actual normalizeDraft output order (RegularBookingDraftService:279).
+            // Sesi 44D PR #1D: tambah `route_via` key.
             return array_keys($draft) === [
                 'trip_date',
                 'booking_type',
@@ -73,6 +77,7 @@ class RegularBookingPageTest extends TestCase
                 'fare_amount',
                 'additional_fare_per_passenger',
                 'armada_index',
+                'route_via',
                 'selected_seats',
                 'passengers',
             ];
@@ -99,24 +104,27 @@ class RegularBookingPageTest extends TestCase
             ]);
     }
 
-    public function test_regular_booking_rejects_unavailable_route_combination(): void
+    public function test_regular_booking_allows_unlisted_fare_route_combination(): void
     {
+        // Sesi 44D PR #1D: rute dengan tarif null tidak lagi diblock — banner UI
+        // notify, draft tersimpan dengan fare_amount=0, customer/admin lanjut ke
+        // step kursi. Ongkos tambahan manual tetap bisa diisi.
+        // Kabun (BANGKINANG fixed) → Tandun (ambigu): tarif tidak terdaftar tapi
+        // cluster ter-resolve dari Kabun, jadi route_via tidak wajib.
         $this->actingAs(User::factory()->create());
 
-        $this->from('/dashboard/regular-bookings')
-            ->post('/dashboard/regular-bookings/information', [
-                'booking_type' => 'other',
-                'pickup_location' => 'Kabun',
-                'destination_location' => 'Tandun',
-                'departure_time' => '16:00',
-                'passenger_count' => 1,
-                'pickup_address' => 'Jl. Raya Kabun Blok A Nomor 10',
-                'dropoff_address' => 'Jl. Tandun Permai Nomor 20',
-            ])
-            ->assertRedirect('/dashboard/regular-bookings')
-            ->assertSessionHasErrors([
-                'destination_location' => 'Rute yang Anda pilih saat ini belum tersedia. Silakan pilih kombinasi asal dan tujuan lain.',
-            ]);
+        $this->post('/dashboard/regular-bookings/information', [
+            'booking_type' => 'other',
+            'pickup_location' => 'Kabun',
+            'destination_location' => 'Tandun',
+            'departure_time' => '16:00',
+            'passenger_count' => 1,
+            'pickup_address' => 'Jl. Raya Kabun Blok A Nomor 10',
+            'dropoff_address' => 'Jl. Tandun Permai Nomor 20',
+            'trip_date' => now()->addDay()->toDateString(),
+        ])
+            ->assertRedirect('/dashboard/regular-bookings/seats')
+            ->assertSessionHas('regular_booking.information.fare_amount', 0);
     }
 
     public function test_regular_booking_seat_step_requires_saved_information(): void
@@ -911,6 +919,7 @@ class RegularBookingPageTest extends TestCase
             'pickup_address' => 'Jl. Tuanku Tambusai No. 12 Pekanbaru',
             'dropoff_address' => 'Jl. Sudirman No. 8 Pekanbaru',
             'fare_amount' => 150000,
+            'route_via' => 'BANGKINANG',
             'selected_seats' => [],
             'passengers' => [],
         ], $overrides);
