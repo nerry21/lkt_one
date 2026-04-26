@@ -28,6 +28,10 @@ class UpdateQuickPackageBookingRequest extends FormRequest
             'trip_time'       => ['required', 'string', Rule::in($regularService->departureScheduleValues())],
             'from_city'       => ['required', 'string', Rule::in($regularService->locations())],
             'to_city'         => ['required', 'string'],
+            // Sesi 46 PR #58b: cluster-aware route_via untuk Package form symmetric
+            // dengan Regular form (D-PR58b-2 locked). Nullable + whitelist guard
+            // (backend default 'BANGKINANG' di service kalau missing).
+            'route_via'       => ['nullable', 'string', Rule::in(['BANGKINANG', 'PETAPAHAN'])],
             'armada_index'    => ['nullable', 'integer', 'min:1', 'max:10'],
             'sender_name'     => ['required', 'string', 'max:100'],
             'sender_phone'    => ['nullable', 'string', 'max:20'],
@@ -55,6 +59,7 @@ class UpdateQuickPackageBookingRequest extends FormRequest
             'trip_time'       => 'jam keberangkatan',
             'from_city'       => 'kota asal',
             'to_city'         => 'kota tujuan',
+            'route_via'       => 'jalur mobil',
             'sender_name'     => 'nama pengirim',
             'sender_phone'    => 'no. HP pengirim',
             'sender_address'  => 'alamat pengirim',
@@ -78,6 +83,10 @@ class UpdateQuickPackageBookingRequest extends FormRequest
         $this->merge([
             'from_city'       => trim((string) $this->input('from_city')),
             'to_city'         => trim((string) $this->input('to_city')),
+            // Sesi 46 PR #58b: normalize route_via uppercase + trim
+            'route_via'       => filled($this->input('route_via'))
+                ? strtoupper(trim((string) $this->input('route_via')))
+                : null,
             'trip_time'       => trim((string) $this->input('trip_time')),
             'sender_name'     => trim((string) $this->input('sender_name')),
             'sender_address'  => trim((string) $this->input('sender_address')),

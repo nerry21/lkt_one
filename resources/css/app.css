@@ -6311,6 +6311,113 @@ button {
     gap: 20px;
 }
 
+/* Sesi 46 PR #58b: Cluster 2-Panel Layout (Desktop) + Mobile Tabs */
+
+/* Cluster Tabs (mobile only) */
+.bpg-cluster-tabs {
+    display: none; /* hidden by default — desktop via media query */
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.bpg-cluster-tabs[hidden] {
+    display: none !important;
+}
+
+.bpg-cluster-tab {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--transit-border);
+    background: var(--transit-panel);
+    color: var(--transit-text-soft);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.bpg-cluster-tab:hover {
+    border-color: var(--transit-border-strong);
+    color: var(--transit-text);
+}
+
+.bpg-cluster-tab.is-active {
+    background: var(--transit-primary);
+    border-color: var(--transit-primary);
+    color: #fff;
+}
+
+/* Cluster Panels Row — Desktop 2-column berdampingan */
+.bpg-clusters-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+/* Single Cluster Panel */
+.bpg-cluster-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.bpg-cluster-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: var(--transit-panel-soft);
+    border: 1px solid var(--transit-border);
+}
+
+.bpg-cluster-panel-header[data-cluster="BANGKINANG"] {
+    border-left: 4px solid #10b981; /* green tint */
+}
+
+.bpg-cluster-panel-header[data-cluster="PETAPAHAN"] {
+    border-left: 4px solid #3b82f6; /* blue tint */
+}
+
+.bpg-cluster-panel-title {
+    font-weight: 600;
+    color: var(--transit-text);
+    font-size: 0.95rem;
+}
+
+.bpg-cluster-panel-subtitle {
+    font-size: 0.75rem;
+    color: var(--transit-text-muted);
+    margin-top: 2px;
+}
+
+.bpg-cluster-panel-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+
+/* Mobile: hide cluster tabs trigger, show only active panel */
+@media (max-width: 860px) {
+    .bpg-cluster-tabs {
+        display: flex;
+    }
+
+    .bpg-clusters-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Hide non-active cluster panel on mobile */
+    .bpg-cluster-panel:not(.is-active) {
+        display: none;
+    }
+}
+
+/* End Sesi 46 PR #58b */
+
 /* Slot Card */
 .bpg-slot-card {
     display: flex;

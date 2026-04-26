@@ -284,7 +284,19 @@
             </button>
         </div>
 
-        {{-- Slots Container --}}
+        {{-- Sesi 46 PR #58b: Cluster Sub-Tabs (mobile only, hidden desktop via CSS).
+             Desktop view tampil 2 panel berdampingan (D2-A). Mobile (≤860px)
+             tampil 1 panel dengan tab switch BANGKINANG↔PETAPAHAN (D1-A). --}}
+        <div class="bpg-cluster-tabs" id="bpg-cluster-tabs" @if (! $canManageBookings) hidden @endif>
+            <button class="bpg-cluster-tab is-active" type="button" data-cluster="BANGKINANG" data-testid="tab-cluster-bangkinang">
+                Bangkinang
+            </button>
+            <button class="bpg-cluster-tab" type="button" data-cluster="PETAPAHAN" data-testid="tab-cluster-petapahan">
+                Petapahan
+            </button>
+        </div>
+
+        {{-- Slots Container — Sesi 46 PR #58b: wrap dengan 2-panel layout di JS render --}}
         <div class="bpg-slots-shell" id="bpg-slots-shell" @if (! $canManageBookings) hidden @endif>
             <div class="admin-users-loading-inline">
                 <span class="admin-users-loading-inline-spinner" aria-hidden="true"></span>
@@ -723,6 +735,21 @@
                                         @endforeach
                                     </select>
                                 </div>
+                            </div>
+                            {{-- Sesi 46 PR #58b: cluster-aware route_via dropdown
+                                 untuk Package form symmetric dengan Regular form
+                                 (D-PR58b-2 locked). Auto-prefill saat user klik
+                                 "+ Tambah Pemesanan" dari panel cluster tertentu. --}}
+                            <div class="admin-users-form-group">
+                                <label for="pkg-route-via">Jalur Mobil</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-route-via" name="route_via" data-testid="input-pkg-route-via">
+                                        <option value="">Pilih jalur mobil</option>
+                                        <option value="BANGKINANG">Bangkinang</option>
+                                        <option value="PETAPAHAN">Petapahan</option>
+                                    </select>
+                                </div>
+                                <p class="form-help-text" data-pkg-route-via-helper hidden>Jalur mobil otomatis ter-isi dari panel cluster, override jika perlu.</p>
                             </div>
                         </div>
                     </div>
