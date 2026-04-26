@@ -470,12 +470,90 @@ class BookingManagementService
         $toCity   = trim((string) $validated['to_city']);
         $bookingDirection = $this->regularBookingService->resolveDirection($fromCity, $toCity);
 
+        // Sesi 44C PR #1C: cluster mix validation per armada (defense layer 2 of 2).
+        // FormRequest sudah catch forbidden route (layer 1); service throw
+        // ForbiddenRouteException sebagai defense kalau caller bypass FormRequest.
+        $clusterService = app(\App\Services\BookingClusterService::class);
+        $routeVia = strtoupper(trim((string) ($validated['route_via'] ?? 'BANGKINANG')));
+        if (! in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true)) {
+            $routeVia = 'BANGKINANG';
+        }
+
+        if ($clusterService->isForbiddenRoute($fromCity, $toCity)) {
+            throw new \App\Exceptions\ForbiddenRouteException(
+                fromCity: $fromCity,
+                toCity: $toCity,
+            );
+        }
+
+        $attemptedCluster = $clusterService->resolveBookingCluster($fromCity, $toCity, $routeVia);
+
+        // Cek existing booking di slot armada yang sama (exclude self kalau update).
+        $tripDateValue = $validated['trip_date'] instanceof \DateTimeInterface
+            ? $validated['trip_date']->format('Y-m-d')
+            : (string) $validated['trip_date'];
+        $tripTimeValue = $this->normalizeTripTime((string) $validated['trip_time']);
+        $armadaIndexValue = max(1, (int) ($validated['armada_index'] ?? 1));
+        $timePrefix = strlen($tripTimeValue) >= 5 ? substr($tripTimeValue, 0, 5) : $tripTimeValue;
+
+        $existingBookings = Booking::query()
+            ->where('trip_date', $tripDateValue)
+            ->where('trip_time', 'like', $timePrefix . '%')
+            ->where('direction', $bookingDirection)
+            ->where(function ($q) use ($armadaIndexValue): void {
+                $q->where('armada_index', $armadaIndexValue);
+                if ($armadaIndexValue === 1) {
+                    $q->orWhereNull('armada_index');
+                }
+            })
+            ->when($booking->exists, fn ($q) => $q->where('id', '!=', $booking->id))
+            ->get(['id', 'booking_code', 'from_city', 'to_city', 'route_via']);
+
+        if ($existingBookings->isNotEmpty()) {
+            $existingClusters = $existingBookings
+                ->map(fn (Booking $b) => $clusterService->resolveBookingCluster(
+                    (string) $b->from_city,
+                    (string) $b->to_city,
+                    (string) $b->route_via,
+                ))
+                ->all();
+
+            if (! $clusterService->isClusterCompatible($existingClusters, $attemptedCluster)) {
+                $conflictingIds = $existingBookings
+                    ->filter(function (Booking $b) use ($clusterService, $attemptedCluster) {
+                        $cluster = $clusterService->resolveBookingCluster(
+                            (string) $b->from_city,
+                            (string) $b->to_city,
+                            (string) $b->route_via,
+                        );
+
+                        return $cluster !== \App\Services\BookingClusterService::CLUSTER_HUB
+                            && $cluster !== $attemptedCluster;
+                    })
+                    ->map(fn (Booking $b) => $b->booking_code ?? (string) $b->id)
+                    ->values()
+                    ->all();
+
+                $existingNonHub = collect($existingClusters)
+                    ->first(fn ($c) => $c !== \App\Services\BookingClusterService::CLUSTER_HUB);
+
+                throw new \App\Exceptions\RouteClusterConflictException(
+                    existingCluster: (string) $existingNonHub,
+                    attemptedCluster: $attemptedCluster,
+                    conflictingBookings: $conflictingIds,
+                    tripDate: $tripDateValue,
+                    tripTime: $tripTimeValue,
+                    armadaIndex: $armadaIndexValue,
+                );
+            }
+        }
+
         $booking->fill([
             'category' => trim((string) $validated['category']),
             'from_city' => $fromCity,
             'to_city' => $toCity,
             'direction' => $bookingDirection,
-            'route_via' => $booking->route_via ?? 'BANGKINANG',
+            'route_via' => $routeVia,
             'trip_date' => $validated['trip_date'],
             'trip_time' => $this->normalizeTripTime((string) $validated['trip_time']),
             'booking_for' => trim((string) $validated['booking_for']),
@@ -561,7 +639,7 @@ class BookingManagementService
                 'from_city' => $fromCity,
                 'to_city' => $toCity,
                 'direction' => $bookingDirection,
-                'route_via' => $booking->route_via ?? 'BANGKINANG',
+                'route_via' => $routeVia,
                 'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
             ];
             $lockType = $isPaid ? 'hard' : 'soft';
@@ -712,6 +790,12 @@ class BookingManagementService
         $fromCity = trim((string) ($validated['from_city'] ?? ''));
         $toCity = trim((string) ($validated['to_city'] ?? ''));
 
+        // Sesi 44C PR #1C: route_via dari validated (default BANGKINANG sampai UI #1D).
+        $routeVia = strtoupper(trim((string) ($validated['route_via'] ?? 'BANGKINANG')));
+        if (! in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true)) {
+            $routeVia = 'BANGKINANG';
+        }
+
         return [
             'trip_date' => $validated['trip_date'] instanceof \DateTimeInterface
                 ? $validated['trip_date']->format('Y-m-d')
@@ -720,7 +804,7 @@ class BookingManagementService
             'from_city' => $fromCity,
             'to_city' => $toCity,
             'direction' => $this->regularBookingService->resolveDirection($fromCity, $toCity),
-            'route_via' => 'BANGKINANG',
+            'route_via' => $routeVia,
             'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
         ];
     }

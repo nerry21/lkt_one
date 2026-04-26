@@ -130,17 +130,19 @@ class RentalBookingPersistenceService
             }
 
             // Sesi 44A PR #1A: resolve direction; route_via default 'BANGKINANG'.
+            // Sesi 44C PR #1C: propagate route_via dari reviewState (default sampai UI #1D).
             $bookingDirection = app(RegularBookingService::class)->resolveDirection(
                 (string) $reviewState['pickup_location'],
                 (string) $reviewState['destination_location'],
             );
+            $routeVia = $this->normalizeRouteVia($reviewState['route_via'] ?? $booking->route_via);
 
             $booking->fill([
                 'category'         => 'Rental',
                 'from_city'        => $reviewState['pickup_location'],
                 'to_city'          => $reviewState['destination_location'],
                 'direction'        => $bookingDirection,
-                'route_via'        => $booking->route_via ?? 'BANGKINANG',
+                'route_via'        => $routeVia,
                 'trip_date'        => $tripDate,
                 'rental_end_date'  => $endDate,
                 'trip_time'        => '00:00:00',
@@ -210,6 +212,7 @@ class RentalBookingPersistenceService
                     $reviewState['pickup_location'],
                     $reviewState['destination_location'],
                     max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                    $routeVia,
                 );
 
                 if (! empty($slots)) {
@@ -233,6 +236,7 @@ class RentalBookingPersistenceService
                     $reviewState['pickup_location'],
                     $reviewState['destination_location'],
                     max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                    $routeVia,
                 );
 
                 if (! empty($slots)) {
@@ -489,6 +493,19 @@ class RentalBookingPersistenceService
     }
 
     /**
+     * Sesi 44C PR #1C: normalize route_via input ke uppercase
+     * BANGKINANG | PETAPAHAN, fallback BANGKINANG kalau missing/invalid.
+     */
+    private function normalizeRouteVia(?string $value): string
+    {
+        $normalized = strtoupper(trim((string) $value));
+
+        return in_array($normalized, ['BANGKINANG', 'PETAPAHAN'], true)
+            ? $normalized
+            : 'BANGKINANG';
+    }
+
+    /**
      * Duplicate dari M1/M2 normalizeSeatList — trait/base class refactor defer ke Fase 1B
      * per bug #28 pattern.
      */
@@ -517,9 +534,12 @@ class RentalBookingPersistenceService
         string $fromCity,
         string $toCity,
         int $armadaIndex,
+        string $routeVia = 'BANGKINANG',
     ): array {
-        // Sesi 44A PR #1A: resolve direction sekali per range; route_via default 'BANGKINANG'.
+        // Sesi 44A PR #1A: resolve direction sekali per range.
+        // Sesi 44C PR #1C: route_via di-pass dari caller (default BANGKINANG sampai UI #1D).
         $direction = app(RegularBookingService::class)->resolveDirection($fromCity, $toCity);
+        $normalizedRouteVia = $this->normalizeRouteVia($routeVia);
 
         $slots = [];
         foreach (CarbonPeriod::create($startDate, $endDate) as $date) {
@@ -529,7 +549,7 @@ class RentalBookingPersistenceService
                 'from_city' => $fromCity,
                 'to_city' => $toCity,
                 'direction' => $direction,
-                'route_via' => 'BANGKINANG',
+                'route_via' => $normalizedRouteVia,
                 'armada_index' => $armadaIndex,
             ];
         }

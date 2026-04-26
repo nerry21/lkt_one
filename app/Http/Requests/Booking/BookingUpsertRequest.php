@@ -47,6 +47,7 @@ abstract class BookingUpsertRequest extends FormRequest
             'bank_account_code' => ['nullable', 'string', Rule::in($bankAccountCodes !== [] ? $bankAccountCodes : [''])],
             'notes' => ['nullable', 'string', 'max:500'],
             'armada_index' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'route_via' => ['nullable', 'string', Rule::in(['BANGKINANG', 'PETAPAHAN'])],
         ];
     }
 
@@ -74,6 +75,7 @@ abstract class BookingUpsertRequest extends FormRequest
             'booking_status' => 'status booking',
             'bank_account_code' => 'rekening transfer',
             'notes' => 'catatan',
+            'route_via' => 'jalur mobil',
         ];
     }
 
@@ -142,6 +144,24 @@ abstract class BookingUpsertRequest extends FormRequest
 
                 if ($origin === $destination) {
                     $validator->errors()->add('to_city', 'Kota tujuan harus berbeda dengan kota asal.');
+
+                    return;
+                }
+
+                // Sesi 44C PR #1C: forbidden route check (defense layer 1 of 2).
+                // Service layer juga throw ForbiddenRouteException sebagai defense
+                // layer 2 kalau ada bypass FormRequest.
+                $clusterService = app(\App\Services\BookingClusterService::class);
+
+                if ($clusterService->isForbiddenRoute($origin, $destination)) {
+                    $validator->errors()->add(
+                        'to_city',
+                        sprintf(
+                            'Rute %s ↔ %s tidak tersedia karena cabang fisik berbeda.',
+                            $origin,
+                            $destination,
+                        ),
+                    );
 
                     return;
                 }
@@ -248,6 +268,10 @@ abstract class BookingUpsertRequest extends FormRequest
             'additional_fare_per_passenger' => max(0, (int) ($this->input('additional_fare_per_passenger') ?? 0)),
             'notes' => trim((string) $this->input('notes')),
             'armada_index' => max(1, (int) ($this->input('armada_index') ?? 1)),
+            // Sesi 44C PR #1C: default 'BANGKINANG' sampai UI #1D ready expose dropdown.
+            'route_via' => filled($this->input('route_via'))
+                ? strtoupper(trim((string) $this->input('route_via')))
+                : 'BANGKINANG',
         ]);
     }
 }

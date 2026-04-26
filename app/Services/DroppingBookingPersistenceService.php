@@ -124,17 +124,19 @@ class DroppingBookingPersistenceService
             }
 
             // Sesi 44A PR #1A: resolve direction; route_via default 'BANGKINANG'.
+            // Sesi 44C PR #1C: propagate route_via dari reviewState (default sampai UI #1D).
             $bookingDirection = app(RegularBookingService::class)->resolveDirection(
                 (string) $reviewState['pickup_location'],
                 (string) $reviewState['destination_location'],
             );
+            $routeVia = $this->normalizeRouteVia($reviewState['route_via'] ?? $booking->route_via);
 
             $booking->fill([
                 'category'        => 'Dropping',
                 'from_city'       => $reviewState['pickup_location'],
                 'to_city'         => $reviewState['destination_location'],
                 'direction'       => $bookingDirection,
-                'route_via'       => $booking->route_via ?? 'BANGKINANG',
+                'route_via'       => $routeVia,
                 'trip_date'       => $tripDate,
                 'trip_time'       => $this->normalizeTripTime($reviewState['departure_time_value']),
                 'booking_for'     => $reviewState['booking_type'],
@@ -191,7 +193,7 @@ class DroppingBookingPersistenceService
                     'from_city' => $reviewState['pickup_location'],
                     'to_city' => $reviewState['destination_location'],
                     'direction' => $bookingDirection,
-                    'route_via' => $booking->route_via ?? 'BANGKINANG',
+                    'route_via' => $routeVia,
                     'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
                 ];
                 $this->seatLockService->lockSeats(
@@ -213,7 +215,7 @@ class DroppingBookingPersistenceService
                     'from_city' => $reviewState['pickup_location'],
                     'to_city' => $reviewState['destination_location'],
                     'direction' => $bookingDirection,
-                    'route_via' => $booking->route_via ?? 'BANGKINANG',
+                    'route_via' => $routeVia,
                     'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
                 ];
                 $this->seatLockService->lockSeats(
@@ -440,7 +442,7 @@ class DroppingBookingPersistenceService
             'to_city' => $toCity,
             'direction' => $booking->direction
                 ?? app(RegularBookingService::class)->resolveDirection($fromCity, $toCity),
-            'route_via' => $booking->route_via ?? 'BANGKINANG',
+            'route_via' => $this->normalizeRouteVia($booking->route_via),
             'armada_index' => max(1, (int) ($booking->armada_index ?? 1)),
         ];
     }
@@ -466,9 +468,22 @@ class DroppingBookingPersistenceService
             'from_city' => $fromCity,
             'to_city' => $toCity,
             'direction' => app(RegularBookingService::class)->resolveDirection($fromCity, $toCity),
-            'route_via' => 'BANGKINANG',
+            'route_via' => $this->normalizeRouteVia($reviewState['route_via'] ?? null),
             'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
         ];
+    }
+
+    /**
+     * Sesi 44C PR #1C: normalize route_via input ke uppercase
+     * BANGKINANG | PETAPAHAN, fallback BANGKINANG kalau missing/invalid.
+     */
+    private function normalizeRouteVia(?string $value): string
+    {
+        $normalized = strtoupper(trim((string) $value));
+
+        return in_array($normalized, ['BANGKINANG', 'PETAPAHAN'], true)
+            ? $normalized
+            : 'BANGKINANG';
     }
 
     /**
