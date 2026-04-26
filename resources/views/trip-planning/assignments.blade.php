@@ -39,6 +39,11 @@
                     Pilih jam atau Custom untuk override. Pin Outbound = trip dari Rohul,
                     Pin Return = trip dari Pekanbaru. Multi-mobil di slot yang sama diizinkan.
                 </p>
+                <p>
+                    <strong>Loket Override:</strong> Dropdown di samping pin = dari mana mobil
+                    berangkat hari ini. Kosong (— Otomatis —) = ikuti pool aktual mobil.
+                    Override kalau mobil mau dipindah lokasinya untuk hari ini saja.
+                </p>
             </aside>
 
             <section class="trip-planning-assignments-matrix" data-assignments-matrix data-testid="assignments-matrix">

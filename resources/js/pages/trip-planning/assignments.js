@@ -69,12 +69,26 @@ function findPinTime(assignment, direction) {
 }
 
 /**
+ * E5 PR #4: Cari loket_origin pin direction tertentu di assignment.
+ * Returns 'PKB' | 'ROHUL' | null.
+ */
+function findPinLoket(assignment, direction) {
+    if (!assignment || !Array.isArray(assignment.pins)) return null;
+    const pin = assignment.pins.find((p) => p.direction === direction);
+    return pin?.loket_origin ?? null;
+}
+
+/**
  * Render 1 cell pin (Outbound atau Return).
  * - currentTime null → "— Auto —" selected
  * - currentTime ∈ STANDARD_SLOTS → slot tsb selected
  * - currentTime selain itu → "Custom" selected, input time visible
+ *
+ * E5 PR #4: tambah dropdown loket override (Otomatis/PKB/ROHUL) di stack
+ * yang sama. Loket override hanya bermakna kalau pin jam aktif (lihat
+ * collectPinsForRow — di-skip kalau jam Auto).
  */
-function renderPinCell(mobilKode, direction, currentTime) {
+function renderPinCell(mobilKode, direction, currentTime, currentLoket) {
     const isStandard = currentTime !== null && STANDARD_SLOTS.includes(currentTime);
     const isCustom = currentTime !== null && !isStandard;
 
@@ -94,23 +108,41 @@ function renderPinCell(mobilKode, direction, currentTime) {
     const customInputHidden = isCustom ? '' : ' hidden';
 
     const directionAttr = escapeHtml(direction);
-    const testIdSelect = `assignments-pin-${direction === DIRECTIONS.OUTBOUND ? 'outbound' : 'return'}-${escapeHtml(mobilKode)}`;
+    const directionSlug = direction === DIRECTIONS.OUTBOUND ? 'outbound' : 'return';
+    const testIdSelect = `assignments-pin-${directionSlug}-${escapeHtml(mobilKode)}`;
     const testIdCustom = `${testIdSelect}-custom`;
+    const testIdLoket = `assignments-loket-${directionSlug}-${escapeHtml(mobilKode)}`;
+
+    // E5 PR #4: dropdown loket override.
+    const loketOptions = [
+        { value: '', label: '— Otomatis —' },
+        { value: 'PKB', label: 'PKB' },
+        { value: 'ROHUL', label: 'ROHUL' },
+    ];
+    const loketSelectHtml = loketOptions.map((o) => {
+        const sel = String(currentLoket || '') === o.value ? ' selected' : '';
+        return `<option value="${o.value}"${sel}>${escapeHtml(o.label)}</option>`;
+    }).join('');
 
     return `
         <td class="assignments-cell-pin" data-pin-cell data-direction="${directionAttr}">
-            <select class="assignments-pin-select" data-pin-select data-testid="${testIdSelect}">
-                <option value="${PIN_VALUE_AUTO}"${autoSel}>— Auto —</option>
-                ${slotOptions}
-                <option value="${PIN_VALUE_CUSTOM}"${customSel}>Custom...</option>
-            </select>
-            <input
-                type="time"
-                class="assignments-pin-custom-input"
-                data-pin-custom-input
-                data-testid="${testIdCustom}"
-                value="${customInputValue}"${customInputHidden}
-            />
+            <div class="assignments-pin-stack">
+                <select class="assignments-pin-select" data-pin-select data-testid="${testIdSelect}">
+                    <option value="${PIN_VALUE_AUTO}"${autoSel}>— Auto —</option>
+                    ${slotOptions}
+                    <option value="${PIN_VALUE_CUSTOM}"${customSel}>Custom...</option>
+                </select>
+                <input
+                    type="time"
+                    class="assignments-pin-custom-input"
+                    data-pin-custom-input
+                    data-testid="${testIdCustom}"
+                    value="${customInputValue}"${customInputHidden}
+                />
+                <select class="assignments-loket-select" data-pin-loket data-testid="${testIdLoket}">
+                    ${loketSelectHtml}
+                </select>
+            </div>
         </td>
     `;
 }
@@ -131,6 +163,9 @@ function renderRow(mobil, assignment) {
 
     const pinOutbound = findPinTime(assignment, DIRECTIONS.OUTBOUND);
     const pinReturn = findPinTime(assignment, DIRECTIONS.RETURN);
+    // E5 PR #4: loket override per pin direction.
+    const loketOutbound = findPinLoket(assignment, DIRECTIONS.OUTBOUND);
+    const loketReturn = findPinLoket(assignment, DIRECTIONS.RETURN);
 
     return `
         <tr data-mobil-id="${escapeHtml(mobil.id)}" data-testid="assignments-row-${escapeHtml(mobil.kode_mobil)}">
@@ -144,8 +179,8 @@ function renderRow(mobil, assignment) {
                     ${driverOptions}
                 </select>
             </td>
-            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.OUTBOUND, pinOutbound)}
-            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.RETURN, pinReturn)}
+            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.OUTBOUND, pinOutbound, loketOutbound)}
+            ${renderPinCell(mobil.kode_mobil, DIRECTIONS.RETURN, pinReturn, loketReturn)}
         </tr>
     `;
 }
@@ -238,10 +273,13 @@ function collectPinsForRow(rowEl, mobilKode) {
         const direction = cell.dataset.direction;
         const select = cell.querySelector('[data-pin-select]');
         const customInput = cell.querySelector('[data-pin-custom-input]');
+        const loketSelect = cell.querySelector('[data-pin-loket]');
 
         if (!select) return;
         const value = select.value;
 
+        // E5 PR #4: kalau jam Auto, loket override DI-IGNORE — loket meaningful
+        // hanya kalau pin aktif. Pass 2 (auto-fill) tidak baca loket field.
         if (value === PIN_VALUE_AUTO) {
             return;
         }
@@ -257,7 +295,15 @@ function collectPinsForRow(rowEl, mobilKode) {
             tripTime = value;
         }
 
-        pins.push({ direction, trip_time: tripTime });
+        const pin = { direction, trip_time: tripTime };
+
+        // E5 PR #4: loket override (PKB/ROHUL). Empty string = "— Otomatis —" → omit field.
+        const loketValue = loketSelect?.value || '';
+        if (loketValue) {
+            pin.loket_origin = loketValue;
+        }
+
+        pins.push(pin);
     });
 
     return pins;
