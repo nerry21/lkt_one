@@ -416,6 +416,18 @@
                             </div>
 
                             <div class="admin-users-form-group">
+                                <label for="booking-route-via">Jalur Mobil</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="booking-route-via" name="route_via" data-testid="input-booking-route-via">
+                                        <option value="">Pilih jalur mobil</option>
+                                        <option value="BANGKINANG">Bangkinang</option>
+                                        <option value="PETAPAHAN">Petapahan</option>
+                                    </select>
+                                </div>
+                                <p class="form-help-text" data-route-via-helper hidden>Untuk rute ini, jalur mobil wajib dipilih karena lokasi bisa dilewati kedua cabang.</p>
+                            </div>
+
+                            <div class="admin-users-form-group">
                                 <label for="booking-trip-date">Tanggal Keberangkatan</label>
                                 <div class="admin-users-input-shell">
                                     <input id="booking-trip-date" name="trip_date" type="date" required data-testid="input-booking-trip-date">
@@ -449,6 +461,14 @@
                                 <label for="booking-driver-name">Nama Driver</label>
                                 <div class="admin-users-input-shell">
                                     <input id="booking-driver-name" name="driver_name" type="text" placeholder="Kosongkan jika belum ditentukan" data-testid="input-booking-driver-name">
+                                </div>
+                            </div>
+
+                            <div class="admin-users-form-group admin-users-form-group--full booking-fare-banner" data-fare-not-listed-banner hidden>
+                                <div class="booking-fare-banner__icon" aria-hidden="true">!</div>
+                                <div class="booking-fare-banner__copy">
+                                    <strong>Tarif tidak terdaftar</strong>
+                                    <p>Rute yang dipilih belum ada di tarif resmi. Tarif per kursi akan tersimpan Rp 0. Silakan input ongkos tambahan secara manual.</p>
                                 </div>
                             </div>
 
