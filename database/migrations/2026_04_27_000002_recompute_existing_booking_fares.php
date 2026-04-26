@@ -5,27 +5,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Sesi 44B PR #1B — Recompute existing booking total_amount sesuai fareMap baru.
+ * Sesi 44B PR #1B (REVISED PR #1B-fix) — Recompute REGULER booking total_amount
+ * sesuai fareMap baru.
  *
- * Konteks:
- *   - PR #1B update fareMap dengan tarif final.
- *   - Beberapa booking existing dibuat sebelum tarif final → price_per_seat /
- *     total_amount mungkin tidak match fareMap baru.
- *   - Decision Sesi 44B: update SEMUA existing (termasuk Selesai/Dibayar) ke
- *     tarif baru. Audit-trail trade-off: laporan keuangan akan tampil angka baru.
+ * VERSI INI ADALAH HASIL FIX DARI BUG SESI 44B PR #1B AWAL:
+ *   - Versi awal tidak filter category, akibatnya 31 booking Paket akan
+ *     dirusak (tarif Paket 50k-80k dipaksa jadi 150k tarif Reguler).
+ *   - Versi ini: filter `category = 'Reguler'`. Hanya kategori Reguler
+ *     yang punya fareMap auto-resolve. Paket/Dropping/Rental = manual input.
  *
  * Strategi:
- *   - Iterate booking dengan from_city + to_city yang ada di fareMap.
+ *   - Iterate booking dengan category='Reguler' yang from_city + to_city
+ *     ada di fareMap.
  *   - Compute correct fare via RegularBookingService::resolveFare.
- *   - Compute additional_fare historis: total_amount/passenger_count - price_per_seat
- *     (preserve di hasil baru kalau positive).
+ *   - Compute additional_fare historis: total_amount/passenger_count - price_per_seat.
  *   - Update price_per_seat = correct_fare. Update total_amount =
  *     (correct_fare + additional_fare) * passenger_count.
- *   - SKIP booking yang correct_fare=null (rute tidak ada di fareMap — manual).
+ *   - SKIP booking yang correct_fare=null (rute tidak ada di fareMap).
  *   - SKIP booking yang sudah match fareMap baru (no-op).
  *
- * Migration data tidak punya `down()` — historical record tidak di-rollback
- * untuk safety audit-trail.
+ * Migration data tidak punya `down()` — historical record tidak di-rollback.
+ *
+ * 3 migrasi terpisah untuk kategori lain (no-op tapi logging untuk audit):
+ *   - 2026_04_27_000003_recompute_existing_paket_fares.php
+ *   - 2026_04_27_000004_recompute_existing_dropping_fares.php
+ *   - 2026_04_27_000005_recompute_existing_rental_fares.php
  */
 return new class extends Migration
 {
@@ -40,6 +44,7 @@ return new class extends Migration
         $totalDiff = 0;
 
         DB::table('bookings')
+            ->where('category', 'Reguler')
             ->select('id', 'from_city', 'to_city', 'price_per_seat', 'total_amount', 'passenger_count')
             ->orderBy('id')
             ->chunk(200, function ($bookings) use ($service, &$totalScanned, &$updated, &$skippedNoChange, &$skippedNoFare, &$totalDiff) {
@@ -65,12 +70,7 @@ return new class extends Migration
                         continue;
                     }
 
-                    // Compute additional_fare_per_passenger historis (kalau ada).
-                    // Formula original: total_amount = (price_per_seat + additional) * passenger_count
-                    // → additional = total_amount/passenger_count - price_per_seat
-                    $impliedAdditional = (int) round(($currentTotal / $passengerCount) - $currentFare);
-                    $impliedAdditional = max(0, $impliedAdditional);
-
+                    $impliedAdditional = max(0, (int) round(($currentTotal / $passengerCount) - $currentFare));
                     $newTotal = ($correctFare + $impliedAdditional) * $passengerCount;
 
                     DB::table('bookings')
@@ -85,7 +85,8 @@ return new class extends Migration
                 }
             });
 
-        Log::info('Sesi 44B PR #1B migration data: recompute booking fares', [
+        Log::info('Sesi 44B PR #1B-fix migration data: recompute REGULER booking fares', [
+            'category' => 'Reguler',
             'total_scanned' => $totalScanned,
             'updated' => $updated,
             'skipped_no_change' => $skippedNoChange,
@@ -96,7 +97,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Migration data — historical record tidak di-rollback untuk safety
-        // audit-trail. Kalau perlu revert, pakai backup tabel manual.
+        // Migration data — historical record tidak di-rollback untuk safety.
     }
 };
