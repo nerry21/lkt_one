@@ -36,6 +36,12 @@
                         Atur Assignments
                     </a>
                     <button type="button"
+                            class="dashboard-ghost-button"
+                            data-action="open-create-trip-modal"
+                            data-testid="trip-planning-create-trip-btn">
+                        Buat Trip
+                    </button>
+                    <button type="button"
                             class="dashboard-primary-button"
                             data-action="open-generate-trips-modal"
                             data-testid="trip-planning-generate-trips-btn">
@@ -591,6 +597,80 @@
                         <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-delete-trip-modal">Batal</button>
                         <button type="submit" class="dashboard-primary-button dashboard-primary-button--danger" id="trip-planning-delete-trip-submit" data-testid="btn-submit-delete-trip">
                             Hapus Trip
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- E5 PR #3: Modal Create Trip Manual (form lengkap 6 field) --}}
+        <div class="modal-shell" id="trip-planning-create-trip-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-create-trip-modal"></div>
+
+            <div class="modal-card">
+                <div class="modal-head">
+                    <div>
+                        <h3>Buat Trip Manual</h3>
+                        <p class="trip-planning-modal-subtitle">
+                            Tambah trip ad-hoc di luar generate otomatis. Maksimal H+30 hari dari hari ini.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-create-trip-modal" aria-label="Tutup">
+                        &times;
+                    </button>
+                </div>
+
+                <form id="trip-planning-create-trip-form" class="modal-form" data-testid="trip-planning-create-trip-form">
+                    <div>
+                        <label for="trip-planning-create-trip-date">Tanggal</label>
+                        <input type="date" id="trip-planning-create-trip-date" name="trip_date" required data-testid="input-create-trip-date">
+                        <small class="trip-planning-modal-hint-block">Default: tanggal dashboard. Maksimal H+30 hari.</small>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-create-trip-time">Jam Keberangkatan</label>
+                        <input type="time" id="trip-planning-create-trip-time" name="trip_time" step="1" required data-testid="input-create-trip-time">
+                        <small class="trip-planning-modal-hint-block">Format HH:MM:SS</small>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-create-trip-direction">Arah</label>
+                        <select id="trip-planning-create-trip-direction" name="direction" required data-testid="input-create-trip-direction">
+                            <option value="PKB_TO_ROHUL">PKB &rarr; ROHUL</option>
+                            <option value="ROHUL_TO_PKB">ROHUL &rarr; PKB</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-create-trip-mobil">Mobil</label>
+                        <select id="trip-planning-create-trip-mobil" name="mobil_id" required data-testid="input-create-trip-mobil">
+                            <option value="">Pilih mobil...</option>
+                            @foreach ($mobilList ?? [] as $mobil)
+                                <option value="{{ $mobil->id }}">{{ $mobil->kode_mobil }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-create-trip-driver">Driver</label>
+                        <select id="trip-planning-create-trip-driver" name="driver_id" required data-testid="input-create-trip-driver">
+                            <option value="">Pilih driver...</option>
+                            @foreach ($driverList ?? [] as $driver)
+                                <option value="{{ $driver->id }}">{{ $driver->nama }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="trip-planning-create-trip-sequence">Sequence (opsional)</label>
+                        <input type="number" id="trip-planning-create-trip-sequence" name="sequence" min="1" placeholder="Kosongkan untuk auto-assign" data-testid="input-create-trip-sequence">
+                        <small class="trip-planning-modal-hint-block">Kosongkan untuk auto-assign next sequence di slot direction.</small>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-create-trip-modal">Batal</button>
+                        <button type="submit" class="dashboard-primary-button" id="trip-planning-create-trip-submit" data-testid="btn-submit-create-trip">
+                            Buat Trip
                         </button>
                     </div>
                 </form>
