@@ -296,9 +296,9 @@ class BookingController extends Controller
                 ->where('armada_index', $armadaIndex);
 
             if ($direction === 'to_pkb') {
-                $query->where('to_city', 'Pekanbaru');
+                $query->where('direction', 'to_pkb');
             } elseif ($direction === 'from_pkb') {
-                $query->where('from_city', 'Pekanbaru');
+                $query->where('direction', 'from_pkb');
             }
 
             // Acquire row locks for matching set. lockForUpdate() on SELECT ensures
