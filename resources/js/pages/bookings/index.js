@@ -30,6 +30,12 @@ const state = {
     currentUser: null,
     date: todayString(),
     direction: 'from_pkb',
+    // Sesi 46 PR #58a: cluster-aware state.
+    // null = tampil semua cluster (default D2-A locked di Sesi 46).
+    // 'BANGKINANG' atau 'PETAPAHAN' = filter aktif (di-set saat user pilih
+    // tab cluster di PR #58b nanti, atau via auto-prefill saat klik
+    // "Tambah Pemesanan" di panel cluster tertentu).
+    routeVia: null,
     bookings: [],
     loading: false,
     drivers: [],
@@ -45,7 +51,8 @@ const state = {
     occupiedSeatsForForm: [],
     occupiedSeatsForPackageForm: [],
     // Extra armadas added client-side per slot key (persists across renders until page reload)
-    // { 'HH:MM__direction': maxArmadaIndex }
+    // Sesi 46 PR #58a: composite key now includes cluster dimension.
+    // Format: 'HH:MM__direction__CLUSTER': maxArmadaIndex
     slotExtraArmadas: {},
     // Context for the currently open booking form
     currentFormArmadaIndex: 1,
@@ -64,6 +71,15 @@ function parseJsonScript(id) {
 
 function isAdminRole(role) {
     return ['Super Admin', 'Admin'].includes(role);
+}
+
+// Sesi 46 PR #58a: resolve cluster per booking untuk render slot composite key.
+// Source of truth: booking.route_via dari API response (sudah ada di DB sejak PR #1A
+// Sesi 44A, di-expose via listPayload di Sesi 46 — kalau missing/null fallback ke
+// 'BANGKINANG' default sesuai pola backfill PR #1A).
+function clusterFromBooking(booking) {
+    const cluster = (booking?.route_via || '').toUpperCase().trim();
+    return ['BANGKINANG', 'PETAPAHAN'].includes(cluster) ? cluster : 'BANGKINANG';
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -281,11 +297,14 @@ function buildSeatBookingMap(bookingsInSlot) {
     return map;
 }
 
-function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas) {
+function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas, cluster = 'BANGKINANG') {
     const seatBookingMap = buildSeatBookingMap(bookingsInArmada);
     const totalPassengers = bookingsInArmada.reduce((sum, b) => sum + (Number(b.passenger_count) || 0), 0);
     const isFull = totalPassengers >= TOTAL_PASSENGER_SEATS;
-    const slotArmadaKey = `${schedule.value}__${state.direction}__${armadaIndex}`;
+    // Sesi 46 PR #58a: slotArmadaKey 4 dimensi (date implicit via state.date).
+    // Pattern: HH:MM__direction__CLUSTER__armadaIndex
+    // Cluster = parameter dari renderSlotGroup, default 'BANGKINANG' untuk safety.
+    const slotArmadaKey = `${schedule.value}__${state.direction}__${cluster}__${armadaIndex}`;
 
     if (!state.slotDriverMap[slotArmadaKey]) {
         const withDriver = bookingsInArmada.find((b) => b.driver_id);
@@ -395,7 +414,12 @@ function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas)
 
 // ─── Slot Group (all armadas for one schedule) ────────────────────────────────
 
-function renderSlotGroup(schedule, bookingsInSlot) {
+function renderSlotGroup(schedule, bookingsInSlot, cluster = 'BANGKINANG') {
+    // Sesi 46 PR #58a: cluster-aware slot group.
+    // bookingsInSlot di-pre-filter di caller (renderSlots) sehingga semua
+    // booking di sini sudah cluster yang sama. Cluster di-pass eksplisit
+    // sebagai parameter untuk slotKey + slotArmadaKey composite.
+
     // Group bookings by armada_index
     const armadaBookings = {};
 
@@ -405,7 +429,9 @@ function renderSlotGroup(schedule, bookingsInSlot) {
         armadaBookings[armada].push(b);
     });
 
-    const slotKey = `${schedule.value}__${state.direction}`;
+    // Sesi 46 PR #58a: slotKey 3 dimensi (date implicit via state.date).
+    // Pattern: HH:MM__direction__CLUSTER
+    const slotKey = `${schedule.value}__${state.direction}__${cluster}`;
     const maxFromBookings = bookingsInSlot.length > 0
         ? Math.max(...Object.keys(armadaBookings).map(Number))
         : 1;
@@ -414,10 +440,10 @@ function renderSlotGroup(schedule, bookingsInSlot) {
 
     const cards = [];
     for (let i = 1; i <= maxArmada; i++) {
-        cards.push(renderArmadaCard(schedule, i, armadaBookings[i] || [], maxArmada));
+        cards.push(renderArmadaCard(schedule, i, armadaBookings[i] || [], maxArmada, cluster));
     }
 
-    return `<div class="bpg-slot-group" data-slot-group="${escapeHtml(schedule.value)}">${cards.join('')}</div>`;
+    return `<div class="bpg-slot-group" data-slot-group="${escapeHtml(schedule.value)}" data-cluster="${escapeHtml(cluster)}">${cards.join('')}</div>`;
 }
 
 // ─── Slots Rendering ──────────────────────────────────────────────────────────
@@ -435,26 +461,73 @@ function renderSlotsLoading() {
 }
 
 function renderSlots() {
+    // Sesi 46 PR #58a: render data integrity cluster-aware.
+    // Behavior visual TIDAK berubah di PR ini — semua cluster tetap
+    // di-render dalam 1 grid datar (mirror pre-PR #58a layout).
+    // PR #58b nanti akan introduce 2-panel container.
+    //
+    // Internal grouping: per (time, cluster). Bookings di filter cluster
+    // via clusterFromBooking() — booking PETAPAHAN dan BANGKINANG render
+    // sebagai slot group terpisah meski di waktu yang sama (Skenario X
+    // armada independen per cluster locked di Sesi 45).
     const shell = document.getElementById('bpg-slots-shell');
 
     if (!shell) {
         return;
     }
 
-    const bookingsByTime = {};
+    // bookingsByTimeCluster[time][cluster] = [bookings]
+    const bookingsByTimeCluster = {};
+    const CLUSTERS = ['BANGKINANG', 'PETAPAHAN'];
 
-    SCHEDULES.forEach((s) => { bookingsByTime[s.value] = []; });
+    SCHEDULES.forEach((s) => {
+        bookingsByTimeCluster[s.value] = {};
+        CLUSTERS.forEach((c) => {
+            bookingsByTimeCluster[s.value][c] = [];
+        });
+    });
 
     state.bookings.forEach((booking) => {
         const rawTime = (booking.trip_time || '').trim();
         const timeKey = rawTime.substring(0, 5);
+        const cluster = clusterFromBooking(booking);
 
-        if (bookingsByTime[timeKey]) {
-            bookingsByTime[timeKey].push(booking);
+        if (bookingsByTimeCluster[timeKey] && bookingsByTimeCluster[timeKey][cluster]) {
+            bookingsByTimeCluster[timeKey][cluster].push(booking);
         }
     });
 
-    const groups = SCHEDULES.map((schedule) => renderSlotGroup(schedule, bookingsByTime[schedule.value] || []));
+    // Filter cluster aktif (state.routeVia). null = render semua cluster.
+    const visibleClusters = state.routeVia
+        ? [state.routeVia]
+        : CLUSTERS;
+
+    // Render flat: SCHEDULE × CLUSTER. Visual layout 2-panel di PR #58b.
+    const groups = [];
+    SCHEDULES.forEach((schedule) => {
+        visibleClusters.forEach((cluster) => {
+            const bookingsInCluster = bookingsByTimeCluster[schedule.value]?.[cluster] || [];
+            const slotKey = `${schedule.value}__${state.direction}__${cluster}`;
+            const hasBookings = bookingsInCluster.length > 0;
+            const hasExtraArmada = (state.slotExtraArmadas[slotKey] || 1) > 1;
+
+            // Render slot group hanya kalau ada bookings ATAU ada extra armada
+            // di cluster ini. Kosong di kedua = skip render (cleaner UI vs
+            // 2x lipat empty cards).
+            if (hasBookings || hasExtraArmada) {
+                groups.push(renderSlotGroup(schedule, bookingsInCluster, cluster));
+            }
+        });
+    });
+
+    // Edge case: kalau zero booking + zero extra armada di semua cluster
+    // (e.g. tanggal tanpa data), render minimal 1 slot per schedule supaya
+    // admin tetap bisa "+ Tambah Pemesanan". Default cluster BANGKINANG.
+    if (groups.length === 0) {
+        SCHEDULES.forEach((schedule) => {
+            groups.push(renderSlotGroup(schedule, [], 'BANGKINANG'));
+        });
+    }
 
     shell.innerHTML = `<div class="bpg-slots-grid">${groups.join('')}</div>`;
 }
@@ -482,9 +555,35 @@ async function fetchAndRender() {
 
         // Seed slotExtraArmadas from persisted backend data so extra armada
         // cards survive page reloads.
+        // Sesi 46 PR #58a: backend response sekarang composite key flat
+        // format { "HH:MM__direction__CLUSTER": max_armada_index } sejak
+        // PR #57 (D-PR57-2). Parse direction filter di JS supaya hanya
+        // load extra armadas yang match state.direction current tab.
         if (armadaExtras && typeof armadaExtras === 'object') {
-            Object.entries(armadaExtras).forEach(([tripTime, maxIdx]) => {
-                const slotKey = `${tripTime}__${state.direction}`;
+            Object.entries(armadaExtras).forEach(([compositeKey, maxIdx]) => {
+                // Parse: "HH:MM__direction__CLUSTER"
+                const parts = compositeKey.split('__');
+                if (parts.length !== 3) {
+                    // Backwards-compat: kalau response masih format lama
+                    // (pre-PR #57, key cuma "HH:MM"), fallback default
+                    // direction='to_pkb' cluster='BANGKINANG'.
+                    const tripTime = compositeKey;
+                    const slotKey = `${tripTime}__${state.direction}__BANGKINANG`;
+                    state.slotExtraArmadas[slotKey] = Math.max(
+                        state.slotExtraArmadas[slotKey] || 1,
+                        Number(maxIdx) || 1,
+                    );
+                    return;
+                }
+
+                const [tripTime, dir, cluster] = parts;
+
+                // Filter: hanya seed extra armadas yang match direction
+                // current tab. Cluster mana saja diterima (state.routeVia
+                // di-handle di renderSlots, bukan di fetch).
+                if (dir !== state.direction) return;
+
+                const slotKey = `${tripTime}__${dir}__${cluster.toUpperCase()}`;
                 state.slotExtraArmadas[slotKey] = Math.max(
                     state.slotExtraArmadas[slotKey] || 1,
                     Number(maxIdx) || 1,
@@ -1239,6 +1338,10 @@ export default function initBookingsPage({ user } = {}) {
         if (newDirection === state.direction) return;
 
         state.direction = newDirection;
+        // Sesi 46 PR #58a: reset cluster-aware state map saat ganti direction.
+        // slotDriverMap + slotMobilMap + slotExtraArmadas pakai composite key
+        // include direction, jadi reset perlu dilakukan supaya stale state
+        // dari direction lama tidak leak ke render direction baru.
         state.slotDriverMap = {};
         state.slotMobilMap = {};
         state.slotExtraArmadas = {};
@@ -1362,7 +1465,13 @@ export default function initBookingsPage({ user } = {}) {
                 const tripTime = addArmadaBtn.dataset.addArmada;
                 const currentArmadaIndex = parseInt(addArmadaBtn.dataset.armadaIndex || '1');
                 const newArmadaIndex = currentArmadaIndex + 1;
-                const slotKey = `${tripTime}__${state.direction}`;
+                // Sesi 46 PR #58a: cluster-aware slotKey.
+                // Cluster di-resolve dari clicked button context (data-cluster
+                // attribute akan di-add di PR #58b). Untuk PR #58a (data integrity
+                // only, no UI change), default ke 'BANGKINANG' supaya backwards-
+                // compat dengan behavior pre-PR #58a (single cluster default).
+                const cluster = 'BANGKINANG';
+                const slotKey = `${tripTime}__${state.direction}__${cluster}`;
 
                 // Record that this slot now shows an extra armada (client-side)
                 state.slotExtraArmadas[slotKey] = Math.max(
@@ -1371,11 +1480,15 @@ export default function initBookingsPage({ user } = {}) {
                 );
 
                 // Persist the extra armada to the backend so it survives page reloads
+                // Sesi 46 PR #58a: kirim direction + route_via supaya backend
+                // PR #57 simpan di row composite cluster-aware.
                 apiRequest('/bookings/armada-extras', {
                     method: 'POST',
                     body: {
                         trip_date: state.date,
                         trip_time: tripTime,
+                        direction: state.direction,
+                        route_via: cluster,
                         armada_index: newArmadaIndex,
                     },
                 }).catch(() => {});
@@ -1407,7 +1520,12 @@ export default function initBookingsPage({ user } = {}) {
             if (suratJalanBtn) {
                 const tripTime = suratJalanBtn.dataset.suratJalan;
                 const armadaIndex = parseInt(suratJalanBtn.dataset.suratJalanArmada || '1');
-                const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
+                // Sesi 46 PR #58a: cluster-aware slotArmadaKey.
+                // Read cluster dari closest .bpg-slot-group ancestor data-cluster
+                // attribute (di-set di renderSlotGroup Step 6).
+                const slotGroupEl = event.target.closest('[data-slot-group]');
+                const cluster = slotGroupEl?.dataset.cluster || 'BANGKINANG';
+                const slotArmadaKey = `${tripTime}__${state.direction}__${cluster}__${armadaIndex}`;
 
                 const driverId = state.slotDriverMap[slotArmadaKey] || '';
                 const mobilId = state.slotMobilMap[slotArmadaKey] || '';
@@ -1448,7 +1566,10 @@ export default function initBookingsPage({ user } = {}) {
             const driverId = driverSelect.value;
             const selectedOption = driverSelect.options[driverSelect.selectedIndex];
             const driverName = driverId ? (selectedOption?.text.split(' (')[0] || '') : '';
-            const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
+            // Sesi 46 PR #58a: cluster-aware slotArmadaKey.
+            const slotGroupEl = event.target.closest('[data-slot-group]');
+            const cluster = slotGroupEl?.dataset.cluster || 'BANGKINANG';
+            const slotArmadaKey = `${tripTime}__${state.direction}__${cluster}__${armadaIndex}`;
 
             state.slotDriverMap[slotArmadaKey] = driverId;
 
@@ -1474,7 +1595,10 @@ export default function initBookingsPage({ user } = {}) {
             const [tripTime, armadaIdxStr] = mobilSelect.dataset.slotMobil.split('__');
             const armadaIndex = parseInt(armadaIdxStr || '1');
             const mobilId = mobilSelect.value;
-            const slotArmadaKey = `${tripTime}__${state.direction}__${armadaIndex}`;
+            // Sesi 46 PR #58a: cluster-aware slotArmadaKey.
+            const slotGroupEl = event.target.closest('[data-slot-group]');
+            const cluster = slotGroupEl?.dataset.cluster || 'BANGKINANG';
+            const slotArmadaKey = `${tripTime}__${state.direction}__${cluster}__${armadaIndex}`;
 
             state.slotMobilMap[slotArmadaKey] = mobilId;
         }

@@ -201,6 +201,11 @@ class BookingManagementService
             'phone' => (string) $booking->passenger_phone,
             'from_city' => (string) $booking->from_city,
             'to_city' => (string) $booking->to_city,
+            // Sesi 46 PR #58a: expose route_via di JSON response API supaya JS
+            // bisa resolve cluster per booking via clusterFromBooking() helper.
+            // Fallback 'BANGKINANG' kalau null (defensive — semua existing rows
+            // post-backfill PR #1A sudah default BANGKINANG).
+            'route_via' => (string) ($booking->route_via ?? 'BANGKINANG'),
             'trip_date' => $booking->trip_date?->toDateString(),
             'trip_date_label' => $booking->trip_date?->format('d M Y') ?? '-',
             'trip_time' => $booking->time ?? '-',
