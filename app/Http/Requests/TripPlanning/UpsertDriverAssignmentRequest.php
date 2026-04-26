@@ -43,6 +43,8 @@ class UpsertDriverAssignmentRequest extends FormRequest
             'assignments.*.pins' => ['sometimes', 'array', 'max:2'],
             'assignments.*.pins.*.direction' => ['required_with:assignments.*.pins', 'in:PKB_TO_ROHUL,ROHUL_TO_PKB'],
             'assignments.*.pins.*.trip_time' => ['required_with:assignments.*.pins', 'regex:/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/'],
+            // E5 PR #4: loket override per pin (optional). NULL = fallback ke poolForMobil.
+            'assignments.*.pins.*.loket_origin' => ['nullable', 'in:PKB,ROHUL'],
         ];
     }
 

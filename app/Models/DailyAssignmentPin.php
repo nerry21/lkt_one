@@ -20,12 +20,14 @@ class DailyAssignmentPin extends Model
         'daily_driver_assignment_id',
         'direction',
         'trip_time',
+        'loket_origin',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
         'trip_time' => 'string',
+        'loket_origin' => 'string',
     ];
 
     public function assignment(): BelongsTo

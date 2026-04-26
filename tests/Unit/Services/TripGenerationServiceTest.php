@@ -661,6 +661,145 @@ class TripGenerationServiceTest extends TestCase
         $this->assertSame('05:30:00', $pkbTrips[0]->trip_time);
     }
 
+    // ── Group 6: Phase E5 PR #4 loket_origin override ───────────────────────
+
+    public function test_pin_loket_origin_override_wins_over_dynamic_pool_for_mobil(): void
+    {
+        // Skenario prod 26 April 2026 (issue #2 Sesi 43): JET 01 home_pool=ROHUL
+        // tapi sudah berangkat 23 April (status=berangkat) → poolForMobil=PKB.
+        // Admin pin ROHUL_TO_PKB DENGAN loket_origin=ROHUL eksplisit untuk
+        // override. Hasil: pin EXECUTE (loket_origin menang dari poolForMobil).
+
+        $yesterday = Carbon::parse(self::TRIP_DATE)->subDay()->toDateString();
+
+        $mobil = Mobil::factory()->create([
+            'home_pool' => 'ROHUL',
+            'kode_mobil' => 'BM 5101 RRR',
+        ]);
+        $driver = Driver::factory()->create();
+
+        // Trip historis berangkat → mobil secara dinamis di PKB.
+        Trip::create([
+            'trip_date' => $yesterday,
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence' => 1,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'status' => 'berangkat',
+        ]);
+
+        // Pin ROHUL_TO_PKB DENGAN loket_origin=ROHUL override.
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:30:00',
+            'loket_origin' => 'ROHUL',
+        ]);
+
+        $this->svc->generateForDate(self::TRIP_DATE, [$mobil->id => $driver->id]);
+
+        // Assert: trip ROHUL_TO_PKB TER-CREATE via Pass 1 (loket override aktif).
+        // Inti regression test PR #4: tanpa loket override pin akan di-skip
+        // (lihat test_pin_skipped_when_mobil_dynamic_pool_differs_from_direction).
+        $rohulTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->orderBy('sequence')
+            ->get();
+        $this->assertCount(1, $rohulTrips, 'Pin loket_origin=ROHUL harus override poolForMobil=PKB');
+        $this->assertSame($mobil->id, $rohulTrips[0]->mobil_id);
+        $this->assertSame('05:30:00', $rohulTrips[0]->trip_time);
+
+        // Catatan: Pass 2 PKB_TO_ROHUL boleh include mobil yang sama (normal
+        // pulang-pergi, bukan double-assign). I2 invariant per-direction.
+    }
+
+    public function test_pin_with_loket_origin_pkb_explicit_match_executes(): void
+    {
+        // Positive case: mobil home_pool=PKB, poolForMobil=PKB juga (no historical
+        // trip), admin set loket_origin=PKB EKSPLISIT di pin PKB_TO_ROHUL.
+        // Pin tetap execute — eksplisit override yang kebetulan match poolForMobil
+        // tidak boleh menyebabkan double-skip.
+
+        $mobil = Mobil::factory()->create([
+            'home_pool' => 'PKB',
+            'kode_mobil' => 'BM 5102 PPP',
+        ]);
+        $driver = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_time' => '13:00:00',
+            'loket_origin' => 'PKB',
+        ]);
+
+        $this->svc->generateForDate(self::TRIP_DATE, [$mobil->id => $driver->id]);
+
+        $pkbTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'PKB_TO_ROHUL')
+            ->get();
+        $this->assertCount(1, $pkbTrips);
+        $this->assertSame($mobil->id, $pkbTrips[0]->mobil_id);
+        $this->assertSame('13:00:00', $pkbTrips[0]->trip_time);
+    }
+
+    public function test_pin_with_loket_origin_mismatch_direction_is_skipped(): void
+    {
+        // Negative case: pin ROHUL_TO_PKB tapi loket_origin=PKB (mismatch).
+        // poolOrigin direction = ROHUL, effectivePool = loket_origin = PKB → SKIP.
+        // Pass 2 tidak baca loket_origin, tapi mobil kebetulan masuk PKB pool
+        // (poolForMobil=PKB, home_pool=PKB) jadi auto-fill ke PKB_TO_ROHUL.
+
+        $mobil = Mobil::factory()->create([
+            'home_pool' => 'PKB',
+            'kode_mobil' => 'BM 5103 PPP',
+        ]);
+        $driver = Driver::factory()->create();
+
+        $assignment = DailyDriverAssignment::factory()->create([
+            'date' => self::TRIP_DATE,
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        DailyAssignmentPin::factory()->create([
+            'daily_driver_assignment_id' => $assignment->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_time' => '05:30:00',
+            'loket_origin' => 'PKB', // mismatch dengan direction ROHUL_TO_PKB
+        ]);
+
+        $this->svc->generateForDate(self::TRIP_DATE, [$mobil->id => $driver->id]);
+
+        // Pin di-skip → tidak ada trip ROHUL_TO_PKB.
+        $rohulCount = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'ROHUL_TO_PKB')
+            ->count();
+        $this->assertSame(0, $rohulCount, 'Pin ROHUL_TO_PKB dengan loket_origin=PKB harus di-skip (mismatch)');
+
+        // Mobil masuk auto-fill Pass 2 ke PKB_TO_ROHUL (slot pertama).
+        $pkbTrips = Trip::query()
+            ->where('trip_date', self::TRIP_DATE)
+            ->where('direction', 'PKB_TO_ROHUL')
+            ->orderBy('sequence')
+            ->get();
+        $this->assertCount(1, $pkbTrips);
+        $this->assertSame($mobil->id, $pkbTrips[0]->mobil_id);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     /**

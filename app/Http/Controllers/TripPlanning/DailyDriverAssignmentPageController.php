@@ -32,7 +32,7 @@ class DailyDriverAssignmentPageController extends Controller
             ->with([
                 'mobil:id,kode_mobil,home_pool',
                 'driver:id,nama',
-                'pins:id,daily_driver_assignment_id,direction,trip_time',
+                'pins:id,daily_driver_assignment_id,direction,trip_time,loket_origin',
             ])
             ->get();
 
@@ -95,6 +95,8 @@ class DailyDriverAssignmentPageController extends Controller
                         'daily_driver_assignment_id' => $assignmentRecord->id,
                         'direction' => $pin['direction'],
                         'trip_time' => $tripTime,
+                        // E5 PR #4: loket override (NULL = fallback ke poolForMobil).
+                        'loket_origin' => $pin['loket_origin'] ?? null,
                         'created_by' => $userId,
                         'updated_by' => $userId,
                     ]);
@@ -107,7 +109,7 @@ class DailyDriverAssignmentPageController extends Controller
             ->with([
                 'mobil:id,kode_mobil,home_pool',
                 'driver:id,nama',
-                'pins:id,daily_driver_assignment_id,direction,trip_time',
+                'pins:id,daily_driver_assignment_id,direction,trip_time,loket_origin',
             ])
             ->get();
 

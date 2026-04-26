@@ -92,9 +92,9 @@ class TripGenerationService
      *            pakai trip_time eksplisit dari pin. Sequence start dari 1,
      *            order by trip_time ASC. Multi-mobil di slot pinned yang sama
      *            diizinkan (DP-2: penumpang ramai). Pin di-skip kalau mobil
-     *            inactive, salah pool aktual (poolForMobil dinamis — konsisten
-     *            dengan Pass 2, bukan home_pool statis), atau driver mapping
-     *            miss.
+     *            inactive, salah pool aktual (loket_origin override > poolForMobil
+     *            dinamis > home_pool — E5 PR #4 admin-override-priority), atau
+     *            driver mapping tidak ada.
      *   Pass 2 — auto-fill mobil sisa (yang tidak pinned) pakai
      *            prioritizedMobilList. Slot diambil dari SLOTS minus slot yang
      *            sudah dipakai pinned (kalau pinned slot nyangkut di SLOTS).
@@ -147,8 +147,13 @@ class TripGenerationService
                     return false;
                 }
 
+                // E5 PR #4: loket_origin admin-override menang dari poolForMobil dinamis.
+                // NULL (default) = fallback ke poolForMobil (backward compatible).
+                $effectivePool = $pin->loket_origin
+                    ?? $this->poolState->poolForMobil($mobil->id, $tripDate);
+
                 return $mobil->is_active_in_trip
-                    && $this->poolState->poolForMobil($mobil->id, $tripDate) === $poolOrigin
+                    && $effectivePool === $poolOrigin
                     && isset($driverAssignments[$mobil->id]);
             });
 
