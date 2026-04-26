@@ -105,6 +105,15 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
                 ->name('api.trip-planning.trips.destroy');
             Route::get('/trips/{trip}/bookings-count', [\App\Http\Controllers\TripPlanning\TripCrudController::class, 'bookingsCount'])
                 ->name('api.trip-planning.trips.bookings-count');
+
+            // E5 PR #5: Reset Trip Data endpoints.
+            // resetToday: parent group sudah admin.role:admin (Admin + Super Admin lolos).
+            // resetAll: chain middleware admin.role:super (Super Admin only).
+            Route::post('/reset/today', [\App\Http\Controllers\TripPlanning\ResetTripDataController::class, 'resetToday'])
+                ->name('api.trip-planning.reset.today');
+            Route::post('/reset/all', [\App\Http\Controllers\TripPlanning\ResetTripDataController::class, 'resetAll'])
+                ->middleware('admin.role:super')
+                ->name('api.trip-planning.reset.all');
         });
     });
 

@@ -47,6 +47,29 @@
                             data-testid="trip-planning-generate-trips-btn">
                         Generate Trips
                     </button>
+
+                    {{-- E5 PR #5: Reset Data dropdown trigger (Admin + Super Admin) --}}
+                    <div class="trip-planning-reset-wrapper" data-testid="trip-planning-reset-wrapper">
+                        <button type="button"
+                                class="dashboard-ghost-button dashboard-ghost-button--danger"
+                                data-action="open-reset-menu"
+                                id="trip-planning-reset-trigger"
+                                data-testid="trip-planning-reset-btn">
+                            Reset Data &#9662;
+                        </button>
+                        <div class="trip-planning-reset-menu" id="trip-planning-reset-menu" hidden>
+                            <button type="button" class="trip-planning-reset-menu-item" data-action="open-reset-today-modal" data-testid="trip-planning-reset-today-btn">
+                                Reset Hari Ini
+                            </button>
+                            @auth
+                                @if (auth()->user()->isSuperAdmin())
+                                    <button type="button" class="trip-planning-reset-menu-item trip-planning-reset-menu-item--danger" data-action="open-reset-all-modal" data-testid="trip-planning-reset-all-btn">
+                                        Reset Semua
+                                    </button>
+                                @endif
+                            @endauth
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -676,5 +699,67 @@
                 </form>
             </div>
         </div>
+
+        {{-- E5 PR #5: Modal Reset Hari Ini --}}
+        <div class="modal-shell" id="trip-planning-reset-today-modal" hidden>
+            <div class="modal-backdrop" data-modal-close="trip-planning-reset-today-modal"></div>
+            <div class="modal-card">
+                <div class="modal-head">
+                    <div>
+                        <h3>Reset Data Hari Ini</h3>
+                        <p class="trip-planning-modal-subtitle">
+                            Semua pin (jam + loket) dan trip status "scheduled" untuk tanggal ini akan dihapus.
+                            Trip yang sudah berangkat / keluar trip TIDAK terpengaruh.
+                        </p>
+                    </div>
+                    <button type="button" class="modal-close" data-modal-close="trip-planning-reset-today-modal" aria-label="Tutup">&times;</button>
+                </div>
+                <div class="modal-form">
+                    <div class="trip-planning-modal-warning">
+                        <strong>&#9888; Yakin mau reset?</strong>
+                        <p>Aksi ini tidak bisa di-undo. Tapi trip historis (status berangkat) tetap aman.</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-reset-today-modal">Batal</button>
+                        <button type="button" class="dashboard-primary-button dashboard-primary-button--danger" id="trip-planning-reset-today-submit" data-testid="btn-submit-reset-today">
+                            Reset Sekarang
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- E5 PR #5: Modal Reset Semua (Super Admin only) --}}
+        @auth
+            @if (auth()->user()->isSuperAdmin())
+                <div class="modal-shell" id="trip-planning-reset-all-modal" hidden>
+                    <div class="modal-backdrop" data-modal-close="trip-planning-reset-all-modal"></div>
+                    <div class="modal-card">
+                        <div class="modal-head">
+                            <div>
+                                <h3>Reset Semua Data Trip Planning</h3>
+                                <p class="trip-planning-modal-subtitle">
+                                    SEMUA pin lintas tanggal dan trip status "scheduled" akan dihapus.
+                                    Trip historis (berangkat) tetap aman.
+                                </p>
+                            </div>
+                            <button type="button" class="modal-close" data-modal-close="trip-planning-reset-all-modal" aria-label="Tutup">&times;</button>
+                        </div>
+                        <div class="modal-form">
+                            <div class="trip-planning-modal-warning">
+                                <strong>&#9888; Aksi destructive global</strong>
+                                <p>JSON snapshot otomatis disimpan ke audit log sebelum reset. Lanjutkan?</p>
+                            </div>
+                            <div class="modal-actions">
+                                <button type="button" class="dashboard-ghost-button" data-modal-close="trip-planning-reset-all-modal">Batal</button>
+                                <button type="button" class="dashboard-primary-button dashboard-primary-button--danger" id="trip-planning-reset-all-submit" data-testid="btn-submit-reset-all">
+                                    Reset Semua
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        @endauth
     </section>
 @endsection
