@@ -28,6 +28,9 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'additional_fare_per_passenger' => ['nullable', 'integer', 'min:0'],
             'pickup_address' => ['required', 'string', 'min:10', 'max:255'],
             'dropoff_address' => ['required', 'string', 'min:10', 'max:255'],
+            // Sesi 44D PR #1D: jalur mobil. Wajib (validated di after()) kalau
+            // rute ambigu, optional kalau rute fixed.
+            'route_via' => ['nullable', 'string', Rule::in(['BANGKINANG', 'PETAPAHAN'])],
         ];
     }
 
@@ -43,6 +46,7 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'additional_fare_per_passenger' => 'ongkos tambahan per penumpang',
             'pickup_address' => 'alamat penjemputan',
             'dropoff_address' => 'alamat pengantaran',
+            'route_via' => 'jalur mobil',
         ];
     }
 
@@ -71,11 +75,33 @@ class StoreRegularBookingInformationRequest extends FormRequest
                     return;
                 }
 
-                $fare = app(RegularBookingService::class)->resolveFare($origin, $destination);
+                // Sesi 44D PR #1D: forbidden route check (defense layer 1).
+                $clusterService = app(\App\Services\BookingClusterService::class);
 
-                if ($fare === null) {
-                    $validator->errors()->add('destination_location', 'Rute yang Anda pilih saat ini belum tersedia. Silakan pilih kombinasi asal dan tujuan lain.');
+                if ($clusterService->isForbiddenRoute($origin, $destination)) {
+                    $validator->errors()->add(
+                        'destination_location',
+                        sprintf('Rute %s ↔ %s tidak tersedia karena cabang fisik berbeda.', $origin, $destination),
+                    );
+
+                    return;
                 }
+
+                // Sesi 44D PR #1D: route_via wajib kalau rute ambigu (kedua sisi
+                // ambigu, atau salah satu HUB dan sisi lain ambigu).
+                $fromCluster = $clusterService->clusterForLocation($origin);
+                $toCluster = $clusterService->clusterForLocation($destination);
+                $needsExplicitRouteVia = ($fromCluster === null && $toCluster === null)
+                    || ($fromCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $toCluster === null)
+                    || ($toCluster === \App\Services\BookingClusterService::CLUSTER_HUB && $fromCluster === null);
+
+                if ($needsExplicitRouteVia && empty(trim((string) $this->input('route_via')))) {
+                    $validator->errors()->add('route_via', 'Jalur mobil wajib dipilih untuk rute ini.');
+                }
+
+                // Sesi 44D PR #1D: NO LONGER block kalau resolveFare null —
+                // customer/admin bisa save dengan tarif Rp 0, banner UI sudah
+                // notify. Service akan persist price_per_seat=0.
             },
         ];
     }
@@ -91,6 +117,9 @@ class StoreRegularBookingInformationRequest extends FormRequest
             'additional_fare_per_passenger' => max((int) $this->input('additional_fare_per_passenger', 0), 0),
             'pickup_address' => trim((string) $this->input('pickup_address')),
             'dropoff_address' => trim((string) $this->input('dropoff_address')),
+            'route_via' => filled($this->input('route_via'))
+                ? strtoupper(trim((string) $this->input('route_via')))
+                : null,
         ]);
     }
 }

@@ -56,6 +56,7 @@ class RegularBookingDraftService
             'pickup_address' => $validated['pickup_address'],
             'dropoff_address' => $validated['dropoff_address'],
             'fare_amount' => $fareAmount,
+            'route_via' => $validated['route_via'] ?? null,
         ]);
     }
 
@@ -94,6 +95,7 @@ class RegularBookingDraftService
             'additional_fare_per_passenger' => max((int) $request->old('additional_fare_per_passenger', $draft['additional_fare_per_passenger'] ?? 0), 0),
             'pickup_address' => (string) $request->old('pickup_address', $draft['pickup_address'] ?? ''),
             'dropoff_address' => (string) $request->old('dropoff_address', $draft['dropoff_address'] ?? ''),
+            'route_via' => (string) $request->old('route_via', $draft['route_via'] ?? ''),
         ];
 
         $state['passenger_count'] = max(min($state['passenger_count'], 6), 1);
@@ -273,11 +275,17 @@ class RegularBookingDraftService
             'selected_seats_label' => $service->selectedSeatLabels($selectedSeatCodes),
             'passengers' => $passengers,
             'armada_index' => $normalizedDraft['armada_index'],
+            'route_via' => $normalizedDraft['route_via'],
         ];
     }
 
     private function normalizeDraft(array $draft): array
     {
+        $rawRouteVia = $draft['route_via'] ?? null;
+        $normalizedRouteVia = is_string($rawRouteVia) && $rawRouteVia !== ''
+            ? strtoupper(trim($rawRouteVia))
+            : null;
+
         return [
             'trip_date' => trim((string) ($draft['trip_date'] ?? '')),
             'booking_type' => trim((string) ($draft['booking_type'] ?? '')),
@@ -290,6 +298,7 @@ class RegularBookingDraftService
             'fare_amount' => max((int) ($draft['fare_amount'] ?? 0), 0),
             'additional_fare_per_passenger' => max((int) ($draft['additional_fare_per_passenger'] ?? 0), 0),
             'armada_index' => max(1, (int) ($draft['armada_index'] ?? 1)),
+            'route_via' => $normalizedRouteVia,
             'selected_seats' => collect($draft['selected_seats'] ?? [])
                 ->map(fn ($seatCode): string => trim((string) $seatCode))
                 ->filter(fn (string $seatCode): bool => $seatCode !== '')

@@ -519,6 +519,8 @@ class BookingManagementPageTest extends TestCase
             'booking_status' => 'Draft',
             'bank_account_code' => $transferAccount?->code ?? '',
             'notes' => 'Booking dibuat dari dashboard admin.',
+            // Sesi 44D PR #1D: SKPD↔PKB butuh route_via eksplisit (HUB + ambigu).
+            'route_via' => 'BANGKINANG',
         ], $overrides);
     }
 

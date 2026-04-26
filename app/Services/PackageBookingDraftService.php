@@ -63,6 +63,7 @@ class PackageBookingDraftService
             'package_size' => '',
             'selected_seats' => [],
             'armada_index' => 1,
+            'route_via' => $validated['route_via'] ?? null,
         ]);
     }
 
@@ -97,6 +98,7 @@ class PackageBookingDraftService
             'item_qty' => max(1, (int) $request->old('item_qty', $draft['item_qty'] ?? 1)),
             'fare_amount' => max(0, (int) $request->old('fare_amount', $draft['fare_amount'] ?? 0)),
             'additional_fare' => max(0, (int) $request->old('additional_fare', $draft['additional_fare'] ?? 0)),
+            'route_via' => (string) $request->old('route_via', $draft['route_via'] ?? ''),
         ];
     }
 
@@ -180,6 +182,7 @@ class PackageBookingDraftService
             'total_amount' => $totalAmount,
             'total_amount_formatted' => $service->formatCurrency($totalAmount),
             'armada_index' => $normalizedDraft['armada_index'],
+            'route_via' => $normalizedDraft['route_via'],
         ];
     }
 
@@ -219,6 +222,11 @@ class PackageBookingDraftService
 
     private function normalizeDraft(array $draft): array
     {
+        $rawRouteVia = $draft['route_via'] ?? null;
+        $normalizedRouteVia = is_string($rawRouteVia) && $rawRouteVia !== ''
+            ? strtoupper(trim($rawRouteVia))
+            : null;
+
         return [
             'trip_date' => trim((string) ($draft['trip_date'] ?? '')),
             'departure_time' => trim((string) ($draft['departure_time'] ?? '')),
@@ -236,6 +244,7 @@ class PackageBookingDraftService
             'additional_fare' => max(0, (int) ($draft['additional_fare'] ?? 0)),
             'package_size' => trim((string) ($draft['package_size'] ?? '')),
             'armada_index' => max(1, (int) ($draft['armada_index'] ?? 1)),
+            'route_via' => $normalizedRouteVia,
             'selected_seats' => collect($draft['selected_seats'] ?? [])
                 ->map(fn ($seatCode): string => trim((string) $seatCode))
                 ->filter(fn (string $seatCode): bool => $seatCode !== '')
