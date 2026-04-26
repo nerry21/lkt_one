@@ -164,8 +164,8 @@ class BookingManagementService
 
         return Booking::query()
             ->when($date !== '', fn (Builder $q) => $q->where('trip_date', $date))
-            ->when($direction === 'to_pkb', fn (Builder $q) => $q->where('to_city', 'Pekanbaru'))
-            ->when($direction === 'from_pkb', fn (Builder $q) => $q->where('from_city', 'Pekanbaru'))
+            ->when($direction === 'to_pkb', fn (Builder $q) => $q->where('direction', 'to_pkb'))
+            ->when($direction === 'from_pkb', fn (Builder $q) => $q->where('direction', 'from_pkb'))
             ->when($search !== '', function (Builder $query) use ($search) {
                 $query->where(function (Builder $subQuery) use ($search) {
                     $subQuery

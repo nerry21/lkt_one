@@ -309,8 +309,8 @@ class BookingPageController extends Controller
         $bookings = Booking::query()
             ->when($date !== '', fn ($q) => $q->where('trip_date', $date))
             ->when($timePrefix !== '', fn ($q) => $q->where('trip_time', 'like', $timePrefix . '%'))
-            ->when($direction === 'to_pkb', fn ($q) => $q->where('to_city', 'Pekanbaru'))
-            ->when($direction === 'from_pkb', fn ($q) => $q->where('from_city', 'Pekanbaru'))
+            ->when($direction === 'to_pkb', fn ($q) => $q->where('direction', 'to_pkb'))
+            ->when($direction === 'from_pkb', fn ($q) => $q->where('direction', 'from_pkb'))
             ->where(function ($q) use ($armadaIndex) {
                 $q->where('armada_index', $armadaIndex);
                 if ($armadaIndex === 1) {

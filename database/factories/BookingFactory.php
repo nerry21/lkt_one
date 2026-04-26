@@ -29,7 +29,7 @@ class BookingFactory extends Factory
             'category' => 'Reguler',
             'from_city' => 'Pekanbaru',
             'to_city' => 'Pasirpengaraian',
-            'direction' => 'from_pkb',
+            'direction' => null,
             'route_via' => 'BANGKINANG',
             'trip_date' => '2026-04-20',
             'trip_time' => '05:00:00',
