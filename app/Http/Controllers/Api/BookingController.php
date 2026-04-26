@@ -468,6 +468,12 @@ class BookingController extends Controller
                 'category'               => 'Paket',
                 'from_city'              => $fromCity,
                 'to_city'                => $toCity,
+                // Sesi 46 PR #58b: cluster-aware route_via untuk Package form.
+                // Source: validated input (D-PR58b-2). Kalau null, Booking saving
+                // event auto-resolve dari from_city/to_city via BookingClusterService
+                // (pattern Sesi 44A PR #1A). Cluster ambigu lokasi → admin pilih
+                // explicit di form dropdown.
+                'route_via'              => $v['route_via'] ?? null,
                 'trip_date'              => $tripDate,
                 'trip_time'              => $tripTime,
                 'booking_for'            => trim((string) $v['package_size']),
@@ -625,6 +631,8 @@ class BookingController extends Controller
             $record->fill([
                 'from_city'              => $fromCity,
                 'to_city'                => $toCity,
+                // Sesi 46 PR #58b: cluster-aware route_via — symmetric quickPackageStore.
+                'route_via'              => $v['route_via'] ?? null,
                 'trip_date'              => $tripDate,
                 'trip_time'              => $tripTime,
                 'booking_for'            => trim((string) $v['package_size']),

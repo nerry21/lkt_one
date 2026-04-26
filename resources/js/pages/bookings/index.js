@@ -59,6 +59,9 @@ const state = {
     // Pending choice for type-choice modal
     _pendingChoiceArmada: 1,
     _pendingChoiceTime: '',
+    // Sesi 46 PR #58b: cluster context untuk auto-prefill form modal.
+    // null = no context (top-level button), value = cluster panel asal.
+    _pendingChoiceCluster: null,
 };
 
 // ─── Parsers ──────────────────────────────────────────────────────────────────
@@ -461,15 +464,14 @@ function renderSlotsLoading() {
 }
 
 function renderSlots() {
-    // Sesi 46 PR #58a: render data integrity cluster-aware.
-    // Behavior visual TIDAK berubah di PR ini — semua cluster tetap
-    // di-render dalam 1 grid datar (mirror pre-PR #58a layout).
-    // PR #58b nanti akan introduce 2-panel container.
+    // Sesi 46 PR #58b: render 2-panel layout cluster-aware.
+    // Desktop (>860px): kedua panel BANGKINANG + PETAPAHAN berdampingan (D2-A).
+    // Mobile (≤860px): tab switch BANGKINANG↔PETAPAHAN (D1-A).
+    //   state.routeVia null = default tampil cluster aktif (BANGKINANG default).
     //
     // Internal grouping: per (time, cluster). Bookings di filter cluster
     // via clusterFromBooking() — booking PETAPAHAN dan BANGKINANG render
-    // sebagai slot group terpisah meski di waktu yang sama (Skenario X
-    // armada independen per cluster locked di Sesi 45).
+    // di panel terpisah (Skenario X armada independen per cluster).
     const shell = document.getElementById('bpg-slots-shell');
 
     if (!shell) {
@@ -497,39 +499,51 @@ function renderSlots() {
         }
     });
 
-    // Filter cluster aktif (state.routeVia). null = render semua cluster.
-    const visibleClusters = state.routeVia
-        ? [state.routeVia]
-        : CLUSTERS;
+    // Active cluster untuk mobile: state.routeVia atau default 'BANGKINANG'.
+    // Desktop tetap render 2 panel; CSS handle visibility based on viewport.
+    const activeMobileCluster = state.routeVia || 'BANGKINANG';
 
-    // Render flat: SCHEDULE × CLUSTER. Visual layout 2-panel di PR #58b.
-    const groups = [];
-    SCHEDULES.forEach((schedule) => {
-        visibleClusters.forEach((cluster) => {
+    // Render: 2-panel container, masing-masing panel = 6 schedule × armada cards.
+    const panels = CLUSTERS.map((cluster) => {
+        const isActiveOnMobile = cluster === activeMobileCluster;
+        const clusterLabel = cluster === 'BANGKINANG' ? 'Bangkinang' : 'Petapahan';
+        const clusterRoute = cluster === 'BANGKINANG'
+            ? 'Pasir → Ujung Batu → Tandun → Bangkinang → Pekanbaru'
+            : 'Pasir → Ujung Batu → Tandun → Petapahan → Pekanbaru';
+
+        // Render slot groups untuk schedule × cluster ini.
+        // Strategy: render minimal 1 slot per schedule per cluster untuk maintain
+        // consistent layout (admin expect 6 jadwal × 2 cluster = 12 slot empty/filled).
+        const slotGroups = [];
+        SCHEDULES.forEach((schedule) => {
             const bookingsInCluster = bookingsByTimeCluster[schedule.value]?.[cluster] || [];
-            const slotKey = `${schedule.value}__${state.direction}__${cluster}`;
-            const hasBookings = bookingsInCluster.length > 0;
-            const hasExtraArmada = (state.slotExtraArmadas[slotKey] || 1) > 1;
-
-            // Render slot group hanya kalau ada bookings ATAU ada extra armada
-            // di cluster ini. Kosong di kedua = skip render (cleaner UI vs
-            // 2x lipat empty cards).
-            if (hasBookings || hasExtraArmada) {
-                groups.push(renderSlotGroup(schedule, bookingsInCluster, cluster));
-            }
+            slotGroups.push(renderSlotGroup(schedule, bookingsInCluster, cluster));
         });
+
+        const activeClass = isActiveOnMobile ? ' is-active' : '';
+        return `
+            <section class="bpg-cluster-panel${activeClass}" data-cluster="${escapeHtml(cluster)}">
+                <header class="bpg-cluster-panel-header" data-cluster="${escapeHtml(cluster)}">
+                    <div>
+                        <div class="bpg-cluster-panel-title">${escapeHtml(clusterLabel)}</div>
+                        <div class="bpg-cluster-panel-subtitle">${escapeHtml(clusterRoute)}</div>
+                    </div>
+                </header>
+                <div class="bpg-cluster-panel-body">
+                    ${slotGroups.join('')}
+                </div>
+            </section>`;
     });
 
-    // Edge case: kalau zero booking + zero extra armada di semua cluster
-    // (e.g. tanggal tanpa data), render minimal 1 slot per schedule supaya
-    // admin tetap bisa "+ Tambah Pemesanan". Default cluster BANGKINANG.
-    if (groups.length === 0) {
-        SCHEDULES.forEach((schedule) => {
-            groups.push(renderSlotGroup(schedule, [], 'BANGKINANG'));
+    shell.innerHTML = `<div class="bpg-clusters-row">${panels.join('')}</div>`;
+
+    // Update mobile cluster tabs active state
+    const clusterTabs = document.getElementById('bpg-cluster-tabs');
+    if (clusterTabs) {
+        clusterTabs.querySelectorAll('.bpg-cluster-tab').forEach((tab) => {
+            tab.classList.toggle('is-active', tab.dataset.cluster === activeMobileCluster);
         });
     }
-
-    shell.innerHTML = `<div class="bpg-slots-grid">${groups.join('')}</div>`;
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
@@ -1119,7 +1133,7 @@ function renderSeatButtons() {
     updateSeatSummary();
 }
 
-function resetForm(armadaIndex = 1, tripTime = '') {
+function resetForm(armadaIndex = 1, tripTime = '', cluster = null) {
     const form = document.getElementById('booking-form');
 
     form?.reset();
@@ -1148,11 +1162,15 @@ function resetForm(armadaIndex = 1, tripTime = '') {
     if (fromCityEl) fromCityEl.value = '';
     if (toCityEl) toCityEl.value = '';
 
-    // Sesi 44D PR #1D: reset jalur mobil dropdown + clear user-touch flag
+    // Sesi 44D PR #1D: reset jalur mobil dropdown + clear user-touch flag.
+    // Sesi 46 PR #58b: auto-prefill cluster dari panel asal (D3-B).
+    // Cluster prefilled sebagai user-touched=1 supaya tidak ke-overwrite oleh
+    // auto-resolve cluster_map saat user pilih from/to city. Admin tetap
+    // bisa override manual.
     const routeViaEl = document.getElementById('booking-route-via');
     if (routeViaEl) {
-        routeViaEl.value = '';
-        routeViaEl.dataset.userTouched = '0';
+        routeViaEl.value = cluster || '';
+        routeViaEl.dataset.userTouched = cluster ? '1' : '0';
     }
 
     document.getElementById('booking-passenger-count').value = '1';
@@ -1327,6 +1345,22 @@ export default function initBookingsPage({ user } = {}) {
         });
     }
 
+    // Sesi 46 PR #58b: Cluster sub-tabs (mobile). Click switch state.routeVia
+    // → re-render. Desktop tab hidden via CSS, click no-op.
+    const clusterTabs = document.getElementById('bpg-cluster-tabs');
+    clusterTabs?.addEventListener('click', (event) => {
+        const tab = event.target.closest('[data-cluster]');
+        if (!tab) return;
+
+        const newCluster = tab.dataset.cluster;
+        if (state.routeVia === newCluster) return;
+
+        state.routeVia = newCluster;
+
+        // Re-render slots dengan cluster filter aktif (mobile only effect)
+        renderSlots();
+    });
+
     // Route direction tabs
     routeTabs?.addEventListener('click', async (event) => {
         const tab = event.target.closest('[data-direction]');
@@ -1497,8 +1531,10 @@ export default function initBookingsPage({ user } = {}) {
                 renderSlots();
 
                 // Show choice modal
+                // Sesi 46 PR #58b: cluster context dari clicked button ancestor.
                 state._pendingChoiceArmada = newArmadaIndex;
                 state._pendingChoiceTime = tripTime;
+                state._pendingChoiceCluster = cluster; // cluster sudah di-resolve di atas (Step 9.2 PR #58a)
                 openModal('booking-type-choice-modal');
 
                 return;
@@ -1509,8 +1545,14 @@ export default function initBookingsPage({ user } = {}) {
                 const tripTime = slotBookBtn.dataset.slotBook;
                 const armadaIndex = parseInt(slotBookBtn.dataset.slotArmada || '1');
 
+                // Sesi 46 PR #58b: auto-prefill cluster (D3-B locked).
+                // Resolve cluster dari closest .bpg-slot-group ancestor data-cluster.
+                const slotGroupEl = slotBookBtn.closest('[data-slot-group]');
+                const cluster = slotGroupEl?.dataset.cluster || 'BANGKINANG';
+
                 state._pendingChoiceArmada = armadaIndex;
                 state._pendingChoiceTime = tripTime;
+                state._pendingChoiceCluster = cluster;
                 openModal('booking-type-choice-modal');
 
                 return;
@@ -1606,7 +1648,7 @@ export default function initBookingsPage({ user } = {}) {
 
     // ─── Package booking form logic ───────────────────────────────────────────
 
-    function resetPackageForm(armadaIndex = 1, tripTime = '') {
+    function resetPackageForm(armadaIndex = 1, tripTime = '', cluster = null) {
         // Bug #49: clear edit state on fresh create (submit will POST not PUT)
         state.editPackageItem = null;
 
@@ -1630,6 +1672,13 @@ export default function initBookingsPage({ user } = {}) {
         if (titleEl) titleEl.textContent = 'Pengirim Paket';
         const descEl = document.getElementById('package-form-description');
         if (descEl) descEl.textContent = 'Lengkapi data pengiriman paket. Surat Bukti Pengiriman tersedia setelah disimpan.';
+
+        // Sesi 46 PR #58b: auto-prefill cluster route_via di Package form (D-PR58b-2).
+        const pkgRouteViaEl = document.getElementById('pkg-route-via');
+        if (pkgRouteViaEl) {
+            pkgRouteViaEl.value = cluster || '';
+            pkgRouteViaEl.dataset.userTouched = cluster ? '1' : '0';
+        }
 
         updatePackageTotal();
         fetchOccupiedSeatsForPackage();
@@ -1673,6 +1722,13 @@ export default function initBookingsPage({ user } = {}) {
         setVal('pkg-trip-time', item.trip_time_value || item.trip_time || '');
         setVal('pkg-from-city', item.from_city || '');
         setVal('pkg-to-city', item.to_city || '');
+
+        // Sesi 46 PR #58b: load route_via untuk Package form edit.
+        const pkgRouteViaEl = document.getElementById('pkg-route-via');
+        if (pkgRouteViaEl) {
+            pkgRouteViaEl.value = item.route_via || '';
+            pkgRouteViaEl.dataset.userTouched = item.route_via ? '1' : '0';
+        }
 
         // Sender (from booking.passenger_* + pickup_location)
         setVal('pkg-sender-name', item.nama_pemesanan || '');
@@ -1849,7 +1905,12 @@ export default function initBookingsPage({ user } = {}) {
     // Choice modal buttons
     document.getElementById('choice-passenger-btn')?.addEventListener('click', () => {
         closeModal('booking-type-choice-modal');
-        resetForm(state._pendingChoiceArmada || 1, state._pendingChoiceTime || '');
+        // Sesi 46 PR #58b: pass cluster context ke resetForm (D3-B auto-prefill).
+        resetForm(
+            state._pendingChoiceArmada || 1,
+            state._pendingChoiceTime || '',
+            state._pendingChoiceCluster || null,
+        );
         openModal('booking-form-modal');
         // Re-run after the browser has rendered the modal — handles cases where mobile
         // browsers restore previously selected values after form.reset()
@@ -1858,7 +1919,12 @@ export default function initBookingsPage({ user } = {}) {
 
     document.getElementById('choice-package-btn')?.addEventListener('click', () => {
         closeModal('booking-type-choice-modal');
-        resetPackageForm(state._pendingChoiceArmada || 1, state._pendingChoiceTime || '');
+        // Sesi 46 PR #58b: pass cluster context ke resetPackageForm (D-PR58b-2).
+        resetPackageForm(
+            state._pendingChoiceArmada || 1,
+            state._pendingChoiceTime || '',
+            state._pendingChoiceCluster || null,
+        );
         openModal('package-form-modal');
     });
 
@@ -1868,6 +1934,9 @@ export default function initBookingsPage({ user } = {}) {
     addButton?.addEventListener('click', () => {
         state._pendingChoiceArmada = 1;
         state._pendingChoiceTime = '';
+        // Sesi 46 PR #58b: top-level Add tidak ada cluster context.
+        // User harus pilih manual di form dropdown route_via.
+        state._pendingChoiceCluster = null;
         openModal('booking-type-choice-modal');
     });
 
