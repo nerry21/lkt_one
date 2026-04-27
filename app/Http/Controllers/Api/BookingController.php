@@ -119,13 +119,18 @@ class BookingController extends Controller
         // Kalau cluster provided dari frontend (route_via query), pakai sequence
         // logic langsung. Kalau missing (legacy frontend), fallback ke
         // RegularBookingService::resolveDirection auto-detect cluster.
+        // Sesi 48 PR #2: Sub-Route Seat Sharing overlap detection. Setelah
+        // candidate set di-reduce via filter (date/time/armada/direction/cluster),
+        // loop bookingsOverlap() di PHP layer untuk fine-grained sub-route filter.
+        // Kursi 1A booking SKPD→Aliantan + Kabun→Pekanbaru sekarang share kursi
+        // (penumpang #1 turun di Aliantan sebelum mobil sampai Kabun).
         $direction = $routeViaFilter !== null
             ? app(\App\Services\RouteSequenceService::class)->resolveDirection($routeViaFilter, $fromCity, $toCity)
             : app(\App\Services\RegularBookingService::class)->resolveDirection($fromCity, $toCity);
 
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
-        $occupied = Booking::query()
+        $candidates = Booking::query()
             ->where('trip_date', $tripDate)
             ->where('trip_time', 'like', $timePrefix . '%')
             // Treat NULL armada_index as armada 1 (backward-compat for records created before migration)
@@ -141,7 +146,31 @@ class BookingController extends Controller
             // legacy belum pass route_via (backward-compat).
             ->when($routeViaFilter !== null, fn ($q) => $q->where('route_via', $routeViaFilter))
             ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
-            ->get()
+            ->get();
+
+        // Sesi 48 PR #2: Sub-Route Seat Sharing — filter candidate via overlap
+        // detection. Booking yang range-nya tidak tabrakan dengan virtual booking
+        // (from_city → to_city dari query param) di-skip, kursinya tidak masuk
+        // occupied list.
+        //
+        // Backward compat: kalau routeViaFilter null (frontend legacy belum kirim
+        // route_via), skip overlap filter — pakai full candidate set seperti
+        // behavior Sesi 47 Fix #4.
+        if ($routeViaFilter !== null) {
+            $virtualBooking = new Booking();
+            $virtualBooking->route_via = $routeViaFilter;
+            $virtualBooking->direction = $direction;
+            $virtualBooking->from_city = $fromCity;
+            $virtualBooking->to_city = $toCity;
+
+            $sequenceService = app(\App\Services\RouteSequenceService::class);
+
+            $candidates = $candidates->filter(
+                fn (Booking $b) => $sequenceService->bookingsOverlap($b, $virtualBooking)
+            );
+        }
+
+        $occupied = $candidates
             ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
             ->unique()
             ->values()
