@@ -2208,8 +2208,35 @@ export default function initBookingsPage({ user } = {}) {
     function handleCityChange() {
         // Sesi 44D PR #1D: reset route_via user-touched flag saat from/to berubah
         // supaya auto-resolve cluster_map aktif lagi untuk rute baru.
+        // Sesi 47 Fix #3: SMART RESET — reset HANYA kalau resolved cluster baru
+        // BERBEDA dari current dropdown value. Kalau both kota AMBIGU/empty,
+        // atau resolved cluster sama dengan current value, preserve userTouched=1
+        // supaya panel cluster context (Sesi 46 PR #58b D3-B auto-prefill) tidak
+        // hilang saat user pilih kota AMBIGU dari form yang dibuka via panel BKG/PTP.
         const routeViaEl = document.getElementById('booking-route-via');
-        if (routeViaEl) routeViaEl.dataset.userTouched = '0';
+        if (routeViaEl) {
+            const origin = document.getElementById('booking-from-city')?.value || '';
+            const destination = document.getElementById('booking-to-city')?.value || '';
+            const clusterMap = state.formOptions?.cluster_map || {};
+            const fromCluster = clusterMap[origin] ?? null;
+            const toCluster = clusterMap[destination] ?? null;
+
+            // Resolve cluster pakai logic identik dengan updateRouteViaDropdown
+            // (line 1021-1026): prioritize from over to, ignore HUB.
+            let newResolvedCluster = null;
+            if (fromCluster && fromCluster !== 'HUB') {
+                newResolvedCluster = fromCluster;
+            } else if (toCluster && toCluster !== 'HUB') {
+                newResolvedCluster = toCluster;
+            }
+
+            // Reset HANYA kalau resolved cluster baru BERBEDA dari current value.
+            // Kalau ambigu (newResolvedCluster=null), preserve panel context.
+            // Kalau sama, no-op (auto-resolve idempotent — userTouched=1 OK).
+            if (newResolvedCluster && newResolvedCluster !== routeViaEl.value) {
+                routeViaEl.dataset.userTouched = '0';
+            }
+        }
         updateRouteViaDropdown();
         updatePricing();
         if (_cityChangePending) return;
