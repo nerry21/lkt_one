@@ -85,6 +85,88 @@ function clusterFromBooking(booking) {
     return ['BANGKINANG', 'PETAPAHAN'].includes(cluster) ? cluster : 'BANGKINANG';
 }
 
+// Sesi 47 Fix #1: filter dropdown city options berdasarkan cluster context.
+// Saat user buka form dari panel BANGKINANG, lokasi PETAPAHAN-fixed (Petapahan,
+// Suram, Kasikan) di-hide. Saat dari panel PETAPAHAN, lokasi BANGKINANG-fixed
+// (Bangkinang, Aliantan, Kabun, Kuok, Silam) di-hide. HUB (Pekanbaru) + AMBIGU
+// (12 lokasi) selalu visible.
+//
+// Implementation: DOM mutation hidden attribute + display none. Tidak destroy
+// option element supaya restoreAllCityOptions() bisa restore tanpa re-render.
+//
+// Cluster context source: state._pendingChoiceCluster (saat klik "+ Tambah
+// Pemesanan" dari panel cluster) atau dropdown route_via (saat user manual
+// override di form).
+//
+// Edge: cluster=null → show semua (top-level "Tambah Pemesanan" tidak ada
+// cluster context, admin pilih bebas).
+function filterCityOptionsByCluster(cluster) {
+    const clusterMap = state.formOptions?.cluster_map || {};
+    const fromCityEl = document.getElementById('booking-from-city');
+    const toCityEl = document.getElementById('booking-to-city');
+    const pkgFromCityEl = document.getElementById('pkg-from-city');
+    const pkgToCityEl = document.getElementById('pkg-to-city');
+
+    // Resolve target cluster. Empty/null = no filter (show all).
+    const targetCluster = (cluster || '').toUpperCase().trim();
+    const isFiltering = ['BANGKINANG', 'PETAPAHAN'].includes(targetCluster);
+
+    // Apply ke 4 dropdown city (Regular form 2 + Package form 2)
+    [fromCityEl, toCityEl, pkgFromCityEl, pkgToCityEl].forEach((selectEl) => {
+        if (!selectEl) return;
+
+        Array.from(selectEl.options).forEach((option) => {
+            const value = option.value;
+
+            // Skip placeholder option (value="")
+            if (value === '') {
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+
+            if (!isFiltering) {
+                // No cluster context → show all
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+
+            const locCluster = clusterMap[value] ?? null;
+
+            // HUB (Pekanbaru) + AMBIGU (null) selalu visible
+            if (locCluster === 'HUB' || locCluster === null) {
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+
+            // Fixed cluster yang beda dengan target → hide
+            if (locCluster !== targetCluster) {
+                option.hidden = true;
+                option.disabled = true; // Defense: ada browser yang ignore [hidden]
+            } else {
+                option.hidden = false;
+                option.disabled = false;
+            }
+        });
+
+        // Kalau current value sekarang di-hide (e.g. user switch cluster
+        // setelah pilih city), reset ke empty supaya placeholder tampil.
+        const currentOption = selectEl.options[selectEl.selectedIndex];
+        if (currentOption && currentOption.hidden) {
+            selectEl.value = '';
+        }
+    });
+}
+
+// Sesi 47 Fix #1: restore semua city options visible.
+// Dipakai saat fillForm/fillPackageForm (edit mode) supaya option yang ada
+// di booking lama tidak ke-hide kalau cluster-nya beda dengan default.
+function restoreAllCityOptions() {
+    filterCityOptionsByCluster(null);
+}
+
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
 function passengerSeatSvg(occupied) {
@@ -1180,11 +1262,20 @@ function resetForm(armadaIndex = 1, tripTime = '', cluster = null) {
     updatePaymentFieldVisibility();
     updateRouteViaDropdown();
     updatePricing();
+
+    // Sesi 47 Fix #1: filter city dropdown berdasarkan cluster context (D3-B).
+    // null cluster (top-level Add) → show all. Cluster value → filter strict.
+    filterCityOptionsByCluster(cluster);
+
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
     fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
 }
 
 function fillForm(item) {
+    // Sesi 47 Fix #1: restore semua city options (data lama mungkin punya
+    // city dari cluster lain, jangan auto-hide saat edit).
+    restoreAllCityOptions();
+
     state.editItem = item;
     state.selectedSeats = sortSeatCodes(item.selected_seats || []);
     state.passengerDraftMap = Object.fromEntries((item.passengers || []).map((p) => [p.seat_no, p]));
@@ -1680,6 +1771,9 @@ export default function initBookingsPage({ user } = {}) {
             pkgRouteViaEl.dataset.userTouched = cluster ? '1' : '0';
         }
 
+        // Sesi 47 Fix #1: filter city dropdown berdasarkan cluster context.
+        filterCityOptionsByCluster(cluster);
+
         updatePackageTotal();
         fetchOccupiedSeatsForPackage();
     }
@@ -1687,6 +1781,10 @@ export default function initBookingsPage({ user } = {}) {
     // Bug #49: populate package form from API booking payload for EDIT flow.
     // Reads notes JSON for recipient/item_* fields (stored as JSON at create time).
     function fillPackageForm(item) {
+        // Sesi 47 Fix #1: restore semua city options (data lama mungkin punya
+        // city dari cluster lain, jangan auto-hide saat edit).
+        restoreAllCityOptions();
+
         // Parse notes JSON for recipient/item fields (stored as JSON string at create time)
         let packageNotes = {};
         try {
@@ -2004,8 +2102,20 @@ export default function initBookingsPage({ user } = {}) {
 
     // Sesi 44D PR #1D: track user manual change pada dropdown route_via supaya
     // auto-resolve tidak overwrite pilihan user (untuk rute ambigu).
+    // Sesi 47 Fix #1: re-filter city dropdown saat user manual override
+    // dropdown route_via di form. Reactive — kalau user pindah cluster di
+    // tengah pengisian form, city options auto-update strict.
     document.getElementById('booking-route-via')?.addEventListener('change', (event) => {
         event.target.dataset.userTouched = '1';
+        const newCluster = event.target.value || null;
+        filterCityOptionsByCluster(newCluster);
+    });
+
+    // Sesi 47 Fix #1: re-filter city dropdown Package form saat user manual
+    // override pkg-route-via di form (parity dengan Regular form).
+    document.getElementById('pkg-route-via')?.addEventListener('change', (event) => {
+        const newCluster = event.target.value || null;
+        filterCityOptionsByCluster(newCluster);
     });
 
     // Payment method
