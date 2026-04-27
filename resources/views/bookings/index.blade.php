@@ -228,11 +228,111 @@
             .bpg-dv-row:last-child { border-bottom: none; }
             .bpg-detail-dialog-card { border-radius: 16px 16px 0 0 !important; }
         }
+
+        /* Sesi 49 PR #4 — Segment capacity collapsible panel */
+        .bpg-segment-capacity {
+            margin: 8px 0;
+            border: 1px solid #e0e7e3;
+            border-radius: 8px;
+            background: #f9fbfa;
+            overflow: hidden;
+        }
+        .bpg-segment-summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            font-size: 13px;
+            color: #2d5e4d;
+            transition: background 0.15s;
+        }
+        .bpg-segment-summary::-webkit-details-marker { display: none; }
+        .bpg-segment-summary:hover { background: #eef5f1; }
+        .bpg-segment-summary-icon { font-size: 14px; }
+        .bpg-segment-summary-text { font-weight: 600; flex: 1; }
+        .bpg-segment-summary-hint {
+            font-size: 11px;
+            color: #6b8077;
+            font-weight: 400;
+        }
+        .bpg-segment-capacity[open] .bpg-segment-summary {
+            border-bottom: 1px solid #e0e7e3;
+            background: #eef5f1;
+        }
+        .bpg-segment-list {
+            padding: 6px 0;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .bpg-segment-empty {
+            padding: 12px;
+            font-size: 12px;
+            color: #6b8077;
+            text-align: center;
+            font-style: italic;
+        }
+        .bpg-segment-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #3a4a45;
+            border-bottom: 1px solid #f0f4f2;
+        }
+        .bpg-segment-row:last-child { border-bottom: none; }
+        .bpg-segment-label { flex: 1; font-weight: 500; }
+        .bpg-segment-stats {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .bpg-segment-ratio {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            color: #2d5e4d;
+        }
+        .bpg-segment-bottleneck {
+            background: #fff8e1;
+        }
+        .bpg-segment-bottleneck .bpg-segment-ratio { color: #b87900; }
+        .bpg-segment-full {
+            background: #ffe5e5;
+        }
+        .bpg-segment-full .bpg-segment-ratio { color: #c0392b; }
+        .bpg-segment-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .bpg-segment-badge-busy {
+            background: #fdc56b;
+            color: #6b4400;
+        }
+        .bpg-segment-badge-full {
+            background: #e74c3c;
+            color: #fff;
+        }
+        @media (max-width: 600px) {
+            .bpg-segment-summary { padding: 7px 10px; font-size: 12px; }
+            .bpg-segment-row { padding: 5px 10px; font-size: 11px; }
+            .bpg-segment-summary-hint { display: none; }
+        }
     </style>
     <section class="admin-users-page animate-fade-in" data-bookings-page>
         <script id="bookings-form-options" type="application/json">@json($formOptions)</script>
         <script id="bookings-drivers-data" type="application/json">@json($drivers ?? [])</script>
         <script id="bookings-mobils-data" type="application/json">@json($mobils ?? [])</script>
+        <script id="bookings-route-sequences" type="application/json">@json($routeSequences ?? new \stdClass())</script>
 
         <section class="admin-users-page-header">
             <div class="admin-users-page-copy">
