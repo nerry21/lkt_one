@@ -1153,6 +1153,10 @@ async function fetchOccupiedSeats() {
     const toCity = document.getElementById('booking-to-city')?.value || '';
     const excludeId = state.editItem?.id || '';
     const armadaIndex = state.currentFormArmadaIndex || 1;
+    // Sesi 47 Fix #4: pass route_via untuk cluster filter di backend.
+    // Tanpa ini, occupiedSeats endpoint tidak bisa distinguish booking BKG
+    // vs PTP same slot — kursi silang-block antar cluster.
+    const routeVia = document.getElementById('booking-route-via')?.value || '';
 
     // Bug #47b: skip API call kalau route belum lengkap. Backend agregat
     // semua booking lintas rute saat from/to kosong, menyebabkan seat
@@ -1171,6 +1175,7 @@ async function fetchOccupiedSeats() {
             to_city: toCity,
         });
 
+        if (routeVia) params.set('route_via', routeVia);
         if (excludeId) params.set('exclude_id', excludeId);
 
         const res = await apiRequest(`/bookings/occupied-seats?${params}`);
@@ -1187,6 +1192,8 @@ async function fetchOccupiedSeatsForPackage() {
     const fromCity    = document.getElementById('pkg-from-city')?.value || '';
     const toCity      = document.getElementById('pkg-to-city')?.value || '';
     const armadaIndex = parseInt(document.getElementById('package-armada-index')?.value || '1', 10);
+    // Sesi 47 Fix #4: pass route_via untuk cluster filter di backend.
+    const routeVia    = document.getElementById('pkg-route-via')?.value || '';
 
     // Bug #47b: skip API call kalau route belum lengkap (sama dengan fetchOccupiedSeats).
     if (!tripDate || !tripTime || !fromCity || !toCity) {
@@ -1203,6 +1210,8 @@ async function fetchOccupiedSeatsForPackage() {
             from_city: fromCity,
             to_city: toCity,
         });
+
+        if (routeVia) params.set('route_via', routeVia);
 
         const res = await apiRequest(`/bookings/occupied-seats?${params}`);
         state.occupiedSeatsForPackageForm = Array.isArray(res?.occupied_seats) ? res.occupied_seats : [];

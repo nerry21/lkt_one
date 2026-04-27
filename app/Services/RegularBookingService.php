@@ -419,23 +419,67 @@ class RegularBookingService
     }
 
     /**
-     * Resolve direction (to_pkb | from_pkb) dari pasangan from_city/to_city.
-     * Sesi 44A PR #1A.
+     * Resolve direction backward-compat (tanpa cluster context).
+     * Sesi 44A PR #1A baseline; Sesi 47 Fix #4 sequence-aware refactor.
      *
-     * Aturan:
-     *   - to_city = Pekanbaru → to_pkb
-     *   - from_city = Pekanbaru → from_pkb
-     *   - Keduanya non-PKB (inter-titik): default to_pkb (admin revisi via PR #1D nanti)
+     * Sesi 47 Fix #4: Delegate ke RouteSequenceService dengan auto-resolve
+     * cluster via BookingClusterService::clusterForLocation(). Untuk rute
+     * fixed (e.g. Bangkinang→Kabun), cluster terdetect otomatis dari salah
+     * satu titik. Untuk rute fully ambigu, fallback ke BANGKINANG sequence
+     * (cluster default JET, common prefix 12 titik shared dengan PETAPAHAN
+     * jadi direction sama untuk titik pre-divergence).
+     *
+     * 18+ call sites dipreserve via signature backward-compat. Caller modern
+     * yang punya cluster context (booking.route_via) lebih baik pakai
+     * resolveDirectionWithCluster() langsung untuk skip cluster auto-detect.
      */
     public function resolveDirection(string $fromCity, string $toCity): string
     {
         $from = trim($fromCity);
         $to = trim($toCity);
 
-        return match (true) {
-            $to === 'Pekanbaru' => 'to_pkb',
-            $from === 'Pekanbaru' => 'from_pkb',
-            default => 'to_pkb',
-        };
+        // Sesi 47 Fix #4: Try sequence-based resolve via cluster auto-detection.
+        // Untuk rute fixed (e.g. Bangkinang→Kabun), BookingClusterService bisa
+        // detect cluster dari clusterForLocation. Untuk rute ambigu, fall back.
+        $clusterService = app(BookingClusterService::class);
+        $fromCluster = $clusterService->clusterForLocation($from);
+        $toCluster = $clusterService->clusterForLocation($to);
+
+        // Pick non-HUB cluster fixed (BANGKINANG atau PETAPAHAN).
+        $resolvedCluster = null;
+        foreach ([$fromCluster, $toCluster] as $c) {
+            if ($c !== null && $c !== 'HUB' && in_array($c, ['BANGKINANG', 'PETAPAHAN'], true)) {
+                $resolvedCluster = $c;
+                break;
+            }
+        }
+
+        if ($resolvedCluster !== null) {
+            return $this->resolveDirectionWithCluster($resolvedCluster, $from, $to);
+        }
+
+        // Fallback: rute fully ambigu (e.g. SKPD→Pekanbaru). Pakai default
+        // BANGKINANG sequence (cluster majority JET, common prefix 12 titik
+        // identical kedua cluster jadi direction sama untuk titik shared).
+        return $this->resolveDirectionWithCluster('BANGKINANG', $from, $to);
+    }
+
+    /**
+     * Sesi 47 Fix #4: Resolve direction dengan cluster context explicit.
+     * Caller modern (BookingController, persistence services) yang sudah tahu
+     * cluster (dari booking.route_via) sebaiknya pakai method ini langsung
+     * supaya skip cluster auto-detection round-trip.
+     *
+     * @param  string  $cluster   'BANGKINANG' | 'PETAPAHAN'
+     * @param  string  $fromCity  Kota asal
+     * @param  string  $toCity    Kota tujuan
+     * @return string             'to_pkb' | 'from_pkb'
+     */
+    public function resolveDirectionWithCluster(string $cluster, string $fromCity, string $toCity): string
+    {
+        $from = trim($fromCity);
+        $to = trim($toCity);
+
+        return app(RouteSequenceService::class)->resolveDirection($cluster, $from, $to);
     }
 }

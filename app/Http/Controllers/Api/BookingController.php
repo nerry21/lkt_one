@@ -97,6 +97,13 @@ class BookingController extends Controller
         $toCity    = trim((string) $request->query('to_city', ''));
         $armadaIndex = max(1, (int) $request->query('armada_index', 1));
 
+        // Sesi 47 Fix #4: NEW query param `route_via` untuk cluster filter.
+        // Whitelist value supaya tidak ada SQL injection. Kalau missing
+        // (legacy frontend belum upgrade), tetap query semua cluster
+        // (backward-compat — direction filter saja).
+        $routeVia = strtoupper(trim((string) $request->query('route_via', '')));
+        $routeViaFilter = in_array($routeVia, ['BANGKINANG', 'PETAPAHAN'], true) ? $routeVia : null;
+
         // Bug #47b: defensive — required filter trip_date+trip_time DAN route
         // (from_city + to_city). Tanpa route, query agregat semua booking lintas
         // rute fisik berbeda menyebabkan contamination antar rute. Frontend
@@ -108,9 +115,13 @@ class BookingController extends Controller
         // Sesi 44A PR #1A: filter slot fisik mobil pakai (date, time, direction, armada_index)
         // — bukan (date, time, from_city, to_city). Booking dari Simpang D dan Pasirpengaraian
         // sama-sama direction=to_pkb di mobil sama akan saling block kursi.
-        // route_via belum di-filter di PR #1A (default semua BANGKINANG); PR #1C aktifkan.
-        $regularBookingService = app(\App\Services\RegularBookingService::class);
-        $direction = $regularBookingService->resolveDirection($fromCity, $toCity);
+        // Sesi 47 Fix #4: Resolve direction sequence-aware via RouteSequenceService.
+        // Kalau cluster provided dari frontend (route_via query), pakai sequence
+        // logic langsung. Kalau missing (legacy frontend), fallback ke
+        // RegularBookingService::resolveDirection auto-detect cluster.
+        $direction = $routeViaFilter !== null
+            ? app(\App\Services\RouteSequenceService::class)->resolveDirection($routeViaFilter, $fromCity, $toCity)
+            : app(\App\Services\RegularBookingService::class)->resolveDirection($fromCity, $toCity);
 
         $timePrefix = strlen($tripTime) >= 5 ? substr($tripTime, 0, 5) : $tripTime;
 
@@ -125,6 +136,10 @@ class BookingController extends Controller
                 }
             })
             ->where('direction', $direction)
+            // Sesi 47 Fix #4: cluster filter — booking BKG dan PTP same slot
+            // tidak silang-block kursi (defense in depth). Skip kalau frontend
+            // legacy belum pass route_via (backward-compat).
+            ->when($routeViaFilter !== null, fn ($q) => $q->where('route_via', $routeViaFilter))
             ->when($excludeId !== '', fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->flatMap(fn (Booking $b) => (array) ($b->selected_seats ?? []))
