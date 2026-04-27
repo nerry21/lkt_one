@@ -469,10 +469,31 @@
                                 </div>
                             </div>
 
+                            {{-- Sesi 47 Fix #2: Driver dropdown (replace text input).
+                                 Source: state.drivers populated dari bookings-drivers-data JSON.
+                                 Auto-pre-fill dari slotDriverMap saat resetForm. --}}
                             <div class="admin-users-form-group">
-                                <label for="booking-driver-name">Nama Driver</label>
+                                <label for="booking-driver-id">Nama Driver</label>
                                 <div class="admin-users-input-shell">
-                                    <input id="booking-driver-name" name="driver_name" type="text" placeholder="Kosongkan jika belum ditentukan" data-testid="input-booking-driver-name">
+                                    <select id="booking-driver-id" name="driver_id" data-testid="input-booking-driver-id">
+                                        <option value="">— Belum ditentukan —</option>
+                                        {{-- Options di-populate by JS dari state.drivers --}}
+                                    </select>
+                                </div>
+                                {{-- Hidden field untuk backward compat dengan driver_name (sync di JS) --}}
+                                <input type="hidden" id="booking-driver-name" name="driver_name" value="">
+                            </div>
+
+                            {{-- Sesi 47 Fix #2: Kode Mobil dropdown (BARU).
+                                 Source: state.mobils populated dari bookings-mobils-data JSON.
+                                 Auto-pre-fill dari slotMobilMap saat resetForm. --}}
+                            <div class="admin-users-form-group">
+                                <label for="booking-mobil-id">Kode Mobil</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="booking-mobil-id" name="mobil_id" data-testid="input-booking-mobil-id">
+                                        <option value="">— Belum ditentukan —</option>
+                                        {{-- Options di-populate by JS dari state.mobils --}}
+                                    </select>
                                 </div>
                             </div>
 
@@ -750,6 +771,26 @@
                                     </select>
                                 </div>
                                 <p class="form-help-text" data-pkg-route-via-helper hidden>Jalur mobil otomatis ter-isi dari panel cluster, override jika perlu.</p>
+                            </div>
+
+                            {{-- Sesi 47 Fix #2: Driver dropdown Package form symmetric Regular form. --}}
+                            <div class="admin-users-form-group">
+                                <label for="pkg-driver-id">Nama Driver</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-driver-id" name="driver_id" data-testid="input-pkg-driver-id">
+                                        <option value="">— Belum ditentukan —</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {{-- Sesi 47 Fix #2: Kode Mobil dropdown Package form. --}}
+                            <div class="admin-users-form-group">
+                                <label for="pkg-mobil-id">Kode Mobil</label>
+                                <div class="admin-users-input-shell">
+                                    <select id="pkg-mobil-id" name="mobil_id" data-testid="input-pkg-mobil-id">
+                                        <option value="">— Belum ditentukan —</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>

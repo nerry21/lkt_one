@@ -223,6 +223,9 @@ class BookingManagementService
             'booking_status_badge_class' => $this->statusBadgeClass((string) $booking->booking_status),
             'payment_status_badge_class' => $this->statusBadgeClass((string) $booking->payment_status),
             'driver_id' => $booking->driver_id,
+            // Sesi 47 Fix #2: expose mobil_id supaya edit mode form modal bisa
+            // pre-fill dropdown Kode Mobil (symmetric driver_id existing).
+            'mobil_id' => $booking->mobil_id,
             'driver_name' => trim((string) ($booking->driver_name ?? '')) !== '' ? (string) $booking->driver_name : null,
             'additional_fare_per_passenger' => max(0, (int) round((float) ($booking->total_amount ?? 0) / max(1, (int) ($booking->passenger_count ?? 1)) - (float) ($booking->price_per_seat ?? 0))),
             'selected_seats' => (array) ($booking->selected_seats ?? []),
@@ -584,6 +587,9 @@ class BookingManagementService
             'route_label' => trim((string) $validated['from_city']) . ' - ' . trim((string) $validated['to_city']),
             'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
             'driver_name' => filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null,
+            // Sesi 47 Fix #2: driver_id + mobil_id dari form modal dropdown.
+            'driver_id' => $validated['driver_id'] ?? null,
+            'mobil_id' => $validated['mobil_id'] ?? null,
             'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
             'payment_account_bank' => $transferAccount['bank_name'] ?? $qrisAccount['provider_name'] ?? null,
             'payment_account_name' => $transferAccount['account_holder'] ?? $qrisAccount['account_holder'] ?? null,

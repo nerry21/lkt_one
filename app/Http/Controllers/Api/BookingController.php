@@ -474,6 +474,9 @@ class BookingController extends Controller
                 // (pattern Sesi 44A PR #1A). Cluster ambigu lokasi → admin pilih
                 // explicit di form dropdown.
                 'route_via'              => $v['route_via'] ?? null,
+                // Sesi 47 Fix #2: driver_id + mobil_id dari form modal Package.
+                'driver_id'              => $v['driver_id'] ?? null,
+                'mobil_id'               => $v['mobil_id'] ?? null,
                 'trip_date'              => $tripDate,
                 'trip_time'              => $tripTime,
                 'booking_for'            => trim((string) $v['package_size']),
@@ -633,6 +636,9 @@ class BookingController extends Controller
                 'to_city'                => $toCity,
                 // Sesi 46 PR #58b: cluster-aware route_via — symmetric quickPackageStore.
                 'route_via'              => $v['route_via'] ?? null,
+                // Sesi 47 Fix #2: driver_id + mobil_id update Package symmetric store.
+                'driver_id'              => $v['driver_id'] ?? null,
+                'mobil_id'               => $v['mobil_id'] ?? null,
                 'trip_date'              => $tripDate,
                 'trip_time'              => $tripTime,
                 'booking_for'            => trim((string) $v['package_size']),

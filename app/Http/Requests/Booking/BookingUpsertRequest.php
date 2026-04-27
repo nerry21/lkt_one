@@ -41,6 +41,10 @@ abstract class BookingUpsertRequest extends FormRequest
             'category' => ['required', 'string', Rule::in($bookingService->serviceTypeValues())],
             'additional_fare_per_passenger' => ['nullable', 'integer', 'min:0'],
             'driver_name' => ['nullable', 'string', 'max:100'],
+            // Sesi 47 Fix #2: driver_id + mobil_id nullable, exists check di DB.
+            // Source: form modal dropdown (replace text input driver_name legacy).
+            'driver_id' => ['nullable', 'string', 'exists:drivers,id'],
+            'mobil_id' => ['nullable', 'string', 'exists:mobil,id'],
             'payment_method' => ['nullable', 'string', Rule::in($bookingService->paymentMethodValues())],
             'payment_status' => ['required', 'string', Rule::in($bookingService->paymentStatusValues())],
             'booking_status' => ['required', 'string', Rule::in($bookingService->bookingStatusValues())],
@@ -70,6 +74,8 @@ abstract class BookingUpsertRequest extends FormRequest
             'passengers.*.phone' => 'nomor HP penumpang',
             'category' => 'jenis layanan',
             'driver_name' => 'nama driver',
+            'driver_id' => 'driver',
+            'mobil_id' => 'kode mobil',
             'payment_method' => 'metode pembayaran',
             'payment_status' => 'status pembayaran',
             'booking_status' => 'status booking',
@@ -289,6 +295,14 @@ abstract class BookingUpsertRequest extends FormRequest
             // di service layer, route_via cuma informational.
             'route_via' => filled($this->input('route_via'))
                 ? strtoupper(trim((string) $this->input('route_via')))
+                : null,
+            // Sesi 47 Fix #2: normalize empty string → null supaya exists rule
+            // tidak fail untuk driver/mobil yang sengaja kosong (Belum ditentukan).
+            'driver_id' => filled($this->input('driver_id'))
+                ? trim((string) $this->input('driver_id'))
+                : null,
+            'mobil_id' => filled($this->input('mobil_id'))
+                ? trim((string) $this->input('mobil_id'))
                 : null,
         ]);
     }
