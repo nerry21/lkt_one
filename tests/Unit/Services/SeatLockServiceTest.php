@@ -324,4 +324,142 @@ class SeatLockServiceTest extends TestCase
         $this->assertSame(['1A', '2A'], $slotA->sort()->values()->all());
         $this->assertSame(['3A'], $slotB->all());
     }
+
+    // ── Sesi 48 PR #3 Sub-Route Seat Sharing coverage ──────────────────────
+
+    protected function subRouteSlot(
+        string $fromCity,
+        string $toCity,
+        string $routeVia = 'BANGKINANG',
+        string $direction = 'to_pkb',
+        string $date = '2026-04-20',
+        string $time = '05:30:00',
+        int $armada = 1,
+    ): array {
+        return [
+            'trip_date' => $date,
+            'trip_time' => $time,
+            'from_city' => $fromCity,
+            'to_city' => $toCity,
+            'direction' => $direction,
+            'route_via' => $routeVia,
+            'armada_index' => $armada,
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_succeeds_for_disjoint_subroute_skpd_aliantan_then_kabun_pekanbaru(): void
+    {
+        // Skenario Nerry: Booking #1 SKPD→Aliantan kursi 2A,
+        // Booking #2 Kabun→Pekanbaru kursi 2A → both succeed (range disjoint).
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Aliantan')], ['2A'], 'soft');
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('Kabun', 'Pekanbaru')], ['2A'], 'soft');
+
+        // Verify 2 active rows exist with same seat
+        $this->assertSame(2, BookingSeat::query()->active()->where('seat_number', '2A')->count());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_succeeds_when_ranges_touch_at_dropoff_point(): void
+    {
+        // SKPD→Aliantan vs Aliantan→Pekanbaru → touch at idx 12 → no overlap (drop-off semantic)
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Aliantan')], ['3A'], 'soft');
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('Aliantan', 'Pekanbaru')], ['3A'], 'soft');
+
+        $this->assertSame(2, BookingSeat::query()->active()->where('seat_number', '3A')->count());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_throws_for_overlapping_subroute_tandun_pekanbaru_vs_skpd_aliantan(): void
+    {
+        // Tandun→Pekanbaru [11,17] overlap dengan SKPD→Aliantan [0,12] di idx 11-12
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Aliantan')], ['4A'], 'soft');
+
+        $this->expectException(SeatConflictException::class);
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('Tandun', 'Pekanbaru')], ['4A'], 'soft');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_succeeds_when_clusters_differ(): void
+    {
+        // BKG vs PTP same seat → cluster filter sudah skip di DB query level
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Pekanbaru', 'BANGKINANG')], ['5A'], 'soft');
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('SKPD', 'Pekanbaru', 'PETAPAHAN')], ['5A'], 'soft');
+
+        $this->assertSame(2, BookingSeat::query()->active()->where('seat_number', '5A')->count());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_throws_for_identical_routes_same_cluster(): void
+    {
+        // Both SKPD→Pekanbaru BANGKINANG kursi 1A → overlap (full range)
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Pekanbaru')], ['1A'], 'soft');
+
+        $this->expectException(SeatConflictException::class);
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('SKPD', 'Pekanbaru')], ['1A'], 'soft');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function lock_succeeds_for_petapahan_disjoint_skpd_suram_vs_petapahan_pekanbaru(): void
+    {
+        // PETAPAHAN: SKPD→Suram [0,12] vs Petapahan→Pekanbaru [14,15] → no overlap
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Suram', 'PETAPAHAN')], ['2B'], 'soft');
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('Petapahan', 'Pekanbaru', 'PETAPAHAN')], ['2B'], 'soft');
+
+        $this->assertSame(2, BookingSeat::query()->active()->where('seat_number', '2B')->count());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function get_occupied_seats_returns_only_overlapping_subroute_bookings(): void
+    {
+        // 3 bookings di slot+armada+cluster sama, kursi berbeda:
+        // - B1: SKPD→Aliantan kursi 1A → overlap dengan virtual SKPD→Pekanbaru
+        // - B2: Kabun→Pekanbaru kursi 2A → overlap dengan virtual SKPD→Pekanbaru (range contains)
+        // - B3: Aliantan→Kabun kursi 3A → overlap dengan virtual SKPD→Pekanbaru (range contains)
+        // Virtual query: SKPD→Pekanbaru → all 3 SHOULD return overlap → all 3 occupied
+        $b1 = Booking::factory()->create();
+        $b2 = Booking::factory()->create();
+        $b3 = Booking::factory()->create();
+
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Aliantan')], ['1A'], 'soft');
+        $this->svc->lockSeats($b2, [$this->subRouteSlot('Kabun', 'Pekanbaru')], ['2A'], 'soft');
+        $this->svc->lockSeats($b3, [$this->subRouteSlot('Aliantan', 'Kabun')], ['3A'], 'soft');
+
+        // Query virtual SKPD→Pekanbaru → harus include semua 3 (range covers)
+        $occupied = $this->svc->getOccupiedSeats($this->subRouteSlot('SKPD', 'Pekanbaru'));
+
+        $this->assertCount(3, $occupied);
+        $this->assertEqualsCanonicalizing(['1A', '2A', '3A'], $occupied->all());
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function get_occupied_seats_excludes_disjoint_subroute_bookings(): void
+    {
+        // B1: SKPD→Aliantan kursi 1A → range [0,12]
+        // Query virtual: Kabun→Pekanbaru [13,17] → disjoint, B1 NOT occupied
+        $b1 = Booking::factory()->create();
+        $this->svc->lockSeats($b1, [$this->subRouteSlot('SKPD', 'Aliantan')], ['1A'], 'soft');
+
+        $occupied = $this->svc->getOccupiedSeats($this->subRouteSlot('Kabun', 'Pekanbaru'));
+
+        $this->assertCount(0, $occupied);
+    }
 }

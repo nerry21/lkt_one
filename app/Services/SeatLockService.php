@@ -104,14 +104,58 @@ class SeatLockService
             }
         }
 
-        return DB::transaction(function () use ($booking, $candidateRows, $seatNumbers): Collection {
+        return DB::transaction(function () use ($booking, $candidateRows, $seatNumbers, $normalizedSlots): Collection {
             // 3a. Pre-check: range-lock existing active rows yang match candidate slots+seats.
             //     lockForUpdate() acquire gap/row lock di index composite untuk serialize
             //     concurrent insert pada slot overlap (cegah race antara SELECT & INSERT).
-            $existingConflicts = $this->applySlotSeatWhereClause(
+            //
+            //     Sesi 48 PR #3: DB-level filter REDUCE candidate set (efisien), lalu
+            //     PHP-level overlap filter via RouteSequenceService::bookingsOverlap()
+            //     untuk fine-grained sub-route sharing. Booking SKPD→Tandun + Aliantan→
+            //     Bangkinang di seat sama TIDAK lagi block di pre-check.
+            $candidates = $this->applySlotSeatWhereClause(
                 BookingSeat::query()->active()->lockForUpdate(),
                 $candidateRows,
             )->get();
+
+            // Sesi 48 PR #3: Filter candidate via overlap detection. Kalau TIDAK ada
+            // overlap (range disjoint sub-route), bukan conflict beneran — skip.
+            $sequenceService = app(\App\Services\RouteSequenceService::class);
+            $candidateRowsByKey = $this->indexCandidateRowsByKey($candidateRows);
+
+            $existingConflicts = $candidates->filter(function (BookingSeat $existing) use (
+                $candidateRowsByKey,
+                $sequenceService
+            ): bool {
+                $key = $this->slotSeatKey(
+                    $existing->trip_date->toDateString(),
+                    (string) $existing->trip_time,
+                    (string) $existing->direction,
+                    (string) $existing->route_via,
+                    (int) $existing->armada_index,
+                    (string) $existing->seat_number,
+                );
+
+                $candidateRow = $candidateRowsByKey[$key] ?? null;
+                if ($candidateRow === null) {
+                    return true; // defensive: candidate tidak ditemukan → anggap conflict
+                }
+
+                // Build virtual booking dari existing + candidate, cek overlap
+                $existingBooking = new \App\Models\Booking();
+                $existingBooking->route_via = (string) $existing->route_via;
+                $existingBooking->direction = (string) $existing->direction;
+                $existingBooking->from_city = (string) $existing->from_city;
+                $existingBooking->to_city = (string) $existing->to_city;
+
+                $candidateBooking = new \App\Models\Booking();
+                $candidateBooking->route_via = (string) $candidateRow['route_via'];
+                $candidateBooking->direction = (string) $candidateRow['direction'];
+                $candidateBooking->from_city = (string) $candidateRow['from_city'];
+                $candidateBooking->to_city = (string) $candidateRow['to_city'];
+
+                return $sequenceService->bookingsOverlap($existingBooking, $candidateBooking);
+            });
 
             // 3b. Conflict ada → throw SeatConflictException dengan detail booking_id asal.
             if ($existingConflicts->isNotEmpty()) {
@@ -291,8 +335,10 @@ class SeatLockService
                 (string) ($slot['to_city'] ?? ''),
             );
         $routeVia = $slot['route_via'] ?? 'BANGKINANG';
+        $fromCity = (string) ($slot['from_city'] ?? '');
+        $toCity = (string) ($slot['to_city'] ?? '');
 
-        return BookingSeat::query()
+        $candidates = BookingSeat::query()
             ->active()
             ->where('trip_date', $slot['trip_date'])
             ->where('trip_time', $this->normalizeTripTime((string) $slot['trip_time']))
@@ -300,6 +346,32 @@ class SeatLockService
             ->where('route_via', $routeVia)
             ->where('armada_index', $slot['armada_index'])
             ->when($excludeBookingId, fn (Builder $q, int $id) => $q->where('booking_id', '!=', $id))
+            ->get();
+
+        // Sesi 48 PR #3: Sub-Route Seat Sharing — filter via overlap detection.
+        // Kalau caller TIDAK provide from_city/to_city (legacy slot), skip overlap
+        // filter — pakai full candidate seperti behavior Sesi 44A PR #1A.
+        if ($fromCity !== '' && $toCity !== '') {
+            $sequenceService = app(\App\Services\RouteSequenceService::class);
+
+            $virtualBooking = new \App\Models\Booking();
+            $virtualBooking->route_via = $routeVia;
+            $virtualBooking->direction = $direction;
+            $virtualBooking->from_city = $fromCity;
+            $virtualBooking->to_city = $toCity;
+
+            $candidates = $candidates->filter(function (BookingSeat $b) use ($sequenceService, $virtualBooking): bool {
+                $existingBooking = new \App\Models\Booking();
+                $existingBooking->route_via = (string) $b->route_via;
+                $existingBooking->direction = (string) $b->direction;
+                $existingBooking->from_city = (string) $b->from_city;
+                $existingBooking->to_city = (string) $b->to_city;
+
+                return $sequenceService->bookingsOverlap($existingBooking, $virtualBooking);
+            });
+        }
+
+        return $candidates
             ->pluck('seat_number')
             ->unique()
             ->values();
@@ -325,6 +397,46 @@ class SeatLockService
                 });
             }
         });
+    }
+
+    /**
+     * Sesi 48 PR #3 — Build composite key string dari slot+seat untuk lookup.
+     */
+    private function slotSeatKey(
+        string $tripDate,
+        string $tripTime,
+        string $direction,
+        string $routeVia,
+        int $armadaIndex,
+        string $seatNumber
+    ): string {
+        return implode('|', [$tripDate, $tripTime, $direction, $routeVia, $armadaIndex, $seatNumber]);
+    }
+
+    /**
+     * Sesi 48 PR #3 — Index candidateRows by slot+seat key untuk O(1) lookup
+     * pas filter overlap di pre-check. Cartesian N×M candidate could be 100+ rows
+     * di rental multi-day worst case.
+     *
+     * @param  array<int, array<string, mixed>>  $candidateRows
+     * @return array<string, array<string, mixed>>
+     */
+    private function indexCandidateRowsByKey(array $candidateRows): array
+    {
+        $indexed = [];
+        foreach ($candidateRows as $row) {
+            $key = $this->slotSeatKey(
+                (string) $row['trip_date'],
+                (string) $row['trip_time'],
+                (string) $row['direction'],
+                (string) $row['route_via'],
+                (int) $row['armada_index'],
+                (string) $row['seat_number'],
+            );
+            $indexed[$key] = $row;
+        }
+
+        return $indexed;
     }
 
     /**
