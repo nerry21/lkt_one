@@ -32,6 +32,9 @@ class UpdateQuickPackageBookingRequest extends FormRequest
             // dengan Regular form (D-PR58b-2 locked). Nullable + whitelist guard
             // (backend default 'BANGKINANG' di service kalau missing).
             'route_via'       => ['nullable', 'string', Rule::in(['BANGKINANG', 'PETAPAHAN'])],
+            // Sesi 47 Fix #2: driver_id + mobil_id form modal Package update.
+            'driver_id'       => ['nullable', 'string', 'exists:drivers,id'],
+            'mobil_id'        => ['nullable', 'string', 'exists:mobil,id'],
             'armada_index'    => ['nullable', 'integer', 'min:1', 'max:10'],
             'sender_name'     => ['required', 'string', 'max:100'],
             'sender_phone'    => ['nullable', 'string', 'max:20'],
@@ -60,6 +63,8 @@ class UpdateQuickPackageBookingRequest extends FormRequest
             'from_city'       => 'kota asal',
             'to_city'         => 'kota tujuan',
             'route_via'       => 'jalur mobil',
+            'driver_id'       => 'driver',
+            'mobil_id'        => 'kode mobil',
             'sender_name'     => 'nama pengirim',
             'sender_phone'    => 'no. HP pengirim',
             'sender_address'  => 'alamat pengirim',
@@ -86,6 +91,13 @@ class UpdateQuickPackageBookingRequest extends FormRequest
             // Sesi 46 PR #58b: normalize route_via uppercase + trim
             'route_via'       => filled($this->input('route_via'))
                 ? strtoupper(trim((string) $this->input('route_via')))
+                : null,
+            // Sesi 47 Fix #2: normalize empty string → null untuk driver/mobil.
+            'driver_id'       => filled($this->input('driver_id'))
+                ? trim((string) $this->input('driver_id'))
+                : null,
+            'mobil_id'        => filled($this->input('mobil_id'))
+                ? trim((string) $this->input('mobil_id'))
                 : null,
             'trip_time'       => trim((string) $this->input('trip_time')),
             'sender_name'     => trim((string) $this->input('sender_name')),

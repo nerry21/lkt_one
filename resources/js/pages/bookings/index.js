@@ -167,6 +167,51 @@ function restoreAllCityOptions() {
     filterCityOptionsByCluster(null);
 }
 
+// Sesi 47 Fix #2: populate dropdown Driver + Mobil dari state.drivers + state.mobils.
+// Dipanggil saat init + saat reset form. Label informatif:
+//   Driver: "Pak Budi (Pasir)" — nama + lokasi
+//   Mobil:  "JET 01 — Avanza (Basecamp ROHUL)" — kode + jenis + home_pool
+//
+// D-Fix2-2 locked: Show all (no cluster filter), karena JET cuma punya
+// 5 mobil + few drivers. Filter strict berisiko UX kosong. Admin pilih bebas.
+function populateDriverMobilDropdowns() {
+    const driverSelectIds = ['booking-driver-id', 'pkg-driver-id'];
+    const mobilSelectIds = ['booking-mobil-id', 'pkg-mobil-id'];
+
+    driverSelectIds.forEach((selId) => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+
+        const placeholder = sel.querySelector('option[value=""]');
+        sel.innerHTML = '';
+        if (placeholder) sel.appendChild(placeholder);
+
+        state.drivers.forEach((d) => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.lokasi ? `${d.nama} (${d.lokasi})` : d.nama;
+            sel.appendChild(opt);
+        });
+    });
+
+    mobilSelectIds.forEach((selId) => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+
+        const placeholder = sel.querySelector('option[value=""]');
+        sel.innerHTML = '';
+        if (placeholder) sel.appendChild(placeholder);
+
+        state.mobils.forEach((m) => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const homePoolLabel = m.home_pool ? ` (Basecamp ${m.home_pool})` : '';
+            opt.textContent = `${m.kode_mobil} — ${m.jenis_mobil}${homePoolLabel}`;
+            sel.appendChild(opt);
+        });
+    });
+}
+
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
 function passengerSeatSvg(occupied) {
@@ -991,8 +1036,13 @@ function updateRouteViaDropdown() {
     }
 
     if (helper) {
+        // Sesi 47 Fix #2: helper text "wajib pilih jalur mobil" hanya muncul
+        // KALAU rute ambigu DAN dropdown route_via masih kosong. Kalau sudah
+        // pre-filled dari panel context (D3-B Sesi 46 PR #58b) atau user sudah
+        // pilih manual, helper text di-hide karena ambiguity sudah resolved.
         const isAmbiguous = !resolvedCluster && origin && destination && origin !== destination;
-        helper.hidden = !isAmbiguous;
+        const dropdownEmpty = !select.value;
+        helper.hidden = !(isAmbiguous && dropdownEmpty);
     }
 }
 
@@ -1267,6 +1317,35 @@ function resetForm(armadaIndex = 1, tripTime = '', cluster = null) {
     // null cluster (top-level Add) → show all. Cluster value → filter strict.
     filterCityOptionsByCluster(cluster);
 
+    // Sesi 47 Fix #2: pre-fill driver/mobil dari slot map kalau ada.
+    // Source: state.slotDriverMap[slotArmadaKey] + state.slotMobilMap[slotArmadaKey].
+    // slotArmadaKey: HH:MM__direction__CLUSTER__armadaIndex (Sesi 46 PR #58a).
+    // Default kosong kalau slot belum punya driver/mobil assigned.
+    const driverSelect = document.getElementById('booking-driver-id');
+    const mobilSelect = document.getElementById('booking-mobil-id');
+    const driverNameHidden = document.getElementById('booking-driver-name');
+
+    if (driverSelect) driverSelect.value = '';
+    if (mobilSelect) mobilSelect.value = '';
+    if (driverNameHidden) driverNameHidden.value = '';
+
+    if (cluster && tripTime) {
+        const slotArmadaKey = `${tripTime}__${state.direction}__${cluster}__${armadaIndex}`;
+        const slotDriverId = state.slotDriverMap[slotArmadaKey] || '';
+        const slotMobilId = state.slotMobilMap[slotArmadaKey] || '';
+
+        if (driverSelect && slotDriverId) {
+            driverSelect.value = slotDriverId;
+            const driverObj = state.drivers.find((d) => String(d.id) === String(slotDriverId));
+            if (driverNameHidden && driverObj) {
+                driverNameHidden.value = driverObj.nama;
+            }
+        }
+        if (mobilSelect && slotMobilId) {
+            mobilSelect.value = slotMobilId;
+        }
+    }
+
     setButtonBusy(document.getElementById('booking-submit-btn'), false, 'Menyimpan...');
     fetchOccupiedSeats().then(() => { renderSeatButtons(); renderPassengerForms(); });
 }
@@ -1290,7 +1369,18 @@ function fillForm(item) {
     document.getElementById('booking-trip-date').value = item.trip_date_value;
     document.getElementById('booking-trip-time').value = item.trip_time_value;
     document.getElementById('booking-passenger-count').value = String(item.passenger_count);
-    document.getElementById('booking-driver-name').value = item.driver_name === 'Menunggu Penetapan Driver' ? '' : (item.driver_name || '');
+    // Sesi 47 Fix #2: load driver/mobil dari item di edit mode.
+    // booking-driver-name sekarang hidden field, sync via dropdown driver-id.
+    const driverNameHidden = document.getElementById('booking-driver-name');
+    if (driverNameHidden) {
+        driverNameHidden.value = item.driver_name === 'Menunggu Penetapan Driver' ? '' : (item.driver_name || '');
+    }
+
+    const driverIdEl = document.getElementById('booking-driver-id');
+    if (driverIdEl) driverIdEl.value = item.driver_id || '';
+
+    const mobilIdEl = document.getElementById('booking-mobil-id');
+    if (mobilIdEl) mobilIdEl.value = item.mobil_id || '';
     document.getElementById('booking-additional-fare').value = String(item.additional_fare_per_passenger || 0);
     document.getElementById('booking-pickup-location').value = item.pickup_location;
     document.getElementById('booking-dropoff-location').value = item.dropoff_location;
@@ -1331,6 +1421,9 @@ function buildPayload() {
         trip_time: document.getElementById('booking-trip-time')?.value || '',
         passenger_count: Number(document.getElementById('booking-passenger-count')?.value || 0),
         driver_name: document.getElementById('booking-driver-name')?.value.trim() || '',
+        // Sesi 47 Fix #2: driver_id + mobil_id from form modal dropdown.
+        driver_id: document.getElementById('booking-driver-id')?.value || null,
+        mobil_id: document.getElementById('booking-mobil-id')?.value || null,
         additional_fare_per_passenger: additionalFareValue(),
         pickup_location: document.getElementById('booking-pickup-location')?.value.trim() || '',
         dropoff_location: document.getElementById('booking-dropoff-location')?.value.trim() || '',
@@ -1411,6 +1504,9 @@ export default function initBookingsPage({ user } = {}) {
     state.formOptions = parseJsonScript('bookings-form-options');
     state.drivers = parseJsonScript('bookings-drivers-data') || [];
     state.mobils = parseJsonScript('bookings-mobils-data') || [];
+
+    // Sesi 47 Fix #2: populate dropdown Driver + Mobil di form modal (Regular + Package).
+    populateDriverMobilDropdowns();
     state.currentUser = user || window.transitAuthUser || null;
     state.date = todayString();
 
@@ -1774,6 +1870,22 @@ export default function initBookingsPage({ user } = {}) {
         // Sesi 47 Fix #1: filter city dropdown berdasarkan cluster context.
         filterCityOptionsByCluster(cluster);
 
+        // Sesi 47 Fix #2: pre-fill driver/mobil dari slot map (symmetric Regular form).
+        const pkgDriverSelect = document.getElementById('pkg-driver-id');
+        const pkgMobilSelect = document.getElementById('pkg-mobil-id');
+
+        if (pkgDriverSelect) pkgDriverSelect.value = '';
+        if (pkgMobilSelect) pkgMobilSelect.value = '';
+
+        if (cluster && tripTime) {
+            const slotArmadaKey = `${tripTime}__${state.direction}__${cluster}__${armadaIndex}`;
+            const slotDriverId = state.slotDriverMap[slotArmadaKey] || '';
+            const slotMobilId = state.slotMobilMap[slotArmadaKey] || '';
+
+            if (pkgDriverSelect && slotDriverId) pkgDriverSelect.value = slotDriverId;
+            if (pkgMobilSelect && slotMobilId) pkgMobilSelect.value = slotMobilId;
+        }
+
         updatePackageTotal();
         fetchOccupiedSeatsForPackage();
     }
@@ -1827,6 +1939,13 @@ export default function initBookingsPage({ user } = {}) {
             pkgRouteViaEl.value = item.route_via || '';
             pkgRouteViaEl.dataset.userTouched = item.route_via ? '1' : '0';
         }
+
+        // Sesi 47 Fix #2: load driver/mobil di Package form edit mode.
+        const pkgDriverIdEl = document.getElementById('pkg-driver-id');
+        if (pkgDriverIdEl) pkgDriverIdEl.value = item.driver_id || '';
+
+        const pkgMobilIdEl = document.getElementById('pkg-mobil-id');
+        if (pkgMobilIdEl) pkgMobilIdEl.value = item.mobil_id || '';
 
         // Sender (from booking.passenger_* + pickup_location)
         setVal('pkg-sender-name', item.nama_pemesanan || '');
@@ -1938,6 +2057,11 @@ export default function initBookingsPage({ user } = {}) {
                 trip_time: document.getElementById('pkg-trip-time')?.value || '',
                 from_city: document.getElementById('pkg-from-city')?.value || '',
                 to_city: document.getElementById('pkg-to-city')?.value || '',
+                // Sesi 46 PR #58b: cluster picker (D-PR58b-2 symmetric)
+                route_via: document.getElementById('pkg-route-via')?.value || '',
+                // Sesi 47 Fix #2: driver_id + mobil_id Package form.
+                driver_id: document.getElementById('pkg-driver-id')?.value || null,
+                mobil_id: document.getElementById('pkg-mobil-id')?.value || null,
                 sender_name: document.getElementById('pkg-sender-name')?.value.trim() || '',
                 sender_phone: document.getElementById('pkg-sender-phone')?.value.trim() || '',
                 sender_address: document.getElementById('pkg-sender-address')?.value.trim() || '',
@@ -2098,6 +2222,23 @@ export default function initBookingsPage({ user } = {}) {
     ['change', 'input'].forEach((evt) => {
         document.getElementById('booking-from-city')?.addEventListener(evt, handleCityChange);
         document.getElementById('booking-to-city')?.addEventListener(evt, handleCityChange);
+    });
+
+    // Sesi 47 Fix #2: sync hidden driver_name saat user pilih dropdown driver.
+    // Backend BookingUpsertRequest legacy validate driver_name, jadi hidden field
+    // harus konsisten dengan driver_id dropdown selection.
+    document.getElementById('booking-driver-id')?.addEventListener('change', (event) => {
+        const driverId = event.target.value;
+        const driverNameHidden = document.getElementById('booking-driver-name');
+        if (!driverNameHidden) return;
+
+        if (!driverId) {
+            driverNameHidden.value = '';
+            return;
+        }
+
+        const driverObj = state.drivers.find((d) => String(d.id) === String(driverId));
+        driverNameHidden.value = driverObj ? driverObj.nama : '';
     });
 
     // Sesi 44D PR #1D: track user manual change pada dropdown route_via supaya
