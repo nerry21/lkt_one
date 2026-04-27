@@ -10,8 +10,8 @@ namespace App\Services;
  *
  * Common prefix 12 titik (SKPD → Tandun) — kedua cluster identik dari Loket Rokan
  * Hulu sampai Tandun, lalu divergence:
- *   - BANGKINANG (idx 12-17): Silam → Aliantan → Kabun → Kuok → Bangkinang → Pekanbaru
- *   - PETAPAHAN  (idx 12-15): Petapahan → Kasikan → Suram → Pekanbaru
+ *   - BANGKINANG (idx 12-17): Aliantan → Kabun → Silam → Kuok → Bangkinang → Pekanbaru
+ *   - PETAPAHAN  (idx 12-15): Suram → Kasikan → Petapahan → Pekanbaru
  *
  * Direction Logic:
  *   - to_pkb   = MAJU = "ke Pekanbaru" (index naik 0 → max)
@@ -47,9 +47,9 @@ class RouteSequenceService
             'SKPB',           // 9
             'Ujung Batu',     // 10
             'Tandun',         // 11
-            'Silam',          // 12
-            'Aliantan',       // 13
-            'Kabun',          // 14
+            'Aliantan',       // 12
+            'Kabun',          // 13
+            'Silam',          // 14
             'Kuok',           // 15
             'Bangkinang',     // 16
             'Pekanbaru',      // 17
@@ -67,9 +67,9 @@ class RouteSequenceService
             'SKPB',           // 9
             'Ujung Batu',     // 10
             'Tandun',         // 11
-            'Petapahan',      // 12
+            'Suram',          // 12
             'Kasikan',        // 13
-            'Suram',          // 14
+            'Petapahan',      // 14
             'Pekanbaru',      // 15
         ],
     ];
@@ -105,9 +105,9 @@ class RouteSequenceService
      *   4. Fallback ke logic lama kalau city tidak di sequence (backward compat)
      *
      * Example:
-     *   resolveDirection('BANGKINANG', 'SKPD', 'Kabun')       → 'to_pkb'   (0 < 14)
-     *   resolveDirection('BANGKINANG', 'Bangkinang', 'Kabun') → 'from_pkb' (16 > 14)
-     *   resolveDirection('PETAPAHAN', 'Suram', 'Pekanbaru')   → 'to_pkb'   (14 < 15)
+     *   resolveDirection('BANGKINANG', 'SKPD', 'Kabun')       → 'to_pkb'   (0 < 13)
+     *   resolveDirection('BANGKINANG', 'Bangkinang', 'Kabun') → 'from_pkb' (16 > 13)
+     *   resolveDirection('PETAPAHAN', 'Suram', 'Pekanbaru')   → 'to_pkb'   (12 < 15)
      *
      * @param  string  $cluster   'BANGKINANG' | 'PETAPAHAN'
      * @param  string  $fromCity  Kota asal
@@ -136,9 +136,9 @@ class RouteSequenceService
      * Foundation untuk Sesi 48+ Sub-Route Seat Sharing overlap detection.
      *
      * Example:
-     *   getBookingRange('BANGKINANG', 'SKPD', 'Kabun')           → [0, 14]
-     *   getBookingRange('BANGKINANG', 'Kabun', 'SKPD')           → [0, 14] (normalized)
-     *   getBookingRange('BANGKINANG', 'Bangkinang', 'Aliantan')  → [13, 16] (normalized)
+     *   getBookingRange('BANGKINANG', 'SKPD', 'Kabun')           → [0, 13]
+     *   getBookingRange('BANGKINANG', 'Kabun', 'SKPD')           → [0, 13] (normalized)
+     *   getBookingRange('BANGKINANG', 'Bangkinang', 'Aliantan')  → [12, 16] (normalized)
      *
      * @return array{0: int|null, 1: int|null}  [start, end] atau [null, null] kalau invalid
      */
@@ -152,6 +152,62 @@ class RouteSequenceService
         }
 
         return $fromIdx < $toIdx ? [$fromIdx, $toIdx] : [$toIdx, $fromIdx];
+    }
+
+    /**
+     * Sesi 48 PR #1 — Sub-Route Seat Sharing overlap detection.
+     *
+     * Dua booking dianggap overlap (kursi tidak bisa di-share) jika SEMUA
+     * kondisi berikut terpenuhi:
+     *   1. Sama route_via (cluster fisik mobil sama)
+     *   2. Sama direction (to_pkb vs from_pkb beda trip)
+     *   3. Range index di sequence cluster benar-benar bertabrakan secara fisik
+     *
+     * Algoritma overlap range klasik: max(startA, startB) < min(endA, endB)
+     * Pakai `<` bukan `<=` karena titik drop-off dianggap "kursi sudah kosong"
+     * di titik tersebut (penumpang turun, kursi free untuk penumpang naik di
+     * titik yang sama).
+     *
+     * Defensive: kalau salah satu booking punya from/to yang TIDAK ada di
+     * sequence cluster (bug data atau lokasi baru belum di-register), return
+     * true (anggap konflik) supaya admin manual cek — fail-safe behavior.
+     *
+     * Example:
+     *   Booking A: SKPD → Aliantan (BKG)  → range [0, 12]
+     *   Booking B: Kabun → Pekanbaru (BKG) → range [13, 17]
+     *   max(0,13)=13, min(12,17)=12 → 13 < 12 = FALSE → NO OVERLAP ✅
+     *
+     * @return bool true = overlap (kursi tidak bisa share), false = no overlap
+     */
+    public function bookingsOverlap(\App\Models\Booking $a, \App\Models\Booking $b): bool
+    {
+        // Early exit 1: Beda cluster → mustahil tabrakan kursi (mobil beda)
+        if ($a->route_via !== $b->route_via) {
+            return false;
+        }
+
+        // Early exit 2: Beda direction → trip beda walau cluster sama
+        if ($a->direction !== $b->direction) {
+            return false;
+        }
+
+        $cluster = $a->route_via;
+
+        // Skip overlap calc kalau cluster invalid (bukan BKG/PTP)
+        if (! in_array($cluster, $this->clusters(), true)) {
+            return true; // defensive: anggap konflik
+        }
+
+        [$aStart, $aEnd] = $this->getBookingRange($cluster, (string) $a->from_city, (string) $a->to_city);
+        [$bStart, $bEnd] = $this->getBookingRange($cluster, (string) $b->from_city, (string) $b->to_city);
+
+        // Defensive: salah satu range invalid → anggap konflik
+        if ($aStart === null || $bStart === null) {
+            return true;
+        }
+
+        // Overlap range klasik
+        return max($aStart, $bStart) < min($aEnd, $bEnd);
     }
 
     /**
