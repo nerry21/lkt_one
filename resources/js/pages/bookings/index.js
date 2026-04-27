@@ -24,6 +24,162 @@ const SEAT_ROWS = [
 
 const TOTAL_PASSENGER_SEATS = SEAT_ROWS.flat().filter((s) => !s.isDriver).length;
 
+// Sesi 49 PR #4 — Route sequences inject dari Blade (RouteSequenceService::SEQUENCES).
+// Mirror konstan PHP supaya frontend bisa hitung segment utilization tanpa API call.
+const ROUTE_SEQUENCES = (() => {
+    const el = document.getElementById('bookings-route-sequences');
+    if (!el) return {};
+    try {
+        const data = JSON.parse(el.textContent || '{}');
+        return data && typeof data === 'object' ? data : {};
+    } catch (e) {
+        console.warn('[bookings] Failed to parse route sequences:', e);
+        return {};
+    }
+})();
+
+/**
+ * Sesi 49 PR #4 — Get index dari kota di sequence cluster tertentu.
+ * Mirror RouteSequenceService::getIndex() di PHP layer.
+ */
+function getCityIndex(cluster, city) {
+    const sequence = ROUTE_SEQUENCES[cluster];
+    if (!Array.isArray(sequence)) return null;
+    const idx = sequence.indexOf(city);
+    return idx === -1 ? null : idx;
+}
+
+/**
+ * Sesi 49 PR #4 — Cek apakah booking range melewati segmen [segStart, segEnd].
+ * Booking range = [min(fromIdx, toIdx), max(fromIdx, toIdx)] (normalize ascending).
+ * Lewati segmen jika range overlap dengan [segStart, segEnd] (inclusive).
+ *
+ * Algoritma: bookingStart <= segStart && bookingEnd >= segEnd
+ * (booking range covers atau lebih panjang dari segmen)
+ */
+function bookingPassesSegment(booking, cluster, segStart, segEnd) {
+    const fromIdx = getCityIndex(cluster, booking.from_city);
+    const toIdx = getCityIndex(cluster, booking.to_city);
+    if (fromIdx === null || toIdx === null) return false;
+
+    const bookingStart = Math.min(fromIdx, toIdx);
+    const bookingEnd = Math.max(fromIdx, toIdx);
+
+    return bookingStart <= segStart && bookingEnd >= segEnd;
+}
+
+/**
+ * Sesi 49 PR #4 — Compute segment utilization untuk satu armada slot.
+ * Return array of { label, occupied, total, isBottleneck }.
+ *
+ * Logic per segmen [idx → idx+1]:
+ *   - Loop semua booking aktif di slot
+ *   - Hitung berapa kursi UNIQUE yang melewati segmen ini
+ *   - Bottleneck = segmen dengan jumlah kursi terpakai TERTINGGI
+ *
+ * Note: Kursi unique per segmen, bukan per booking. Booking #1 SKPD→Aliantan
+ * kursi 1A + Booking #2 SKPD→Tandun kursi 1A → pas hitung segmen SKPD→Simpang D,
+ * cuma 1 kursi unique (1A), bukan 2.
+ */
+function computeSegmentUtilization(bookingsInArmada, cluster) {
+    const sequence = ROUTE_SEQUENCES[cluster];
+    if (!Array.isArray(sequence) || sequence.length < 2) return [];
+
+    const segments = [];
+    let maxOccupied = 0;
+
+    for (let i = 0; i < sequence.length - 1; i++) {
+        const segStart = i;
+        const segEnd = i + 1;
+        const segLabel = `${sequence[i]} → ${sequence[i + 1]}`;
+
+        // Kumpulkan kursi unique yang lewat segmen ini
+        const occupiedSeats = new Set();
+        for (const booking of bookingsInArmada) {
+            if (!bookingPassesSegment(booking, cluster, segStart, segEnd)) continue;
+            const seats = Array.isArray(booking.selected_seats) ? booking.selected_seats : [];
+            for (const seat of seats) {
+                occupiedSeats.add(seat);
+            }
+        }
+
+        const occupied = occupiedSeats.size;
+        if (occupied > maxOccupied) maxOccupied = occupied;
+
+        segments.push({
+            label: segLabel,
+            occupied,
+            total: TOTAL_PASSENGER_SEATS,
+        });
+    }
+
+    // Mark bottleneck (only kalau ada minimal 1 segmen terpakai > 0)
+    if (maxOccupied > 0) {
+        for (const seg of segments) {
+            seg.isBottleneck = seg.occupied === maxOccupied && seg.occupied > 0;
+        }
+    }
+
+    return segments;
+}
+
+/**
+ * Sesi 49 PR #4 — Render collapsible segment capacity panel.
+ * Default COLLAPSED. Admin klik untuk expand.
+ */
+function renderSegmentCapacityPanel(bookingsInArmada, cluster, slotArmadaKey) {
+    const segments = computeSegmentUtilization(bookingsInArmada, cluster);
+    if (segments.length === 0) return '';
+
+    const totalOccupiedAnywhere = segments.some(s => s.occupied > 0);
+    if (!totalOccupiedAnywhere) {
+        // No bookings yet — render minimal hint
+        return `
+            <details class="bpg-segment-capacity" data-segment-panel="${escapeHtml(slotArmadaKey)}">
+                <summary class="bpg-segment-summary">
+                    <span class="bpg-segment-summary-icon">📍</span>
+                    <span class="bpg-segment-summary-text">Detail kapasitas per segmen rute</span>
+                </summary>
+                <div class="bpg-segment-empty">Belum ada booking di slot ini.</div>
+            </details>
+        `;
+    }
+
+    const segmentRows = segments.map(seg => {
+        const ratio = `${seg.occupied}/${seg.total}`;
+        const isFull = seg.occupied >= seg.total;
+        const rowClass = isFull
+            ? 'bpg-segment-row bpg-segment-full'
+            : (seg.isBottleneck ? 'bpg-segment-row bpg-segment-bottleneck' : 'bpg-segment-row');
+        const badge = isFull
+            ? '<span class="bpg-segment-badge bpg-segment-badge-full">PENUH</span>'
+            : (seg.isBottleneck ? '<span class="bpg-segment-badge bpg-segment-badge-busy">TERSIBUK</span>' : '');
+
+        return `
+            <div class="${rowClass}">
+                <span class="bpg-segment-label">${escapeHtml(seg.label)}</span>
+                <span class="bpg-segment-stats">
+                    <span class="bpg-segment-ratio">${ratio} kursi</span>
+                    ${badge}
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <details class="bpg-segment-capacity" data-segment-panel="${escapeHtml(slotArmadaKey)}">
+            <summary class="bpg-segment-summary">
+                <span class="bpg-segment-summary-icon">📍</span>
+                <span class="bpg-segment-summary-text">Detail kapasitas per segmen rute</span>
+                <span class="bpg-segment-summary-hint">(klik untuk lihat)</span>
+            </summary>
+            <div class="bpg-segment-list">
+                ${segmentRows}
+            </div>
+        </details>
+    `;
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const state = {
@@ -524,6 +680,8 @@ function renderArmadaCard(schedule, armadaIndex, bookingsInArmada, totalArmadas,
             </div>
 
             ${renderPassengerList(bookingsInArmada)}
+
+            ${renderSegmentCapacityPanel(bookingsInArmada, cluster, slotArmadaKey)}
 
             <button class="bpg-slot-book-btn" type="button"
                 data-slot-book="${escapeHtml(schedule.value)}"

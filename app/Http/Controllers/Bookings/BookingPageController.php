@@ -33,6 +33,7 @@ class BookingPageController extends Controller
             'canManageBookings' => $canManageBookings,
             'drivers' => $canManageBookings ? Driver::query()->orderBy('nama')->get(['id', 'nama', 'lokasi'])->toArray() : [],
             'mobils' => $canManageBookings ? Mobil::query()->orderBy('created_at')->get(['id', 'kode_mobil', 'jenis_mobil'])->toArray() : [],
+            'routeSequences' => $canManageBookings ? \App\Services\RouteSequenceService::SEQUENCES : [],
         ]);
     }
 
