@@ -41,6 +41,15 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="keuangan-jet-filter-field">
+                    <label for="filter-jenis-layanan">Jenis Layanan</label>
+                    <select id="filter-jenis-layanan" name="jenis_layanan">
+                        <option value="">Semua Jenis</option>
+                        <option value="Reguler"  @selected(($jenisLayanan ?? '') === 'Reguler')>Reguler</option>
+                        <option value="Dropping" @selected(($jenisLayanan ?? '') === 'Dropping')>Dropping</option>
+                        <option value="Rental"   @selected(($jenisLayanan ?? '') === 'Rental')>Rental</option>
+                    </select>
+                </div>
                 <div class="keuangan-jet-filter-actions">
                     <button type="submit" class="keuangan-jet-primary-button">Terapkan Filter</button>
                 </div>
