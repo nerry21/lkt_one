@@ -26,6 +26,9 @@ class Booking extends Model
         'direction',
         'route_via',
         'dropping_pool_target',
+        'rental_pool_target',
+        'rental_keberangkatan_amount',
+        'rental_kepulangan_amount',
         'trip_date',
         'trip_time',
         'booking_for',
@@ -89,6 +92,8 @@ class Booking extends Model
         'eligible_discount'        => 'boolean',
         'ticket_pdf_generated_at'  => 'datetime',
         'rental_end_date'          => 'date',
+        'rental_keberangkatan_amount' => 'integer',
+        'rental_kepulangan_amount'    => 'integer',
         'version'                  => 'integer',
     ];
 

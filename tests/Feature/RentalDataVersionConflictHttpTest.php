@@ -139,6 +139,9 @@ class RentalDataVersionConflictHttpTest extends TestCase
             'payment_status' => 'Belum Bayar',
             'driver_id' => null,
             'mobil_id' => null,
+            'rental_pool_target' => 'ROHUL',
+            'rental_keberangkatan_amount' => 1000000,
+            'rental_kepulangan_amount' => 1000000,
             'version' => 0,
         ], $overrides);
     }

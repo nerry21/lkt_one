@@ -140,6 +140,9 @@
                                 'mobil_id'         => $booking->mobil_id ?? '',
                                 'kode_mobil'       => $booking->mobil?->kode_mobil ?? '',
                                 'jenis_mobil'      => $booking->mobil?->jenis_mobil ?? '',
+                                'rental_pool_target'          => $booking->rental_pool_target ?? 'ROHUL',
+                                'rental_keberangkatan_amount' => $booking->rental_keberangkatan_amount ?? '',
+                                'rental_kepulangan_amount'    => $booking->rental_kepulangan_amount ?? '',
                             ], JSON_UNESCAPED_UNICODE);
                         @endphp
                         <tr class="ddrop-tr" data-row='{{ $rowData }}'>
@@ -294,6 +297,39 @@
         </div>
         <div class="ddrop-modal-actions">
             <button type="button" class="ddrop-btn-ghost" data-close-modal="modal-show">Tutup</button>
+        </div>
+    </div>
+</dialog>
+
+{{-- ══════════════════════════════════════════════════════════
+     MODAL: SWAP CONFIRM (Sesi 50 PR #5 — mirror PR #4)
+══════════════════════════════════════════════════════════ --}}
+<dialog id="modal-swap-confirm" class="ddrop-modal">
+    <div class="ddrop-modal-box ddrop-modal-box--lg">
+        <div class="ddrop-modal-head ddrop-modal-head--warning">
+            <h2>⚠️ Konfirmasi Penyesuaian Trip Planning</h2>
+            <button type="button" class="ddrop-modal-close" data-close-modal="modal-swap-confirm">
+                <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+        <div class="ddrop-swap-body">
+            <div id="swap-conflict-info" class="ddrop-swap-info">
+                {{-- populated by JS dari response 409 --}}
+            </div>
+
+            <div class="ddrop-form-field">
+                <label>Mobil Pengganti untuk Slot Asal</label>
+                <select id="swap-replacement-mobil" name="replacement_mobil_id" class="ddrop-form-select">
+                    <option value="">— Tidak ada (peer ikut Trip yang Keluar Trip) —</option>
+                </select>
+                <small style="font-size:0.78rem;color:#64748b;margin-top:6px;display:block">
+                    Penumpang reguler aktif akan otomatis dipindah ke mobil pengganti yang Anda pilih.
+                </small>
+            </div>
+        </div>
+        <div class="ddrop-modal-actions">
+            <button type="button" class="ddrop-btn-ghost" data-close-modal="modal-swap-confirm">Batal</button>
+            <button type="button" id="swap-confirm-btn" class="ddrop-btn-primary">Lanjutkan</button>
         </div>
     </div>
 </dialog>
@@ -568,6 +604,25 @@
 }
 .ddrop-modal-head h2 { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; }
 .ddrop-modal-head--danger h2 { color: #dc2626; }
+.ddrop-modal-head--warning h2 { color: #b45309; }
+.ddrop-swap-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.ddrop-swap-info {
+    background: #fef3c7;
+    border: 1px solid rgba(245,158,11,.4);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.88rem;
+    color: #78350f;
+    line-height: 1.55;
+}
+.ddrop-swap-info strong { color: #92400e; }
+.ddrop-swap-info ul { margin: 8px 0 0; padding-left: 18px; }
+.ddrop-swap-info li { margin-bottom: 4px; }
 .ddrop-modal-close {
     width: 32px; height: 32px; border-radius: 8px; border: none;
     background: rgba(148,163,184,.12); color: #64748b; cursor: pointer;
@@ -736,7 +791,164 @@
         set('notes',            d.notes);
         set('driver_id',        d.driver_id);
         set('mobil_id',         d.mobil_id);
+        set('rental_pool_target',          d.rental_pool_target || 'ROHUL');
+        set('rental_keberangkatan_amount', d.rental_keberangkatan_amount);
+        set('rental_kepulangan_amount',    d.rental_kepulangan_amount);
     }
+
+    // ── Sesi 50 PR #5: rental split + swap modal handlers ──────────
+    function updateRentalSplitDefault(form) {
+        const price = parseInt(form.querySelector('[name="price_per_seat"]')?.value || 0, 10);
+        const addl  = parseInt(form.querySelector('[name="additional_fare"]')?.value || 0, 10);
+        const total = price + addl;
+        const kb = form.querySelector('[name="rental_keberangkatan_amount"]');
+        const kp = form.querySelector('[name="rental_kepulangan_amount"]');
+        if (!kb || !kp) return;
+        if (!kb.value && !kp.value) {
+            const half = Math.floor(total / 2);
+            kb.value = half;
+            kp.value = total - half;
+        }
+    }
+
+    function validateRentalSplit(form) {
+        const total = parseInt(form.querySelector('[name="price_per_seat"]')?.value || 0, 10)
+                    + parseInt(form.querySelector('[name="additional_fare"]')?.value || 0, 10);
+        const kb = parseInt(form.querySelector('[name="rental_keberangkatan_amount"]')?.value || 0, 10);
+        const kp = parseInt(form.querySelector('[name="rental_kepulangan_amount"]')?.value || 0, 10);
+        const hint = form.querySelector('.rental-split-hint');
+        const sum = kb + kp;
+        if (!hint) return sum === total;
+        if (sum !== total) {
+            hint.textContent = `⚠ Total porsi (Rp ${sum.toLocaleString('id-ID')}) tidak sama dengan total ongkos (Rp ${total.toLocaleString('id-ID')}).`;
+            hint.style.color = '#dc2626';
+            return false;
+        }
+        hint.textContent = '✓ Total porsi sesuai dengan total ongkos.';
+        hint.style.color = '#059669';
+        return true;
+    }
+
+    document.querySelectorAll('#modal-create form, #modal-edit form').forEach(form => {
+        const recalcInputs = form.querySelectorAll('[name="price_per_seat"], [name="additional_fare"]');
+        recalcInputs.forEach(inp => {
+            inp.addEventListener('input', () => {
+                updateRentalSplitDefault(form);
+                validateRentalSplit(form);
+            });
+        });
+        form.querySelectorAll('.rental-split-input').forEach(inp => {
+            inp.addEventListener('input', () => validateRentalSplit(form));
+        });
+    });
+
+    // Swap modal: intercept submit, populate, re-submit dengan confirm_swap.
+    let pendingFormForSwap = null;
+
+    function populateSwapModal(data) {
+        const info = document.getElementById('swap-conflict-info');
+        const select = document.getElementById('swap-replacement-mobil');
+        if (!info || !select) return;
+
+        const mobilKode = data.mobil_kode || '—';
+        const peerCount = data.peer_count ?? 0;
+        const tripDate  = data.trip_date  || '—';
+        const tripTime  = data.trip_time  || '—';
+
+        info.innerHTML = `
+            <div>
+                Anda memilih mobil <strong>${mobilKode}</strong> tanggal <strong>${tripDate}</strong>
+                jam <strong>${tripTime}</strong> untuk Rental ini.
+            </div>
+            <div style="margin-top:8px">
+                Saat ini mobil <strong>${mobilKode}</strong> sudah ada <strong>${peerCount} penumpang reguler aktif</strong>
+                di trip planning slot tersebut.
+            </div>
+            <div style="margin-top:8px">Sistem akan otomatis:</div>
+            <ul>
+                <li>Trip <strong>${mobilKode}</strong> → Keluar Trip Rental (link ke Booking ini)</li>
+                <li>Penumpang reguler ikut <em>mobil pengganti</em> yang Anda pilih (jika ada)</li>
+                <li>E-Tiket peer bookings auto-update dengan mobil baru</li>
+            </ul>
+        `;
+
+        select.innerHTML = '<option value="">— Tidak ada (peer ikut Trip yang Keluar Trip) —</option>';
+        (data.available_replacement_mobils || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.kode_mobil} — ${m.jenis_mobil}`;
+            select.appendChild(opt);
+        });
+    }
+
+    function submitFormWithSwapConfirm(form, replacementMobilId) {
+        const ensureHidden = (name, value) => {
+            let input = form.querySelector(`input[name="${name}"]`);
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                form.appendChild(input);
+            }
+            input.value = value;
+        };
+        ensureHidden('confirm_swap', '1');
+        ensureHidden('replacement_mobil_id', replacementMobilId || '');
+        form.submit();
+    }
+
+    async function handleRentalFormSubmit(e) {
+        const form = e.target;
+        if (!form.matches('form.ddrop-modal-form')) return;
+        const dialog = form.closest('dialog.ddrop-modal');
+        if (!dialog || !['modal-create', 'modal-edit'].includes(dialog.id)) return;
+
+        e.preventDefault();
+        pendingFormForSwap = form;
+
+        const fd = new FormData(form);
+        fd.delete('confirm_swap');
+        fd.delete('replacement_mobil_id');
+
+        let res;
+        try {
+            res = await fetch(form.action, {
+                method: form.method?.toUpperCase() || 'POST',
+                body: fd,
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+        } catch (err) {
+            form.submit();
+            return;
+        }
+
+        if (res.status === 409) {
+            let data = null;
+            try { data = await res.json(); } catch { data = null; }
+            if (data && data.conflict_type === 'mobil_double_assign') {
+                populateSwapModal(data);
+                openModal('modal-swap-confirm');
+                return;
+            }
+        }
+
+        form.submit();
+    }
+
+    document.querySelectorAll('#modal-create form, #modal-edit form').forEach(form => {
+        form.addEventListener('submit', handleRentalFormSubmit);
+    });
+
+    document.getElementById('swap-confirm-btn')?.addEventListener('click', () => {
+        const select = document.getElementById('swap-replacement-mobil');
+        const replacementId = select?.value || '';
+        const form = pendingFormForSwap;
+        closeModal('modal-swap-confirm');
+        if (form) {
+            submitFormWithSwapConfirm(form, replacementId);
+            pendingFormForSwap = null;
+        }
+    });
 })();
 </script>
 @endsection
