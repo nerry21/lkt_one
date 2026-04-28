@@ -208,4 +208,157 @@ class KeuanganJetSyncServiceTest extends TestCase
         $this->assertSame('0.00', $aggregated->total_pendapatan_kotor);
         $this->assertSame('0.00', $aggregated->uang_driver);
     }
+
+    // ── Sesi 50 PR #6 — 4-category aggregator + pool target direction ─────────
+
+    public function test_refreshFromBookings_aggregates_dropping_total_amount(): void
+    {
+        $trip = $this->makeTrip();
+        $row = $this->service->syncTripToKeuanganJet($trip);
+
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'category'       => 'Dropping',
+            'total_amount'   => 600_000,
+            'booking_status' => 'Aktif',
+        ]);
+
+        $refreshed = $this->service->refreshFromBookings($row->fresh());
+
+        $this->assertSame(1, $refreshed->jumlah_penumpang);
+        $this->assertSame('600000.00', $refreshed->total_ongkos_penumpang);
+    }
+
+    public function test_refreshFromBookings_aggregates_rental_keberangkatan_amount_for_keberangkatan_row(): void
+    {
+        $trip = $this->makeTrip('ROHUL_TO_PKB');
+        $row = $this->service->syncTripToKeuanganJet($trip);
+        $this->assertSame('Keberangkatan', $row->direction);
+
+        Booking::factory()->create([
+            'trip_id'                     => $trip->id,
+            'category'                    => 'Rental',
+            'total_amount'                => 1_000_000,
+            'rental_keberangkatan_amount' => 600_000,
+            'rental_kepulangan_amount'    => 400_000,
+            'booking_status'              => 'Aktif',
+        ]);
+
+        $refreshed = $this->service->refreshFromBookings($row->fresh());
+
+        $this->assertSame(1, $refreshed->jumlah_penumpang);
+        $this->assertSame('600000.00', $refreshed->total_ongkos_penumpang,
+            'Keberangkatan row harus pull rental_keberangkatan_amount.');
+    }
+
+    public function test_refreshFromBookings_aggregates_rental_kepulangan_amount_for_kepulangan_row(): void
+    {
+        $kbgTrip = $this->makeTrip('ROHUL_TO_PKB');
+        $this->service->syncTripToKeuanganJet($kbgTrip);
+
+        $kplTrip = Trip::factory()->create([
+            'mobil_id'  => $kbgTrip->mobil_id,
+            'driver_id' => $kbgTrip->driver_id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_date' => '2026-04-25',
+            'trip_time' => '14:00:00',
+            'status'    => 'scheduled',
+        ]);
+        $kplRow = $this->service->syncTripToKeuanganJet($kplTrip);
+        $this->assertSame('Kepulangan', $kplRow->direction);
+
+        Booking::factory()->create([
+            'trip_id'                     => $kplTrip->id,
+            'category'                    => 'Rental',
+            'total_amount'                => 1_000_000,
+            'rental_keberangkatan_amount' => 600_000,
+            'rental_kepulangan_amount'    => 400_000,
+            'booking_status'              => 'Aktif',
+        ]);
+
+        $refreshed = $this->service->refreshFromBookings($kplRow->fresh());
+
+        $this->assertSame(1, $refreshed->jumlah_penumpang);
+        $this->assertSame('400000.00', $refreshed->total_ongkos_penumpang,
+            'Kepulangan row harus pull rental_kepulangan_amount.');
+    }
+
+    public function test_refreshFromBookings_skips_cancelled_bookings(): void
+    {
+        $trip = $this->makeTrip();
+        $row = $this->service->syncTripToKeuanganJet($trip);
+
+        // 1 aktif + 1 cancelled.
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'category'       => 'Reguler',
+            'total_amount'   => 100_000,
+            'booking_status' => 'Aktif',
+        ]);
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'category'       => 'Reguler',
+            'total_amount'   => 200_000,
+            'booking_status' => 'Cancelled',
+        ]);
+
+        $refreshed = $this->service->refreshFromBookings($row->fresh());
+
+        $this->assertSame(1, $refreshed->jumlah_penumpang);
+        $this->assertSame('100000.00', $refreshed->total_ongkos_penumpang,
+            'Cancelled booking tidak boleh masuk total.');
+    }
+
+    public function test_syncTripToKeuanganJet_uses_pool_target_ROHUL_creates_kepulangan_row(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create();
+
+        // Trip direction asli ROHUL_TO_PKB (Keberangkatan), tapi pool_target=ROHUL
+        // → harus jadi Kepulangan row sesuai filosofi K-4+K-5.
+        $trip = Trip::factory()->create([
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'direction' => 'ROHUL_TO_PKB',
+            'trip_date' => '2026-04-25',
+            'trip_time' => '07:00:00',
+            'status' => 'keluar_trip',
+            'keluar_trip_substatus' => 'out',
+            'keluar_trip_reason' => 'dropping',
+            'keluar_trip_pool_target' => 'ROHUL',
+            'keluar_trip_start_date' => '2026-04-25',
+        ]);
+
+        $row = $this->service->syncTripToKeuanganJet($trip);
+
+        $this->assertSame('Kepulangan', $row->direction,
+            'pool_target=ROHUL → row direction Kepulangan (siklus close).');
+    }
+
+    public function test_syncTripToKeuanganJet_uses_pool_target_PKB_creates_keberangkatan_row(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create();
+
+        // Trip direction asli PKB_TO_ROHUL (Kepulangan), tapi pool_target=PKB
+        // → harus jadi Keberangkatan row.
+        $trip = Trip::factory()->create([
+            'mobil_id' => $mobil->id,
+            'driver_id' => $driver->id,
+            'direction' => 'PKB_TO_ROHUL',
+            'trip_date' => '2026-04-25',
+            'trip_time' => '14:00:00',
+            'status' => 'keluar_trip',
+            'keluar_trip_substatus' => 'out',
+            'keluar_trip_reason' => 'rental',
+            'keluar_trip_pool_target' => 'PKB',
+            'keluar_trip_start_date' => '2026-04-25',
+            'keluar_trip_planned_end_date' => '2026-04-27',
+        ]);
+
+        $row = $this->service->syncTripToKeuanganJet($trip);
+
+        $this->assertSame('Keberangkatan', $row->direction,
+            'pool_target=PKB → row direction Keberangkatan (siklus tetap).');
+    }
 }

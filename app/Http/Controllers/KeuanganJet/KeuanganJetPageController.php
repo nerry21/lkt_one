@@ -46,6 +46,7 @@ class KeuanganJetPageController extends Controller
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
         $mobilId = $request->query('mobil_id');
+        $jenisLayanan = $request->query('jenis_layanan');
 
         try {
             $start = $startDate ? Carbon::parse($startDate)->startOfDay() : now()->subDays(7)->startOfDay();
@@ -63,6 +64,13 @@ class KeuanganJetPageController extends Controller
 
         if (! empty($mobilId)) {
             $query->where('mobil_id', $mobilId);
+        }
+
+        // Sesi 50 PR #6 — filter siklus by jenis_layanan child rows.
+        if (! empty($jenisLayanan) && in_array($jenisLayanan, ['Reguler', 'Dropping', 'Rental'], true)) {
+            $query->whereHas('keuanganJets', function ($q) use ($jenisLayanan) {
+                $q->where('jenis_layanan', $jenisLayanan);
+            });
         }
 
         $siklusList = $query->get();
@@ -85,6 +93,7 @@ class KeuanganJetPageController extends Controller
             'startDate' => $start,
             'endDate' => $end,
             'mobilIdFilter' => $mobilId,
+            'jenisLayanan' => $jenisLayanan,
             'stats' => [
                 'total_kotor' => $totalKotor,
                 'total_bersih' => $totalBersih,

@@ -145,7 +145,18 @@ class KeuanganJetSyncService
 
             $siklus = $this->createOrFindSiklus($trip);
 
-            $direction = KeuanganJetDirectionMapper::fromTripDirection($trip->direction);
+            // Sesi 50 PR #6 — pool_target override saat trip status=keluar_trip.
+            // Filosofi Nerry K-4+K-5:
+            //   pool_target = ROHUL → trip dianggap Kepulangan (siklus close)
+            //   pool_target = PKB   → trip dianggap Keberangkatan (siklus tetap)
+            // Backward compat: trip non-keluar_trip pakai $trip->direction asli.
+            if ($trip->status === 'keluar_trip' && filled($trip->keluar_trip_pool_target)) {
+                $direction = $trip->keluar_trip_pool_target === 'ROHUL'
+                    ? 'Kepulangan'
+                    : 'Keberangkatan';
+            } else {
+                $direction = KeuanganJetDirectionMapper::fromTripDirection($trip->direction);
+            }
 
             // Compute trip_ke = count rows dengan jam < current + 1
             $tripKe = KeuanganJet::where('keuangan_jet_siklus_id', $siklus->id)
@@ -179,6 +190,17 @@ class KeuanganJetSyncService
      * Pull data dari Bookings WHERE trip_id = row->trip_id, hitung agregat,
      * lalu recompute formula. Preserve manual entry (uang_snack, persen_admin
      * override) — tidak overwrite.
+     *
+     * Sesi 50 PR #6 — Aggregate 4 category:
+     *   - Reguler  → count + total_amount
+     *   - Paket    → count + total_amount
+     *   - Dropping → count + total_amount (full amount masuk total_ongkos_penumpang)
+     *   - Rental   → split berdasarkan $row->direction:
+     *       Keberangkatan → rental_keberangkatan_amount
+     *       Kepulangan    → rental_kepulangan_amount
+     *
+     * Skip booking_status = 'Cancelled' supaya cancel realtime menurunkan total
+     * (sesuai filosofi Nerry K-2).
      */
     public function refreshFromBookings(KeuanganJet $row): KeuanganJet
     {
@@ -187,19 +209,42 @@ class KeuanganJetSyncService
             return $row;
         }
 
+        // Sesi 50 PR #6 — column rental ditentukan oleh $row->direction.
+        // Aman dari SQL injection: $rentalColumn cuma 2 nilai whitelist.
+        $rentalColumn = $row->direction === 'Keberangkatan'
+            ? 'rental_keberangkatan_amount'
+            : 'rental_kepulangan_amount';
+
         $aggregates = Booking::query()
             ->where('trip_id', $row->trip_id)
+            ->whereNotIn('booking_status', ['Cancelled'])
             ->selectRaw("
                 SUM(CASE WHEN category = 'Reguler' THEN 1 ELSE 0 END) as count_reguler,
                 SUM(CASE WHEN category = 'Reguler' THEN total_amount ELSE 0 END) as sum_reguler,
                 SUM(CASE WHEN category = 'Paket' THEN 1 ELSE 0 END) as count_paket,
-                SUM(CASE WHEN category = 'Paket' THEN total_amount ELSE 0 END) as sum_paket
+                SUM(CASE WHEN category = 'Paket' THEN total_amount ELSE 0 END) as sum_paket,
+                SUM(CASE WHEN category = 'Dropping' THEN 1 ELSE 0 END) as count_dropping,
+                SUM(CASE WHEN category = 'Dropping' THEN total_amount ELSE 0 END) as sum_dropping,
+                SUM(CASE WHEN category = 'Rental' THEN 1 ELSE 0 END) as count_rental,
+                SUM(CASE WHEN category = 'Rental' THEN COALESCE({$rentalColumn}, 0) ELSE 0 END) as sum_rental
             ")
             ->first();
 
+        $jumlahPenumpang = (int) (
+            ($aggregates->count_reguler ?? 0)
+            + ($aggregates->count_dropping ?? 0)
+            + ($aggregates->count_rental ?? 0)
+        );
+
+        $totalOngkosPenumpang = (float) (
+            ($aggregates->sum_reguler ?? 0)
+            + ($aggregates->sum_dropping ?? 0)
+            + ($aggregates->sum_rental ?? 0)
+        );
+
         $row->update([
-            'jumlah_penumpang' => (int) ($aggregates->count_reguler ?? 0),
-            'total_ongkos_penumpang' => (float) ($aggregates->sum_reguler ?? 0),
+            'jumlah_penumpang' => $jumlahPenumpang,
+            'total_ongkos_penumpang' => $totalOngkosPenumpang,
             'jumlah_paket' => (int) ($aggregates->count_paket ?? 0),
             'total_ongkos_paket' => (float) ($aggregates->sum_paket ?? 0),
             'last_refreshed_at' => now(),

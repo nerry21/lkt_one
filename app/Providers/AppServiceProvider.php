@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Booking;
+use App\Observers\BookingObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Sesi 50 PR #6 — realtime KeuanganJet sync via Booking model events.
+        Booking::observe(BookingObserver::class);
     }
 }
