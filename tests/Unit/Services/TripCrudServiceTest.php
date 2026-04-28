@@ -6,6 +6,7 @@ use App\Exceptions\TripEditNotAllowedException;
 use App\Exceptions\TripSlotConflictException;
 use App\Exceptions\TripVersionConflictException;
 use App\Models\Booking;
+use App\Models\BookingNotificationPending;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Models\Trip;
@@ -308,9 +309,11 @@ class TripCrudServiceTest extends TestCase
             'mobil_id'    => $this->mobil->id,
             'driver_id'   => $this->driver->id,
             'driver_name' => 'Driver Asli',
+            'trip_time'   => '07:00:00',
         ]);
 
-        // Edit hanya trip_time → mobil_id/driver_id tidak ada di payload, no cascade.
+        // Edit hanya trip_time → mobil_id/driver_id tidak ada di payload, no mobil/driver cascade.
+        // (trip_time CASCADE — itu PR #3 behavior baru, dicover di test khusus.)
         $this->svc->editManual(
             tripId: $trip->id,
             expectedVersion: 0,
@@ -322,5 +325,91 @@ class TripCrudServiceTest extends TestCase
         $this->assertSame($this->mobil->id, $linked->mobil_id);
         $this->assertSame($this->driver->id, $linked->driver_id);
         $this->assertSame('Driver Asli', $linked->driver_name);
+    }
+
+    // ── Sesi 50 PR #3: cascade trip_time + notif foundation ─────────────────
+
+    public function test_editManual_cascades_trip_time_change_to_linked_bookings(): void
+    {
+        $trip = $this->svc->createManual($this->basePayload(), $this->admin->id);
+
+        $linked = Booking::factory()->create([
+            'trip_id'   => $trip->id,
+            'trip_time' => '07:00:00',
+        ]);
+
+        $this->svc->editManual(
+            tripId: $trip->id,
+            expectedVersion: 0,
+            payload: ['trip_time' => '08:00:00'],
+            userId: $this->admin->id,
+        );
+
+        $linked->refresh();
+        $this->assertSame('08:00:00', $linked->trip_time);
+    }
+
+    public function test_editManual_creates_notifications_for_all_3_event_types(): void
+    {
+        $trip = $this->svc->createManual($this->basePayload(), $this->admin->id);
+
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobil->id,
+            'driver_id'      => $this->driver->id,
+            'trip_time'      => '07:00:00',
+            'booking_status' => 'Diproses',
+        ]);
+
+        $this->driver2->update(['nama' => 'Driver Baru']);
+
+        $this->svc->editManual(
+            tripId: $trip->id,
+            expectedVersion: 0,
+            payload: [
+                'trip_time' => '08:00:00',
+                'mobil_id'  => $this->mobil2->id,
+                'driver_id' => $this->driver2->id,
+            ],
+            userId: $this->admin->id,
+        );
+
+        $records = BookingNotificationPending::query()->get();
+
+        $eventTypes = $records->pluck('event_type')->all();
+        $this->assertContains('trip_time_changed', $eventTypes);
+        $this->assertContains('mobil_changed', $eventTypes);
+        $this->assertContains('driver_changed', $eventTypes);
+
+        // 3 events × 1 booking = 3 records.
+        $this->assertCount(3, $records);
+    }
+
+    public function test_editManual_no_notification_when_only_other_fields_change(): void
+    {
+        $trip = $this->svc->createManual($this->basePayload(), $this->admin->id);
+
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobil->id,
+            'driver_id'      => $this->driver->id,
+            'trip_time'      => '07:00:00',
+            'booking_status' => 'Diproses',
+        ]);
+
+        // Edit dengan payload yang TIDAK mengubah trip_time/mobil_id/driver_id
+        // (sengaja pass nilai SAMA → tidak trigger event).
+        $this->svc->editManual(
+            tripId: $trip->id,
+            expectedVersion: 0,
+            payload: [
+                'trip_time' => '07:00:00',
+                'mobil_id'  => $this->mobil->id,
+                'driver_id' => $this->driver->id,
+            ],
+            userId: $this->admin->id,
+        );
+
+        $this->assertSame(0, BookingNotificationPending::query()->count());
     }
 }

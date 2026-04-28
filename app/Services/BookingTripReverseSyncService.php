@@ -38,6 +38,7 @@ class BookingTripReverseSyncService
 {
     public function __construct(
         private readonly TripService $tripService,
+        private readonly BookingNotificationPendingService $notificationPendingService,
     ) {
     }
 
@@ -72,10 +73,14 @@ class BookingTripReverseSyncService
             return;
         }
 
+        // Snapshot value lama SEBELUM update — dipakai untuk notif preview.
+        $oldDriverId = $trip->driver_id;
+        $oldMobilId  = $trip->mobil_id;
+
         // I2 invariant: mobil tidak boleh double-assigned di (trip_date, direction)
         // yang sama. Skip kalau mobil tidak berubah (no need to re-check) atau null
         // (unassign tidak melanggar I2).
-        if ($newMobilId !== null && $newMobilId !== $trip->mobil_id) {
+        if ($newMobilId !== null && $newMobilId !== $oldMobilId) {
             $this->tripService->assertMobilNotDoubleAssigned(
                 mobilId: $newMobilId,
                 tripDate: $trip->trip_date->toDateString(),
@@ -104,5 +109,26 @@ class BookingTripReverseSyncService
                 'mobil_id'    => $newMobilId,
                 'driver_name' => $newDriverName,
             ]);
+
+        // Sesi 50 PR #3: record notif untuk peer bookings (exclude self —
+        // booking yang sedang di-save sudah di-handle di path persistBooking).
+        if ($oldMobilId !== $newMobilId) {
+            $this->notificationPendingService->recordEventForTripBookings(
+                tripId: $trip->id,
+                eventType: BookingNotificationPendingService::EVENT_MOBIL_CHANGED,
+                oldValue: $oldMobilId,
+                newValue: $newMobilId,
+                excludeBookingId: $excludeBookingId,
+            );
+        }
+        if ($oldDriverId !== $newDriverId) {
+            $this->notificationPendingService->recordEventForTripBookings(
+                tripId: $trip->id,
+                eventType: BookingNotificationPendingService::EVENT_DRIVER_CHANGED,
+                oldValue: $oldDriverId,
+                newValue: $newDriverId,
+                excludeBookingId: $excludeBookingId,
+            );
+        }
     }
 }

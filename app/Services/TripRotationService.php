@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\TripInvalidTransitionException;
 use App\Helpers\KeuanganJetDirectionMapper;
+use App\Models\Booking;
 use App\Models\Trip;
 
 /**
@@ -30,6 +31,7 @@ class TripRotationService
     public function __construct(
         private readonly TripService $tripService,
         private readonly KeuanganJetSyncService $keuanganJetSync,
+        private readonly BookingNotificationPendingService $notificationPendingService,
     ) {}
 
     /**
@@ -107,11 +109,21 @@ class TripRotationService
             );
         }
 
-        return $this->tripService->updateWithVersionCheck(
+        $updated = $this->tripService->updateWithVersionCheck(
             $tripId,
             $expectedVersion,
             ['status' => 'tidak_berangkat'],
         );
+
+        // Sesi 50 PR #3: record notif penumpang ter-affect (admin Zizi telpon manual).
+        $this->notificationPendingService->recordEventForTripBookings(
+            tripId: $updated->id,
+            eventType: BookingNotificationPendingService::EVENT_TRIP_CANCELED,
+            oldValue: 'scheduled',
+            newValue: 'tidak_berangkat',
+        );
+
+        return $updated;
     }
 
     /**
@@ -196,6 +208,9 @@ class TripRotationService
             return $trip;
         }
 
+        // Snapshot SEBELUM update — value lama untuk cascade + notif preview.
+        $oldTripTime = $trip->trip_time;
+
         $attributes = ['trip_time' => $newTripTime];
 
         // First-time audit: save original trip_time sebelum update.
@@ -203,11 +218,29 @@ class TripRotationService
             $attributes['original_trip_time'] = $trip->trip_time;
         }
 
-        return $this->tripService->updateWithVersionCheck(
+        $updated = $this->tripService->updateWithVersionCheck(
             $tripId,
             $expectedVersion,
             $attributes,
         );
+
+        // Sesi 50 PR #3: cascade trip_time ke linked Booking (e-tiket otomatis akurat).
+        // Bulk update lewat Query Builder bypass model events untuk hindari cascade
+        // recursion + performance. Booking::trip_id terisi via TripBookingMatcher
+        // saat save / via backfill migration.
+        Booking::query()
+            ->where('trip_id', $updated->id)
+            ->update(['trip_time' => $updated->trip_time]);
+
+        // Record notif untuk semua penumpang ter-affect.
+        $this->notificationPendingService->recordEventForTripBookings(
+            tripId: $updated->id,
+            eventType: BookingNotificationPendingService::EVENT_TRIP_TIME_CHANGED,
+            oldValue: $oldTripTime,
+            newValue: $newTripTime,
+        );
+
+        return $updated;
     }
 
     /**

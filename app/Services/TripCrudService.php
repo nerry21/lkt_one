@@ -31,6 +31,7 @@ class TripCrudService
 
     public function __construct(
         private readonly TripService $tripService,
+        private readonly BookingNotificationPendingService $notificationPendingService,
     ) {}
 
     /**
@@ -108,24 +109,66 @@ class TripCrudService
 
             $payload['updated_by'] = $userId;
 
+            // Snapshot SEBELUM update — value lama untuk notif preview.
+            $oldMobilId = $trip->mobil_id;
+            $oldDriverId = $trip->driver_id;
+            $oldTripTime = $trip->trip_time;
+
             $updated = $this->tripService->updateWithVersionCheck($tripId, $expectedVersion, $payload);
 
-            // Sesi 50 PR #1: cascade update linked Bookings saat mobil_id atau driver_id
-            // berubah. Bulk update via Query Builder bypass model events untuk hindari
-            // recursion + performance. Booking::trip_id terisi saat booking save match
-            // ke trip ini (TripBookingMatcher) atau via backfill migration.
-            $mobilChanged = array_key_exists('mobil_id', $payload) && $payload['mobil_id'] !== $trip->mobil_id;
-            $driverChanged = array_key_exists('driver_id', $payload) && $payload['driver_id'] !== $trip->driver_id;
+            // Sesi 50 PR #1+#3: cascade update linked Bookings saat mobil_id, driver_id,
+            // atau trip_time berubah. Bulk update via Query Builder bypass model events
+            // untuk hindari recursion + performance. Booking::trip_id terisi saat booking
+            // save match ke trip ini (TripBookingMatcher) atau via backfill migration.
+            $mobilChanged  = array_key_exists('mobil_id', $payload)  && $payload['mobil_id']  !== $oldMobilId;
+            $driverChanged = array_key_exists('driver_id', $payload) && $payload['driver_id'] !== $oldDriverId;
+            $timeChanged   = array_key_exists('trip_time', $payload) && $payload['trip_time'] !== $oldTripTime;
 
-            if ($mobilChanged || $driverChanged) {
+            if ($mobilChanged || $driverChanged || $timeChanged) {
                 $updated->loadMissing('driver');
-                Booking::query()
-                    ->where('trip_id', $updated->id)
-                    ->update([
-                        'mobil_id'    => $updated->mobil_id,
-                        'driver_id'   => $updated->driver_id,
-                        'driver_name' => $updated->driver?->nama,
-                    ]);
+                $bookingUpdates = [];
+                if ($mobilChanged) {
+                    $bookingUpdates['mobil_id'] = $updated->mobil_id;
+                }
+                if ($driverChanged) {
+                    $bookingUpdates['driver_id']   = $updated->driver_id;
+                    $bookingUpdates['driver_name'] = $updated->driver?->nama;
+                }
+                if ($timeChanged) {
+                    $bookingUpdates['trip_time'] = $updated->trip_time;
+                }
+
+                if (! empty($bookingUpdates)) {
+                    Booking::query()
+                        ->where('trip_id', $updated->id)
+                        ->update($bookingUpdates);
+                }
+            }
+
+            // Sesi 50 PR #3: record notif penumpang ter-affect untuk tiap perubahan.
+            if ($timeChanged) {
+                $this->notificationPendingService->recordEventForTripBookings(
+                    tripId: $updated->id,
+                    eventType: BookingNotificationPendingService::EVENT_TRIP_TIME_CHANGED,
+                    oldValue: $oldTripTime,
+                    newValue: $updated->trip_time,
+                );
+            }
+            if ($mobilChanged) {
+                $this->notificationPendingService->recordEventForTripBookings(
+                    tripId: $updated->id,
+                    eventType: BookingNotificationPendingService::EVENT_MOBIL_CHANGED,
+                    oldValue: $oldMobilId,
+                    newValue: $updated->mobil_id,
+                );
+            }
+            if ($driverChanged) {
+                $this->notificationPendingService->recordEventForTripBookings(
+                    tripId: $updated->id,
+                    eventType: BookingNotificationPendingService::EVENT_DRIVER_CHANGED,
+                    oldValue: $oldDriverId,
+                    newValue: $updated->driver_id,
+                );
             }
 
             return $updated;
