@@ -24,6 +24,7 @@ class RegularBookingPersistenceService
         private readonly CustomerResolverService $customerResolver,
         private readonly CustomerLoyaltyService  $loyaltyService,
         private readonly SeatLockService         $seatLockService,
+        private readonly TripBookingMatcher      $tripMatcher,
     ) {}
 
     public function currentDraftBooking(Session $session, RegularBookingDraftService $drafts): ?Booking
@@ -127,6 +128,19 @@ class RegularBookingPersistenceService
                 (string) $reviewState['destination_location'],
             );
             $routeVia = $this->normalizeRouteVia($reviewState['route_via'] ?? $booking->route_via);
+            $armadaIndex = max(1, (int) ($reviewState['armada_index'] ?? 1));
+
+            // Sesi 50 PR #1: auto-link Trip → Booking. Trip null → semua field null
+            // (booking jalan tanpa trip linked, behavior pre-PR1 preserved).
+            $tripAssignment = $this->tripMatcher->extractAssignmentFromTrip(
+                $this->tripMatcher->findMatchingTrip(
+                    $tripDate,
+                    $this->normalizeTripTime($reviewState['departure_time_value']),
+                    $bookingDirection,
+                    $armadaIndex,
+                    $routeVia,
+                ),
+            );
 
             $booking->fill([
                 'category' => 'Reguler',
@@ -147,12 +161,15 @@ class RegularBookingPersistenceService
                 'total_amount' => $reviewState['total_amount'],
                 'nominal_payment' => null,
                 'route_label' => $reviewState['route_label'],
-                'driver_name' => null,
+                'driver_name' => $tripAssignment['driver_name'],
+                'driver_id'   => $tripAssignment['driver_id'],
+                'mobil_id'    => $tripAssignment['mobil_id'],
+                'trip_id'     => $tripAssignment['trip_id'],
                 'payment_method' => null,
                 'payment_account_bank' => null,
                 'payment_account_name' => null,
                 'payment_account_number' => null,
-                'armada_index' => max(1, (int) ($reviewState['armada_index'] ?? 1)),
+                'armada_index' => $armadaIndex,
                 'payment_status' => 'Belum Bayar',
                 'booking_status' => 'Draft',
                 'ticket_status' => 'Draft',

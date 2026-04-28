@@ -108,7 +108,27 @@ class TripCrudService
 
             $payload['updated_by'] = $userId;
 
-            return $this->tripService->updateWithVersionCheck($tripId, $expectedVersion, $payload);
+            $updated = $this->tripService->updateWithVersionCheck($tripId, $expectedVersion, $payload);
+
+            // Sesi 50 PR #1: cascade update linked Bookings saat mobil_id atau driver_id
+            // berubah. Bulk update via Query Builder bypass model events untuk hindari
+            // recursion + performance. Booking::trip_id terisi saat booking save match
+            // ke trip ini (TripBookingMatcher) atau via backfill migration.
+            $mobilChanged = array_key_exists('mobil_id', $payload) && $payload['mobil_id'] !== $trip->mobil_id;
+            $driverChanged = array_key_exists('driver_id', $payload) && $payload['driver_id'] !== $trip->driver_id;
+
+            if ($mobilChanged || $driverChanged) {
+                $updated->loadMissing('driver');
+                Booking::query()
+                    ->where('trip_id', $updated->id)
+                    ->update([
+                        'mobil_id'    => $updated->mobil_id,
+                        'driver_id'   => $updated->driver_id,
+                        'driver_name' => $updated->driver?->nama,
+                    ]);
+            }
+
+            return $updated;
         });
     }
 

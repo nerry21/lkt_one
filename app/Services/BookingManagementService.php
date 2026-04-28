@@ -28,6 +28,7 @@ class BookingManagementService
         protected CustomerResolverService $customerResolver,
         protected CustomerLoyaltyService $loyaltyService,
         protected SeatLockService $seatLockService,
+        protected TripBookingMatcher $tripMatcher,
     ) {
     }
 
@@ -566,6 +567,25 @@ class BookingManagementService
             }
         }
 
+        // Sesi 50 PR #1: auto-link Trip → Booking. Trip match override admin input
+        // (trip_id/mobil_id/driver_id/driver_name dari Trip kalau ada). Trip null →
+        // fallback ke admin input dari form modal dropdown.
+        $tripAssignment = $this->tripMatcher->extractAssignmentFromTrip(
+            $this->tripMatcher->findMatchingTrip(
+                $tripDateValue,
+                $tripTimeValue,
+                $bookingDirection,
+                $armadaIndexValue,
+                $routeVia,
+            ),
+        );
+
+        $resolvedDriverName = $tripAssignment['trip_id'] !== null
+            ? $tripAssignment['driver_name']
+            : (filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null);
+        $resolvedDriverId = $tripAssignment['driver_id'] ?? ($validated['driver_id'] ?? null);
+        $resolvedMobilId = $tripAssignment['mobil_id'] ?? ($validated['mobil_id'] ?? null);
+
         $booking->fill([
             'category' => trim((string) $validated['category']),
             'from_city' => $fromCity,
@@ -586,10 +606,10 @@ class BookingManagementService
             'nominal_payment' => $requiresDocuments ? $totalAmount : null,
             'route_label' => trim((string) $validated['from_city']) . ' - ' . trim((string) $validated['to_city']),
             'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
-            'driver_name' => filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null,
-            // Sesi 47 Fix #2: driver_id + mobil_id dari form modal dropdown.
-            'driver_id' => $validated['driver_id'] ?? null,
-            'mobil_id' => $validated['mobil_id'] ?? null,
+            'trip_id' => $tripAssignment['trip_id'],
+            'driver_name' => $resolvedDriverName,
+            'driver_id' => $resolvedDriverId,
+            'mobil_id' => $resolvedMobilId,
             'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
             'payment_account_bank' => $transferAccount['bank_name'] ?? $qrisAccount['provider_name'] ?? null,
             'payment_account_name' => $transferAccount['account_holder'] ?? $qrisAccount['account_holder'] ?? null,
