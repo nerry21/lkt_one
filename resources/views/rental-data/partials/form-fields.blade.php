@@ -148,4 +148,38 @@
         </select>
     </div>
 
+    <div class="ddrop-form-field">
+        <label>Pool Tujuan Akhir <span class="req">*</span></label>
+        <select name="rental_pool_target" class="ddrop-form-select" required>
+            <option value="ROHUL" @selected(old('rental_pool_target', $booking?->rental_pool_target ?? 'ROHUL') === 'ROHUL')>Rokan Hulu</option>
+            <option value="PKB"   @selected(old('rental_pool_target', $booking?->rental_pool_target) === 'PKB')>Pekanbaru</option>
+        </select>
+    </div>
+
+    <div class="ddrop-section-divider">Pembagian Ongkos (Siklus Bagi Hasil)</div>
+
+    <div class="ddrop-form-field">
+        <label>Porsi Keberangkatan (Rp) <span class="req">*</span></label>
+        <input type="number" min="0" step="1000" name="rental_keberangkatan_amount"
+            class="ddrop-form-input rental-split-input"
+            data-split="keberangkatan"
+            value="{{ old('rental_keberangkatan_amount', $booking?->rental_keberangkatan_amount ?? '') }}"
+            placeholder="Porsi rental untuk siklus berangkat" required>
+    </div>
+
+    <div class="ddrop-form-field">
+        <label>Porsi Kepulangan (Rp) <span class="req">*</span></label>
+        <input type="number" min="0" step="1000" name="rental_kepulangan_amount"
+            class="ddrop-form-input rental-split-input"
+            data-split="kepulangan"
+            value="{{ old('rental_kepulangan_amount', $booking?->rental_kepulangan_amount ?? '') }}"
+            placeholder="Porsi rental untuk siklus pulang" required>
+    </div>
+
+    <div class="ddrop-form-field col-span-2">
+        <small class="rental-split-hint" style="font-size:0.85rem;display:block;color:#64748b">
+            Total porsi Keberangkatan + Kepulangan harus sama dengan total ongkos rental (Tarif + Tambahan).
+        </small>
+    </div>
+
 </div>

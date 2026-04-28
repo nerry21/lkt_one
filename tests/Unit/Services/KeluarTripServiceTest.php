@@ -368,4 +368,31 @@ class KeluarTripServiceTest extends TestCase
 
         $this->assertSame(0, $count, 'Reason rental TIDAK boleh create Booking Dropping.');
     }
+
+    public function test_markKeluarTrip_rental_creates_draft_booking_rental_with_planned_end_date(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+        ])->refresh();
+
+        $this->svc->markKeluarTrip($trip->id, $trip->version, [
+            'reason'           => 'rental',
+            'pool_target'      => 'PKB',
+            'planned_end_date' => '2026-04-25',
+        ]);
+
+        $draft = Booking::query()
+            ->where('trip_id', $trip->id)
+            ->where('category', 'Rental')
+            ->where('booking_status', 'Draft')
+            ->first();
+
+        $this->assertNotNull($draft, 'Draft Booking Rental harus ter-create.');
+        $this->assertSame($trip->id, $draft->trip_id);
+        $this->assertSame('PKB', $draft->rental_pool_target);
+        $this->assertSame('2026-04-25', $draft->rental_end_date->toDateString());
+        $this->assertNull($draft->rental_keberangkatan_amount);
+        $this->assertNull($draft->rental_kepulangan_amount);
+    }
 }

@@ -128,13 +128,16 @@ class KeluarTripService
             ],
         );
 
-        // Sesi 50 PR #4 — auto-create draft Booking Dropping kalau reason=dropping.
+        // Sesi 50 PR #4/#5 — auto-create draft Booking Dropping/Rental.
         // Lazy resolve via app() untuk avoid circular dependency:
-        // DroppingTripIntegrationService inject KeluarTripService di
-        // executeSwapAndDroppingLink path → tidak boleh di constructor inject sini.
+        // *TripIntegrationService inject KeluarTripService di executeSwap path →
+        // tidak boleh di constructor inject sini.
         if ($reason === 'dropping') {
             app(DroppingTripIntegrationService::class)
                 ->createDraftDroppingForKeluarTrip($updatedTrip);
+        } elseif ($reason === 'rental') {
+            app(RentalTripIntegrationService::class)
+                ->createDraftRentalForKeluarTrip($updatedTrip);
         }
 
         return $updatedTrip;
