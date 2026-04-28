@@ -151,6 +151,104 @@ function populateDeleteModal(data) {
     codeEl.textContent = data.booking_code;
 }
 
+// ── SWAP CONFIRM MODAL (Sesi 50 PR #4) ───────────────────────────────────────
+
+let pendingFormForSwap = null;
+
+function populateSwapModal(data) {
+    const info = document.getElementById('swap-conflict-info');
+    const select = document.getElementById('swap-replacement-mobil');
+    if (!info || !select) return;
+
+    const mobilKode = data.mobil_kode || '—';
+    const peerCount = data.peer_count ?? 0;
+    const tripDate  = data.trip_date  || '—';
+    const tripTime  = data.trip_time  || '—';
+
+    info.innerHTML = `
+        <div>
+            Anda memilih mobil <strong>${mobilKode}</strong> tanggal <strong>${tripDate}</strong>
+            jam <strong>${tripTime}</strong> untuk Dropping ini.
+        </div>
+        <div style="margin-top:8px">
+            Saat ini mobil <strong>${mobilKode}</strong> sudah ada <strong>${peerCount} penumpang reguler aktif</strong>
+            di trip planning slot tersebut.
+        </div>
+        <div style="margin-top:8px">Sistem akan otomatis:</div>
+        <ul>
+            <li>Trip <strong>${mobilKode}</strong> → Keluar Trip Dropping (link ke Booking ini)</li>
+            <li>Penumpang reguler ikut <em>mobil pengganti</em> yang Anda pilih (jika ada)</li>
+            <li>E-Tiket peer bookings auto-update dengan mobil baru</li>
+        </ul>
+    `;
+
+    select.innerHTML = '<option value="">— Tidak ada (peer ikut Trip yang Keluar Trip) —</option>';
+    (data.available_replacement_mobils || []).forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.kode_mobil} — ${m.jenis_mobil}`;
+        select.appendChild(opt);
+    });
+}
+
+function submitFormWithSwapConfirm(form, replacementMobilId) {
+    const ensureHidden = (name, value) => {
+        let input = form.querySelector(`input[name="${name}"]`);
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            form.appendChild(input);
+        }
+        input.value = value;
+    };
+
+    ensureHidden('confirm_swap', '1');
+    ensureHidden('replacement_mobil_id', replacementMobilId || '');
+
+    form.submit();
+}
+
+async function handleDroppingFormSubmit(e) {
+    const form = e.target;
+    if (!form.matches('form.ddrop-modal-form')) return;
+
+    const dialog = form.closest('dialog.ddrop-modal');
+    if (!dialog || !['modal-create', 'modal-edit'].includes(dialog.id)) return;
+
+    e.preventDefault();
+    pendingFormForSwap = form;
+
+    const fd = new FormData(form);
+    fd.delete('confirm_swap');
+    fd.delete('replacement_mobil_id');
+
+    let res;
+    try {
+        res = await fetch(form.action, {
+            method: form.method?.toUpperCase() || 'POST',
+            body: fd,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+    } catch (err) {
+        form.submit();
+        return;
+    }
+
+    if (res.status === 409) {
+        let data = null;
+        try { data = await res.json(); } catch { data = null; }
+
+        if (data && data.conflict_type === 'mobil_double_assign') {
+            populateSwapModal(data);
+            openDialog('modal-swap-confirm');
+            return;
+        }
+    }
+
+    form.submit();
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
 export default function initDroppingDataPage() {
@@ -198,5 +296,22 @@ export default function initDroppingDataPage() {
                 dialog.close?.() || dialog.removeAttribute('open');
             }
         });
+    });
+
+    // Sesi 50 PR #4: intercept Create/Edit form submit untuk handle konflik mobil.
+    document.querySelectorAll('#modal-create form, #modal-edit form').forEach((form) => {
+        form.addEventListener('submit', handleDroppingFormSubmit);
+    });
+
+    // Swap confirm button: re-submit form dengan flag confirm_swap.
+    document.getElementById('swap-confirm-btn')?.addEventListener('click', () => {
+        const select = document.getElementById('swap-replacement-mobil');
+        const replacementId = select?.value || '';
+        const form = pendingFormForSwap;
+        closeDialog('modal-swap-confirm');
+        if (form) {
+            submitFormWithSwapConfirm(form, replacementId);
+            pendingFormForSwap = null;
+        }
     });
 }

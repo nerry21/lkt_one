@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Exceptions\TripInvalidTransitionException;
 use App\Exceptions\TripVersionConflictException;
+use App\Models\Booking;
 use App\Models\Trip;
 use App\Services\KeluarTripService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -317,5 +318,54 @@ class KeluarTripServiceTest extends TestCase
             'reason'      => 'dropping',
             'pool_target' => 'PKB',
         ]);
+    }
+
+    // ── Group 7: Sesi 50 PR #4 — Auto-create Booking Dropping ──────────────────
+
+    public function test_markKeluarTrip_dropping_creates_draft_booking_dropping(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+        ])->refresh();
+
+        $this->svc->markKeluarTrip($trip->id, $trip->version, [
+            'reason'      => 'dropping',
+            'pool_target' => 'ROHUL',
+            'note'        => 'Ke Duri',
+        ]);
+
+        $draft = Booking::query()
+            ->where('trip_id', $trip->id)
+            ->where('category', 'Dropping')
+            ->where('booking_status', 'Draft')
+            ->first();
+
+        $this->assertNotNull($draft, 'Draft Booking Dropping harus ter-create.');
+        $this->assertSame($trip->id, $draft->trip_id);
+        $this->assertSame('ROHUL', $draft->dropping_pool_target);
+        $this->assertSame($trip->mobil_id, $draft->mobil_id);
+        $this->assertSame($trip->driver_id, $draft->driver_id);
+    }
+
+    public function test_markKeluarTrip_rental_does_NOT_create_dropping_draft(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+        ])->refresh();
+
+        $this->svc->markKeluarTrip($trip->id, $trip->version, [
+            'reason'           => 'rental',
+            'pool_target'      => 'PKB',
+            'planned_end_date' => '2026-04-24',
+        ]);
+
+        $count = Booking::query()
+            ->where('trip_id', $trip->id)
+            ->where('category', 'Dropping')
+            ->count();
+
+        $this->assertSame(0, $count, 'Reason rental TIDAK boleh create Booking Dropping.');
     }
 }

@@ -9,9 +9,12 @@ use App\Models\Driver;
 use App\Models\Mobil;
 use App\Services\DroppingBookingPersistenceService;
 use App\Services\DroppingBookingService;
+use App\Services\DroppingTripIntegrationService;
+use App\Services\KeluarTripService;
 use App\Services\RegularBookingPaymentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -71,33 +74,87 @@ class DroppingBookingDataPageController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        DroppingTripIntegrationService $integrationService,
+        KeluarTripService $keluarTripService,
+    ): RedirectResponse|JsonResponse {
         $validated = $request->validate([
-            'passenger_name'   => ['required', 'string', 'max:100'],
-            'passenger_phone'  => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
-            'from_city'        => ['required', 'string', 'max:255'],
-            'to_city'          => ['required', 'string', 'max:255'],
-            'pickup_location'  => ['required', 'string', 'min:5', 'max:255'],
-            'dropoff_location' => ['required', 'string', 'min:5', 'max:255'],
-            'price_per_seat'   => ['required', 'integer', 'min:0'],
-            'additional_fare'  => ['nullable', 'integer', 'min:0'],
-            'trip_date'        => ['required', 'date'],
-            'trip_time'        => ['required', 'date_format:H:i'],
-            'notes'            => ['nullable', 'string', 'max:500'],
-            'payment_method'   => ['nullable', 'string', 'in:transfer,qris,cash'],
-            'payment_status'   => ['nullable', 'string'],
-            'booking_for'      => ['nullable', 'string', 'in:self,other'],
-            'driver_id'        => ['nullable', 'uuid', 'exists:drivers,id'],
-            'mobil_id'         => ['nullable', 'uuid', 'exists:mobil,id'],
+            'passenger_name'       => ['required', 'string', 'max:100'],
+            'passenger_phone'      => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
+            'from_city'            => ['required', 'string', 'max:255'],
+            'to_city'              => ['required', 'string', 'max:255'],
+            'pickup_location'      => ['required', 'string', 'min:5', 'max:255'],
+            'dropoff_location'     => ['required', 'string', 'min:5', 'max:255'],
+            'price_per_seat'       => ['required', 'integer', 'min:0'],
+            'additional_fare'      => ['nullable', 'integer', 'min:0'],
+            'trip_date'            => ['required', 'date'],
+            'trip_time'            => ['required', 'date_format:H:i'],
+            'notes'                => ['nullable', 'string', 'max:500'],
+            'payment_method'       => ['nullable', 'string', 'in:transfer,qris,cash'],
+            'payment_status'       => ['nullable', 'string'],
+            'booking_for'          => ['nullable', 'string', 'in:self,other'],
+            'driver_id'            => ['nullable', 'uuid', 'exists:drivers,id'],
+            'mobil_id'             => ['nullable', 'uuid', 'exists:mobil,id'],
+            'dropping_pool_target' => ['nullable', 'string', 'in:PKB,ROHUL'],
+            'confirm_swap'         => ['nullable', 'boolean'],
+            'replacement_mobil_id' => ['nullable', 'uuid', 'exists:mobil,id'],
         ], [
             'passenger_phone.regex' => 'Nomor HP harus format Indonesia yang valid (08xxxxxxxxxx).',
             'trip_time.date_format' => 'Jam keberangkatan harus format HH:MM.',
         ]);
 
-        $phone = $this->normalizePhone((string) ($validated['passenger_phone'] ?? ''));
+        $phone       = $this->normalizePhone((string) ($validated['passenger_phone'] ?? ''));
+        $poolTarget  = $validated['dropping_pool_target'] ?? 'ROHUL';
+        $mobilId     = $validated['mobil_id'] ?? null;
+        $tripDate    = $validated['trip_date'];
+        $tripTimeRaw = $validated['trip_time'];
+        $direction   = $this->resolveDirection((string) $validated['from_city'], (string) $validated['to_city']);
+        $confirmSwap = (bool) ($validated['confirm_swap'] ?? false);
 
-        DB::transaction(function () use ($validated, $phone): void {
+        // Pre-check konflik mobil: kalau admin pilih mobil yang sudah ada penumpang
+        // reguler aktif di slot+jam+tanggal sama → return JSON 409 supaya frontend
+        // tampilkan modal konfirmasi.
+        if ($mobilId !== null && ! $confirmSwap) {
+            $conflict = $integrationService->detectMobilConflict(
+                mobilId: $mobilId,
+                tripDate: $tripDate,
+                tripTime: $tripTimeRaw,
+                bookingDirection: $direction,
+                armadaIndex: 1,
+            );
+
+            if ($conflict['hasConflict']) {
+                return response()->json([
+                    'conflict_type' => 'mobil_double_assign',
+                    'message'       => 'Mobil yang dipilih sudah ada penumpang reguler aktif di slot ini. Konfirmasi swap diperlukan.',
+                    'trip_id'       => $conflict['conflictingTrip']->id,
+                    'mobil_id'      => $mobilId,
+                    'mobil_kode'    => optional(Mobil::find($mobilId))->kode_mobil,
+                    'trip_date'     => $tripDate,
+                    'trip_time'     => $tripTimeRaw,
+                    'peer_count'    => $conflict['peerBookingsCount'],
+                    'peer_bookings' => $conflict['peerBookings']->map(fn (Booking $b): array => [
+                        'id'             => $b->id,
+                        'booking_code'   => $b->booking_code,
+                        'passenger_name' => $b->passenger_name,
+                        'selected_seats' => $b->selected_seats,
+                    ])->values(),
+                    'available_replacement_mobils' => $conflict['availableReplacementMobils']->map(fn (Mobil $m): array => [
+                        'id'          => $m->id,
+                        'kode_mobil'  => $m->kode_mobil,
+                        'jenis_mobil' => $m->jenis_mobil,
+                    ])->values(),
+                ], 409);
+            }
+        }
+
+        $userId = (string) ($request->user()?->id ?? '');
+
+        DB::transaction(function () use (
+            $validated, $phone, $poolTarget, $mobilId, $tripDate, $tripTimeRaw,
+            $direction, $confirmSwap, $integrationService, $keluarTripService, $userId,
+        ): void {
             $bookingCode    = $this->generateBookingCode();
             $paymentMethod  = $validated['payment_method'] ?? null;
             $paymentStatus  = $validated['payment_status'] ?? 'Belum Bayar';
@@ -109,30 +166,32 @@ class DroppingBookingDataPageController extends Controller
             $totalAmount    = $pricePerSeat + $additionalFare;
 
             $booking = Booking::create([
-                'booking_code'    => $bookingCode,
-                'category'        => 'Dropping',
-                'from_city'       => trim($validated['from_city']),
-                'to_city'         => trim($validated['to_city']),
-                'route_label'     => trim($validated['from_city']) . ' - ' . trim($validated['to_city']),
-                'trip_date'       => $validated['trip_date'],
-                'trip_time'       => $validated['trip_time'] . ':00',
-                'booking_for'     => $validated['booking_for'] ?? 'self',
-                'passenger_name'  => trim($validated['passenger_name']),
-                'passenger_phone' => $phone,
-                'passenger_count' => 6,
-                'pickup_location' => trim($validated['pickup_location']),
-                'dropoff_location'=> trim($validated['dropoff_location']),
-                'selected_seats'  => ['1A', '2A', '2B', '3A', '4A', '5A'],
-                'price_per_seat'  => $pricePerSeat,
-                'total_amount'    => $totalAmount,
-                'nominal_payment' => $isPaid ? $totalAmount : null,
-                'payment_method'  => $paymentMethod,
-                'payment_status'  => $paymentStatus,
-                'booking_status'  => $bookingStatus,
-                'ticket_status'   => $ticketStatus,
-                'notes'           => $validated['notes'] ?? null,
-                'driver_id'       => $validated['driver_id'] ?? null,
-                'mobil_id'        => $validated['mobil_id'] ?? null,
+                'booking_code'         => $bookingCode,
+                'category'             => 'Dropping',
+                'from_city'            => trim($validated['from_city']),
+                'to_city'              => trim($validated['to_city']),
+                'direction'            => $direction,
+                'dropping_pool_target' => $poolTarget,
+                'route_label'          => trim($validated['from_city']) . ' - ' . trim($validated['to_city']),
+                'trip_date'            => $tripDate,
+                'trip_time'            => $tripTimeRaw . ':00',
+                'booking_for'          => $validated['booking_for'] ?? 'self',
+                'passenger_name'       => trim($validated['passenger_name']),
+                'passenger_phone'      => $phone,
+                'passenger_count'      => 6,
+                'pickup_location'      => trim($validated['pickup_location']),
+                'dropoff_location'     => trim($validated['dropoff_location']),
+                'selected_seats'       => ['1A', '2A', '2B', '3A', '4A', '5A'],
+                'price_per_seat'       => $pricePerSeat,
+                'total_amount'         => $totalAmount,
+                'nominal_payment'      => $isPaid ? $totalAmount : null,
+                'payment_method'       => $paymentMethod,
+                'payment_status'       => $paymentStatus,
+                'booking_status'       => $bookingStatus,
+                'ticket_status'        => $ticketStatus,
+                'notes'                => $validated['notes'] ?? null,
+                'driver_id'            => $validated['driver_id'] ?? null,
+                'mobil_id'             => $mobilId,
             ]);
 
             $allSeats = ['1A', '2A', '2B', '3A', '4A', '5A'];
@@ -144,10 +203,121 @@ class DroppingBookingDataPageController extends Controller
                     'ticket_status' => $ticketStatus,
                 ])->all()
             );
+
+            // Sync Trip Planning kalau mobil dipilih.
+            if ($mobilId !== null) {
+                $this->syncTripForDroppingBooking(
+                    booking: $booking,
+                    mobilId: $mobilId,
+                    tripDate: $tripDate,
+                    tripTimeRaw: $tripTimeRaw,
+                    direction: $direction,
+                    poolTarget: $poolTarget,
+                    confirmSwap: $confirmSwap,
+                    replacementMobilId: $validated['replacement_mobil_id'] ?? null,
+                    integrationService: $integrationService,
+                    keluarTripService: $keluarTripService,
+                    userId: $userId,
+                );
+            }
         });
 
         return redirect()->route('dropping-data.index')
             ->with('dropping_data_success', 'Data pemesanan dropping berhasil ditambahkan.');
+    }
+
+    /**
+     * Sync Booking Dropping ke Trip Planning. Skenario:
+     *   - Konflik + confirm_swap → executeSwapAndDroppingLink (swap mobil + cascade peer + markKeluarTrip).
+     *   - Trip match scheduled tanpa konflik → markKeluarTrip dropping + link trip_id.
+     *   - Trip null / status non-scheduled → just link trip_id kalau ada.
+     */
+    private function syncTripForDroppingBooking(
+        Booking $booking,
+        string $mobilId,
+        string $tripDate,
+        string $tripTimeRaw,
+        string $direction,
+        string $poolTarget,
+        bool $confirmSwap,
+        ?string $replacementMobilId,
+        DroppingTripIntegrationService $integrationService,
+        KeluarTripService $keluarTripService,
+        string $userId,
+    ): void {
+        $conflict = $integrationService->detectMobilConflict(
+            mobilId: $mobilId,
+            tripDate: $tripDate,
+            tripTime: $tripTimeRaw,
+            bookingDirection: $direction,
+            armadaIndex: 1,
+            excludeBookingId: $booking->id,
+        );
+
+        if ($conflict['hasConflict'] && $confirmSwap) {
+            $integrationService->executeSwapAndDroppingLink(
+                droppingBooking: $booking,
+                conflictingTrip: $conflict['conflictingTrip'],
+                replacementMobilId: $replacementMobilId,
+                poolTarget: $poolTarget,
+                userId: $userId !== '' ? $userId : null,
+            );
+
+            return;
+        }
+
+        // Tidak ada konflik: cek apakah Trip match exist (status scheduled) untuk
+        // auto-markKeluarTrip dropping + link booking ke trip.
+        $matcher = app(\App\Services\TripBookingMatcher::class);
+        $trip    = $matcher->findMatchingTrip(
+            tripDate: $tripDate,
+            tripTime: $tripTimeRaw,
+            bookingDirection: $direction,
+            armadaIndex: 1,
+        );
+
+        if ($trip === null) {
+            return;
+        }
+
+        if ($trip->status === 'scheduled' && $trip->mobil_id === $mobilId) {
+            // Auto markKeluarTrip dropping. Service di sini sudah punya idempotent
+            // guard di createDraftDroppingForKeluarTrip — tapi kita link Booking
+            // existing supaya tidak ada duplicate Draft (createDraftDropping akan
+            // skip karena Draft existing belum link, jadi kita link manual dulu).
+            $booking->trip_id = $trip->id;
+            $booking->save();
+
+            $keluarTripService->markKeluarTrip(
+                tripId: $trip->id,
+                expectedVersion: $trip->version,
+                payload: [
+                    'reason'      => 'dropping',
+                    'pool_target' => $poolTarget,
+                    'note'        => 'Auto dari Pemesanan Dropping ' . $booking->booking_code,
+                ],
+            );
+
+            return;
+        }
+
+        // Trip ada tapi non-scheduled (mis. sudah keluar_trip dropping/rental, atau
+        // berangkat). Link booking saja kalau mobil match. Kalau Trip sudah keluar_trip
+        // dropping → link saja (booking ini ngisi data customer untuk Trip yang sudah
+        // dipindahkan ke Keluar Trip oleh admin sebelumnya).
+        if ($trip->mobil_id === $mobilId) {
+            $booking->trip_id = $trip->id;
+            $booking->save();
+        }
+    }
+
+    private function resolveDirection(string $fromCity, string $toCity): string
+    {
+        return match (true) {
+            $toCity === 'Pekanbaru'   => 'to_pkb',
+            $fromCity === 'Pekanbaru' => 'from_pkb',
+            default                   => 'to_pkb',
+        };
     }
 
     public function update(Request $request, Booking $booking): RedirectResponse
@@ -155,22 +325,23 @@ class DroppingBookingDataPageController extends Controller
         abort_if($booking->category !== 'Dropping', 404);
 
         $validated = $request->validate([
-            'passenger_name'   => ['required', 'string', 'max:100'],
-            'passenger_phone'  => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
-            'from_city'        => ['required', 'string', 'max:255'],
-            'to_city'          => ['required', 'string', 'max:255'],
-            'pickup_location'  => ['required', 'string', 'min:5', 'max:255'],
-            'dropoff_location' => ['required', 'string', 'min:5', 'max:255'],
-            'price_per_seat'   => ['required', 'integer', 'min:0'],
-            'additional_fare'  => ['nullable', 'integer', 'min:0'],
-            'trip_date'        => ['required', 'date'],
-            'trip_time'        => ['required', 'date_format:H:i'],
-            'notes'            => ['nullable', 'string', 'max:500'],
-            'payment_method'   => ['nullable', 'string', 'in:transfer,qris,cash'],
-            'payment_status'   => ['nullable', 'string'],
-            'driver_id'        => ['nullable', 'uuid', 'exists:drivers,id'],
-            'mobil_id'         => ['nullable', 'uuid', 'exists:mobil,id'],
-            'version'          => ['required', 'integer'],
+            'passenger_name'       => ['required', 'string', 'max:100'],
+            'passenger_phone'      => ['required', 'string', 'regex:/^08[1-9][0-9]{7,12}$/'],
+            'from_city'            => ['required', 'string', 'max:255'],
+            'to_city'              => ['required', 'string', 'max:255'],
+            'pickup_location'      => ['required', 'string', 'min:5', 'max:255'],
+            'dropoff_location'     => ['required', 'string', 'min:5', 'max:255'],
+            'price_per_seat'       => ['required', 'integer', 'min:0'],
+            'additional_fare'      => ['nullable', 'integer', 'min:0'],
+            'trip_date'            => ['required', 'date'],
+            'trip_time'            => ['required', 'date_format:H:i'],
+            'notes'                => ['nullable', 'string', 'max:500'],
+            'payment_method'       => ['nullable', 'string', 'in:transfer,qris,cash'],
+            'payment_status'       => ['nullable', 'string'],
+            'driver_id'            => ['nullable', 'uuid', 'exists:drivers,id'],
+            'mobil_id'             => ['nullable', 'uuid', 'exists:mobil,id'],
+            'dropping_pool_target' => ['nullable', 'string', 'in:PKB,ROHUL'],
+            'version'              => ['required', 'integer'],
         ], [
             'passenger_phone.regex' => 'Nomor HP harus format Indonesia yang valid.',
             'trip_time.date_format' => 'Jam keberangkatan harus format HH:MM.',
@@ -193,23 +364,26 @@ class DroppingBookingDataPageController extends Controller
             $totalAmount    = $pricePerSeat + $additionalFare;
 
             $attributes = [
-                'from_city'       => trim($validated['from_city']),
-                'to_city'         => trim($validated['to_city']),
-                'route_label'     => trim($validated['from_city']) . ' - ' . trim($validated['to_city']),
-                'trip_date'       => $validated['trip_date'],
-                'trip_time'       => $validated['trip_time'] . ':00',
-                'passenger_name'  => trim($validated['passenger_name']),
-                'passenger_phone' => $phone,
-                'pickup_location' => trim($validated['pickup_location']),
-                'dropoff_location'=> trim($validated['dropoff_location']),
-                'price_per_seat'  => $pricePerSeat,
-                'total_amount'    => $totalAmount,
-                'nominal_payment' => $isPaid ? $totalAmount : $booking->nominal_payment,
-                'payment_method'  => $validated['payment_method'] ?? $booking->payment_method,
-                'payment_status'  => $paymentStatus,
-                'notes'           => $validated['notes'] ?? null,
-                'driver_id'       => $validated['driver_id'] ?? null,
-                'mobil_id'        => $validated['mobil_id'] ?? null,
+                'from_city'            => trim($validated['from_city']),
+                'to_city'              => trim($validated['to_city']),
+                'route_label'          => trim($validated['from_city']) . ' - ' . trim($validated['to_city']),
+                'trip_date'            => $validated['trip_date'],
+                'trip_time'            => $validated['trip_time'] . ':00',
+                'passenger_name'       => trim($validated['passenger_name']),
+                'passenger_phone'      => $phone,
+                'pickup_location'      => trim($validated['pickup_location']),
+                'dropoff_location'     => trim($validated['dropoff_location']),
+                'price_per_seat'       => $pricePerSeat,
+                'total_amount'         => $totalAmount,
+                'nominal_payment'      => $isPaid ? $totalAmount : $booking->nominal_payment,
+                'payment_method'       => $validated['payment_method'] ?? $booking->payment_method,
+                'payment_status'       => $paymentStatus,
+                'notes'                => $validated['notes'] ?? null,
+                'driver_id'            => $validated['driver_id'] ?? null,
+                'mobil_id'             => $validated['mobil_id'] ?? null,
+                'dropping_pool_target' => $validated['dropping_pool_target']
+                    ?? $booking->dropping_pool_target
+                    ?? 'ROHUL',
             ];
 
             // Atomic check-and-set (bug #38). Race guard bila admin lain bump version
