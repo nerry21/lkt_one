@@ -114,7 +114,7 @@ class KeluarTripService
             );
         }
 
-        return $this->tripService->updateWithVersionCheck(
+        $updatedTrip = $this->tripService->updateWithVersionCheck(
             $tripId,
             $expectedVersion,
             [
@@ -127,6 +127,17 @@ class KeluarTripService
                 'keluar_trip_planned_end_date' => $plannedEndDate,
             ],
         );
+
+        // Sesi 50 PR #4 — auto-create draft Booking Dropping kalau reason=dropping.
+        // Lazy resolve via app() untuk avoid circular dependency:
+        // DroppingTripIntegrationService inject KeluarTripService di
+        // executeSwapAndDroppingLink path → tidak boleh di constructor inject sini.
+        if ($reason === 'dropping') {
+            app(DroppingTripIntegrationService::class)
+                ->createDraftDroppingForKeluarTrip($updatedTrip);
+        }
+
+        return $updatedTrip;
     }
 
     /**

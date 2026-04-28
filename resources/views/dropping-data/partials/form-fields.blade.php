@@ -134,4 +134,12 @@
         </select>
     </div>
 
+    <div class="ddrop-form-field">
+        <label>Pool Tujuan Akhir <span class="req">*</span></label>
+        <select name="dropping_pool_target" class="ddrop-form-select" required>
+            <option value="ROHUL" @selected(old('dropping_pool_target', $booking?->dropping_pool_target ?? 'ROHUL') === 'ROHUL')>Rokan Hulu</option>
+            <option value="PKB"   @selected(old('dropping_pool_target', $booking?->dropping_pool_target) === 'PKB')>Pekanbaru</option>
+        </select>
+    </div>
+
 </div>

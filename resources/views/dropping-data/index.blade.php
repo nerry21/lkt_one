@@ -288,6 +288,40 @@
 </dialog>
 
 {{-- ══════════════════════════════════════════════════════════
+     MODAL: SWAP CONFIRM (Sesi 50 PR #4)
+══════════════════════════════════════════════════════════ --}}
+<dialog id="modal-swap-confirm" class="ddrop-modal">
+    <div class="ddrop-modal-box ddrop-modal-box--lg">
+        <div class="ddrop-modal-head ddrop-modal-head--warning">
+            <h2>⚠️ Konfirmasi Penyesuaian Trip Planning</h2>
+            <button type="button" class="ddrop-modal-close" data-close-modal="modal-swap-confirm">
+                <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+        <div class="ddrop-swap-body">
+            <div id="swap-conflict-info" class="ddrop-swap-info">
+                {{-- populated by JS dari response 409 --}}
+            </div>
+
+            <div class="ddrop-form-field">
+                <label>Mobil Pengganti untuk Slot Asal</label>
+                <select id="swap-replacement-mobil" name="replacement_mobil_id" class="ddrop-form-select">
+                    <option value="">— Tidak ada (peer ikut Trip yang Keluar Trip) —</option>
+                    {{-- options populated by JS --}}
+                </select>
+                <small style="font-size:0.78rem;color:#64748b;margin-top:6px;display:block">
+                    Penumpang reguler aktif akan otomatis dipindah ke mobil pengganti yang Anda pilih.
+                </small>
+            </div>
+        </div>
+        <div class="ddrop-modal-actions">
+            <button type="button" class="ddrop-btn-ghost" data-close-modal="modal-swap-confirm">Batal</button>
+            <button type="button" id="swap-confirm-btn" class="ddrop-btn-primary">Lanjutkan</button>
+        </div>
+    </div>
+</dialog>
+
+{{-- ══════════════════════════════════════════════════════════
      MODAL: DELETE
 ══════════════════════════════════════════════════════════ --}}
 <dialog id="modal-delete" class="ddrop-modal">
@@ -557,6 +591,25 @@
 }
 .ddrop-modal-head h2 { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; }
 .ddrop-modal-head--danger h2 { color: #dc2626; }
+.ddrop-modal-head--warning h2 { color: #b45309; }
+.ddrop-swap-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.ddrop-swap-info {
+    background: #fef3c7;
+    border: 1px solid rgba(245,158,11,.4);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.88rem;
+    color: #78350f;
+    line-height: 1.55;
+}
+.ddrop-swap-info strong { color: #92400e; }
+.ddrop-swap-info ul { margin: 8px 0 0; padding-left: 18px; }
+.ddrop-swap-info li { margin-bottom: 4px; }
 .ddrop-modal-close {
     width: 32px; height: 32px; border-radius: 8px; border: none;
     background: rgba(148,163,184,.12); color: #64748b; cursor: pointer;

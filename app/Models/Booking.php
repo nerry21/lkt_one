@@ -25,6 +25,7 @@ class Booking extends Model
         'to_city',
         'direction',
         'route_via',
+        'dropping_pool_target',
         'trip_date',
         'trip_time',
         'booking_for',
