@@ -5,6 +5,9 @@ namespace Tests\Unit\Services;
 use App\Exceptions\WizardBackEditOnPaidBookingException;
 use App\Models\Booking;
 use App\Models\BookingSeat;
+use App\Models\Driver;
+use App\Models\Mobil;
+use App\Models\Trip;
 use App\Models\User;
 use App\Services\RegularBookingDraftService;
 use App\Services\RegularBookingPersistenceService;
@@ -355,5 +358,80 @@ class RegularBookingPersistenceServiceTest extends TestCase
             $active->every(fn (BookingSeat $r): bool => $r->lock_type === 'soft'),
             'Transfer payment must NOT promote to hard (defer ke admin verification, bug #31 scope).',
         );
+    }
+
+    // ── Sesi 50 PR #1: TripBookingMatcher auto-link integration ────────────
+
+    public function test_persistDraft_auto_links_trip_id_when_matching_trip_exists(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create(['nama' => 'Pak Heri']);
+
+        // Trip match: 2026-04-20 05:30 ROHUL_TO_PKB sequence=1 (SKPD→PKB / armada_index=1)
+        $trip = Trip::factory()->create([
+            'trip_date' => '2026-04-20',
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence'  => 1,
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driver->id,
+            'status'    => 'scheduled',
+        ]);
+
+        $session = $this->freshSession();
+        $booking = $this->svc->persistDraft($session, $this->draftPayload(), $this->regularSvc, $this->draftSvc, $this->admin);
+
+        $this->assertSame($trip->id, $booking->trip_id);
+        $this->assertSame($mobil->id, $booking->mobil_id);
+        $this->assertSame($driver->id, $booking->driver_id);
+        $this->assertSame('Pak Heri', $booking->driver_name);
+    }
+
+    public function test_persistDraft_leaves_trip_id_null_when_no_matching_trip(): void
+    {
+        // Trip ada tapi sequence beda → tidak match, semua field null.
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create();
+        Trip::factory()->create([
+            'trip_date' => '2026-04-20',
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence'  => 9,
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driver->id,
+            'status'    => 'scheduled',
+        ]);
+
+        $session = $this->freshSession();
+        $booking = $this->svc->persistDraft($session, $this->draftPayload(), $this->regularSvc, $this->draftSvc, $this->admin);
+
+        $this->assertNull($booking->trip_id);
+        $this->assertNull($booking->mobil_id);
+        $this->assertNull($booking->driver_id);
+        $this->assertNull($booking->driver_name);
+    }
+
+    public function test_persistDraft_skips_trip_with_status_tidak_berangkat(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create(['nama' => 'Pak Joko']);
+
+        Trip::factory()->tidakBerangkat()->create([
+            'trip_date' => '2026-04-20',
+            'trip_time' => '05:30:00',
+            'direction' => 'ROHUL_TO_PKB',
+            'sequence'  => 1,
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+
+        $session = $this->freshSession();
+        $booking = $this->svc->persistDraft($session, $this->draftPayload(), $this->regularSvc, $this->draftSvc, $this->admin);
+
+        // Trip cancelled tidak boleh di-link.
+        $this->assertNull($booking->trip_id);
+        $this->assertNull($booking->mobil_id);
+        $this->assertNull($booking->driver_id);
+        $this->assertNull($booking->driver_name);
     }
 }

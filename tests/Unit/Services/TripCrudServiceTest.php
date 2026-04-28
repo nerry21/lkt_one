@@ -258,4 +258,69 @@ class TripCrudServiceTest extends TestCase
 
         $this->assertSame(3, $this->svc->countLinkedBookings($trip->id));
     }
+
+    // ── Sesi 50 PR #1: cascade update linked Bookings ──────────────────────
+
+    public function test_edit_manual_cascades_mobil_and_driver_change_to_linked_bookings(): void
+    {
+        $trip = $this->svc->createManual($this->basePayload(), $this->admin->id);
+
+        $linkedA = Booking::factory()->create([
+            'trip_id'     => $trip->id,
+            'mobil_id'    => $this->mobil->id,
+            'driver_id'   => $this->driver->id,
+            'driver_name' => 'old',
+        ]);
+        $linkedB = Booking::factory()->create([
+            'trip_id'     => $trip->id,
+            'mobil_id'    => $this->mobil->id,
+            'driver_id'   => $this->driver->id,
+            'driver_name' => 'old',
+        ]);
+
+        $this->driver2->update(['nama' => 'Driver Baru']);
+
+        $this->svc->editManual(
+            tripId: $trip->id,
+            expectedVersion: 0,
+            payload: ['mobil_id' => $this->mobil2->id, 'driver_id' => $this->driver2->id],
+            userId: $this->admin->id,
+        );
+
+        $linkedA->refresh();
+        $linkedB->refresh();
+
+        $this->assertSame($this->mobil2->id, $linkedA->mobil_id);
+        $this->assertSame($this->driver2->id, $linkedA->driver_id);
+        $this->assertSame('Driver Baru', $linkedA->driver_name);
+
+        $this->assertSame($this->mobil2->id, $linkedB->mobil_id);
+        $this->assertSame($this->driver2->id, $linkedB->driver_id);
+        $this->assertSame('Driver Baru', $linkedB->driver_name);
+    }
+
+    public function test_edit_manual_does_not_touch_linked_bookings_when_mobil_driver_unchanged(): void
+    {
+        $trip = $this->svc->createManual($this->basePayload(), $this->admin->id);
+
+        $linked = Booking::factory()->create([
+            'trip_id'     => $trip->id,
+            'mobil_id'    => $this->mobil->id,
+            'driver_id'   => $this->driver->id,
+            'driver_name' => 'Driver Asli',
+        ]);
+
+        // Edit hanya trip_time → mobil_id/driver_id tidak ada di payload, no cascade.
+        $this->svc->editManual(
+            tripId: $trip->id,
+            expectedVersion: 0,
+            payload: ['trip_time' => '08:00:00'],
+            userId: $this->admin->id,
+        );
+
+        $linked->refresh();
+        $this->assertSame($this->mobil->id, $linked->mobil_id);
+        $this->assertSame($this->driver->id, $linked->driver_id);
+        $this->assertSame('Driver Asli', $linked->driver_name);
+    }
 }
