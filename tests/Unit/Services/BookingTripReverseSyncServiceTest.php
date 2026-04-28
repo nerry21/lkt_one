@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Exceptions\TripSlotConflictException;
 use App\Exceptions\TripVersionConflictException;
 use App\Models\Booking;
+use App\Models\BookingNotificationPending;
 use App\Models\Driver;
 use App\Models\Mobil;
 use App\Models\Trip;
@@ -253,5 +254,70 @@ class BookingTripReverseSyncServiceTest extends TestCase
             excludeBookingId: 9999,
             userId:           $this->admin->id,
         );
+    }
+
+    // ── Sesi 50 PR #3: notif foundation untuk peer bookings ─────────────────
+
+    public function test_reverse_sync_creates_mobil_changed_notification_for_peers_only(): void
+    {
+        $trip = $this->makeTrip();
+
+        $self = Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobilA->id,
+            'booking_status' => 'Diproses',
+        ]);
+        $peer1 = Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobilA->id,
+            'booking_status' => 'Diproses',
+        ]);
+        $peer2 = Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobilA->id,
+            'booking_status' => 'Diproses',
+        ]);
+
+        $this->svc->syncBookingAssignmentToTrip(
+            trip:             $trip,
+            newDriverId:      $this->driverA->id,
+            newMobilId:       $this->mobilB->id,
+            newDriverName:    'Driver A',
+            excludeBookingId: $self->id,
+            userId:           $this->admin->id,
+        );
+
+        $records = BookingNotificationPending::query()
+            ->where('event_type', 'mobil_changed')
+            ->get();
+
+        // Hanya 2 peer (self exclude).
+        $this->assertCount(2, $records);
+        $bookingIds = $records->pluck('booking_id')->all();
+        $this->assertContains($peer1->id, $bookingIds);
+        $this->assertContains($peer2->id, $bookingIds);
+        $this->assertNotContains($self->id, $bookingIds);
+    }
+
+    public function test_reverse_sync_no_notification_when_no_change(): void
+    {
+        $trip = $this->makeTrip();
+
+        Booking::factory()->create([
+            'trip_id'        => $trip->id,
+            'mobil_id'       => $this->mobilA->id,
+            'booking_status' => 'Diproses',
+        ]);
+
+        $this->svc->syncBookingAssignmentToTrip(
+            trip:             $trip,
+            newDriverId:      $this->driverA->id, // SAMA dengan trip
+            newMobilId:       $this->mobilA->id,  // SAMA dengan trip
+            newDriverName:    'Driver A',
+            excludeBookingId: 9999,
+            userId:           $this->admin->id,
+        );
+
+        $this->assertSame(0, BookingNotificationPending::query()->count());
     }
 }

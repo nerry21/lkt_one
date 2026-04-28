@@ -4,6 +4,8 @@ namespace Tests\Unit\Services;
 
 use App\Exceptions\TripInvalidTransitionException;
 use App\Exceptions\TripVersionConflictException;
+use App\Models\Booking;
+use App\Models\BookingNotificationPending;
 use App\Models\Trip;
 use App\Services\TripRotationService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -349,5 +351,87 @@ class TripRotationServiceTest extends TestCase
     {
         $this->expectException(ModelNotFoundException::class);
         $this->svc->markBerangkat(999999, 0);
+    }
+
+    // ── Sesi 50 PR #3: cascade trip_time + notif foundation ─────────────────
+
+    public function test_gantiJam_cascades_trip_time_to_linked_bookings(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence'  => 1,
+        ])->refresh();
+
+        $booking1 = Booking::factory()->create([
+            'trip_id'   => $trip->id,
+            'trip_time' => '05:30:00',
+            'trip_date' => self::TRIP_DATE,
+        ]);
+        $booking2 = Booking::factory()->create([
+            'trip_id'   => $trip->id,
+            'trip_time' => '05:30:00',
+            'trip_date' => self::TRIP_DATE,
+        ]);
+
+        $this->svc->gantiJam($trip->id, '07:00:00', $trip->version);
+
+        $booking1->refresh();
+        $booking2->refresh();
+        $this->assertSame('07:00:00', $booking1->trip_time);
+        $this->assertSame('07:00:00', $booking2->trip_time);
+    }
+
+    public function test_gantiJam_creates_notification_pending_for_each_booking(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+            'sequence'  => 1,
+        ])->refresh();
+
+        Booking::factory()->count(3)->create([
+            'trip_id'        => $trip->id,
+            'trip_time'      => '05:30:00',
+            'trip_date'      => self::TRIP_DATE,
+            'booking_status' => 'Diproses',
+        ]);
+
+        $this->svc->gantiJam($trip->id, '07:00:00', $trip->version);
+
+        $records = BookingNotificationPending::query()
+            ->where('event_type', 'trip_time_changed')
+            ->get();
+        $this->assertCount(3, $records);
+        $this->assertTrue($records->every(fn ($r) => $r->old_value === '05:30:00'));
+        $this->assertTrue($records->every(fn ($r) => $r->new_value === '07:00:00'));
+        $this->assertTrue($records->every(fn ($r) => $r->trip_id === $trip->id));
+    }
+
+    public function test_markTidakBerangkat_creates_trip_canceled_notification(): void
+    {
+        $trip = Trip::factory()->scheduled()->create([
+            'trip_date' => self::TRIP_DATE,
+            'trip_time' => '05:30:00',
+            'sequence'  => 1,
+        ])->refresh();
+
+        Booking::factory()->count(2)->create([
+            'trip_id'        => $trip->id,
+            'trip_time'      => '05:30:00',
+            'trip_date'      => self::TRIP_DATE,
+            'booking_status' => 'Diproses',
+        ]);
+
+        $result = $this->svc->markTidakBerangkat($trip->id, $trip->version);
+
+        $this->assertSame('tidak_berangkat', $result->status);
+
+        $records = BookingNotificationPending::query()
+            ->where('event_type', 'trip_canceled')
+            ->get();
+        $this->assertCount(2, $records);
+        $this->assertTrue($records->every(fn ($r) => str_contains((string) $r->notification_message, 'DIBATALKAN')));
     }
 }
