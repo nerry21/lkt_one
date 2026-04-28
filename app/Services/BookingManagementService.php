@@ -9,8 +9,10 @@ use App\Models\BookingSeat;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\BookingTripReverseSyncService;
 use App\Services\CustomerLoyaltyService;
 use App\Services\CustomerResolverService;
 use App\Services\SeatLockService;
@@ -29,6 +31,7 @@ class BookingManagementService
         protected CustomerLoyaltyService $loyaltyService,
         protected SeatLockService $seatLockService,
         protected TripBookingMatcher $tripMatcher,
+        protected BookingTripReverseSyncService $reverseSync,
     ) {
     }
 
@@ -461,6 +464,21 @@ class BookingManagementService
         ];
     }
 
+    /**
+     * Persist booking reguler dari path admin (Data Pemesanan modal).
+     *
+     * Sesi 50 PR #2: admin input driver_id/mobil_id menang (last-write-wins
+     * murni). Saat berbeda dari Trip current → cascade via
+     * BookingTripReverseSyncService. Wizard customer path
+     * (RegularBookingPersistenceService::persistDraft) tetap pakai PR #1
+     * behavior 'Trip menang' — wizard tidak punya dropdown driver/mobil.
+     *
+     * Cascade order:
+     *   1. Resolve final driver/mobil (admin > trip > null).
+     *   2. Save booking dengan field resolved.
+     *   3. Setelah save sukses, kalau admin override Trip → cascade ke Trip
+     *      + peer bookings (booking lain dengan trip_id sama).
+     */
     protected function persistBooking(Booking $booking, array $validated): Booking
     {
         $selectedSeats = $this->regularBookingService->sortSeatCodes((array) $validated['selected_seats']);
@@ -567,24 +585,45 @@ class BookingManagementService
             }
         }
 
-        // Sesi 50 PR #1: auto-link Trip → Booking. Trip match override admin input
-        // (trip_id/mobil_id/driver_id/driver_name dari Trip kalau ada). Trip null →
-        // fallback ke admin input dari form modal dropdown.
-        $tripAssignment = $this->tripMatcher->extractAssignmentFromTrip(
-            $this->tripMatcher->findMatchingTrip(
-                $tripDateValue,
-                $tripTimeValue,
-                $bookingDirection,
-                $armadaIndexValue,
-                $routeVia,
-            ),
+        // Sesi 50 PR #2: admin input menang (last-write-wins murni). Trip jadi
+        // fallback hanya kalau admin tidak isi field tersebut (null). Saat admin
+        // override → cascade post-save ke Trip + peer bookings via
+        // BookingTripReverseSyncService.
+        $matchedTrip = $this->tripMatcher->findMatchingTrip(
+            $tripDateValue,
+            $tripTimeValue,
+            $bookingDirection,
+            $armadaIndexValue,
+            $routeVia,
         );
+        if ($matchedTrip !== null) {
+            $matchedTrip->loadMissing('driver');
+        }
 
-        $resolvedDriverName = $tripAssignment['trip_id'] !== null
-            ? $tripAssignment['driver_name']
-            : (filled($validated['driver_name'] ?? null) ? trim((string) $validated['driver_name']) : null);
-        $resolvedDriverId = $tripAssignment['driver_id'] ?? ($validated['driver_id'] ?? null);
-        $resolvedMobilId = $tripAssignment['mobil_id'] ?? ($validated['mobil_id'] ?? null);
+        $adminDriverId   = $validated['driver_id'] ?? null;
+        $adminMobilId    = $validated['mobil_id']  ?? null;
+        $adminDriverName = filled($validated['driver_name'] ?? null)
+            ? trim((string) $validated['driver_name'])
+            : null;
+
+        $resolvedDriverId   = $adminDriverId   ?? ($matchedTrip?->driver_id ?: null);
+        $resolvedMobilId    = $adminMobilId    ?? ($matchedTrip?->mobil_id  ?: null);
+        $resolvedDriverName = $adminDriverName ?? ($matchedTrip?->driver?->nama);
+        $resolvedTripId     = $matchedTrip?->id;
+
+        // Snapshot decision: cascade reverse sync hanya kalau admin mengisi salah
+        // satu (driver_id atau mobil_id) DAN nilainya berbeda dari Trip current.
+        // Snapshot diambil sebelum save supaya state Trip tidak stale post-save.
+        $tripNeedsCascade = $matchedTrip !== null
+            && ($adminDriverId !== null || $adminMobilId !== null)
+            && ($resolvedDriverId !== $matchedTrip->driver_id || $resolvedMobilId !== $matchedTrip->mobil_id);
+
+        $cascadePayload = $tripNeedsCascade ? [
+            'trip'        => $matchedTrip,
+            'driver_id'   => $resolvedDriverId,
+            'mobil_id'    => $resolvedMobilId,
+            'driver_name' => $resolvedDriverName,
+        ] : null;
 
         $booking->fill([
             'category' => trim((string) $validated['category']),
@@ -606,7 +645,7 @@ class BookingManagementService
             'nominal_payment' => $requiresDocuments ? $totalAmount : null,
             'route_label' => trim((string) $validated['from_city']) . ' - ' . trim((string) $validated['to_city']),
             'armada_index' => max(1, (int) ($validated['armada_index'] ?? 1)),
-            'trip_id' => $tripAssignment['trip_id'],
+            'trip_id' => $resolvedTripId,
             'driver_name' => $resolvedDriverName,
             'driver_id' => $resolvedDriverId,
             'mobil_id' => $resolvedMobilId,
@@ -655,6 +694,23 @@ class BookingManagementService
         }
 
         $booking->save();
+
+        // Sesi 50 PR #2: cascade reverse sync ke Trip + peer bookings (kalau ada
+        // perubahan dari pilihan admin yang berbeda dari Trip current).
+        // Exception (TripSlotConflictException / TripVersionConflictException)
+        // bubble up ke caller (createBooking/updateBooking) yang sudah wrap di
+        // DB::transaction → rollback otomatis.
+        if ($cascadePayload !== null) {
+            $userId = (string) (Auth::id() ?? $booking->created_by ?? '');
+            $this->reverseSync->syncBookingAssignmentToTrip(
+                trip:             $cascadePayload['trip'],
+                newDriverId:      $cascadePayload['driver_id'],
+                newMobilId:       $cascadePayload['mobil_id'],
+                newDriverName:    $cascadePayload['driver_name'],
+                excludeBookingId: (int) $booking->id,
+                userId:           $userId,
+            );
+        }
 
         // Hitung ulang loyalty counter customer utama setelah booking disimpan.
         // Dijalankan di luar DB::transaction agar error loyalty tidak rollback booking.

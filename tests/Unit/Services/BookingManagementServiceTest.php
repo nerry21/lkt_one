@@ -5,6 +5,9 @@ namespace Tests\Unit\Services;
 use App\Exceptions\SeatLockReleaseNotAllowedException;
 use App\Models\Booking;
 use App\Models\BookingSeat;
+use App\Models\Driver;
+use App\Models\Mobil;
+use App\Models\Trip;
 use App\Models\User;
 use App\Services\BookingManagementService;
 use App\Services\SeatLockService;
@@ -265,5 +268,161 @@ class BookingManagementServiceTest extends TestCase
             ->get();
         $this->assertCount(2, $active);
         $this->assertEqualsCanonicalizing(['1A', '2A'], $active->pluck('seat_number')->all());
+    }
+
+    // ── Sesi 50 PR #2: reverse sync admin assignment → Trip + peer bookings ───
+
+    private function makeMatchingTrip(array $overrides = []): Trip
+    {
+        $trip = Trip::factory()->create(array_merge([
+            'trip_date' => '2026-04-20',
+            'trip_time' => '05:30:00',
+            // direction Pekanbaru → Pasirpengaraian = from_pkb = PKB_TO_ROHUL
+            'direction' => 'PKB_TO_ROHUL',
+            'sequence'  => 1,
+            'status'    => 'scheduled',
+        ], $overrides));
+
+        // version tidak di $fillable Trip — refresh untuk load default 0 dari DB.
+        return $trip->refresh();
+    }
+
+    public function test_admin_driver_selection_overrides_trip_and_cascades(): void
+    {
+        $this->actingAs($this->admin);
+
+        $mobil = Mobil::factory()->create();
+        $driverOriginal = Driver::factory()->create(['nama' => 'Sulaiman']);
+        $driverNew = Driver::factory()->create(['nama' => 'Rusdy']);
+
+        $trip = $this->makeMatchingTrip([
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driverOriginal->id,
+        ]);
+
+        $payload = $this->validatedPayload([
+            'driver_id'   => $driverNew->id,
+            'driver_name' => 'Rusdy',
+            // mobil_id null — admin tidak override mobil, tetap pakai Trip's mobil.
+        ]);
+
+        $booking = $this->svc->createBooking($payload);
+
+        $this->assertSame($trip->id, $booking->trip_id);
+        $this->assertSame($driverNew->id, $booking->driver_id);
+        $this->assertSame($mobil->id, $booking->mobil_id);
+        $this->assertSame('Rusdy', $booking->driver_name);
+
+        $trip->refresh();
+        $this->assertSame($driverNew->id, $trip->driver_id);
+        $this->assertSame($mobil->id, $trip->mobil_id);
+        $this->assertSame(1, $trip->version);
+    }
+
+    public function test_admin_mobil_selection_overrides_trip_and_cascades_to_peers(): void
+    {
+        $this->actingAs($this->admin);
+
+        $mobilOriginal = Mobil::factory()->create();
+        $mobilNew = Mobil::factory()->create();
+        $driver = Driver::factory()->create(['nama' => 'Sulaiman']);
+
+        $trip = $this->makeMatchingTrip([
+            'mobil_id'  => $mobilOriginal->id,
+            'driver_id' => $driver->id,
+        ]);
+
+        // 2 peer bookings yang sudah ter-link ke trip ini.
+        $peer1 = Booking::factory()->create([
+            'trip_id'     => $trip->id,
+            'mobil_id'    => $mobilOriginal->id,
+            'driver_id'   => $driver->id,
+            'driver_name' => 'Sulaiman',
+            'selected_seats' => ['3A'],
+        ]);
+        $peer2 = Booking::factory()->create([
+            'trip_id'     => $trip->id,
+            'mobil_id'    => $mobilOriginal->id,
+            'driver_id'   => $driver->id,
+            'driver_name' => 'Sulaiman',
+            'selected_seats' => ['4A'],
+        ]);
+
+        $payload = $this->validatedPayload([
+            'mobil_id'    => $mobilNew->id,
+            'driver_id'   => $driver->id,
+            'driver_name' => 'Sulaiman',
+        ]);
+
+        $booking = $this->svc->createBooking($payload);
+
+        $this->assertSame($trip->id, $booking->trip_id);
+        $this->assertSame($mobilNew->id, $booking->mobil_id);
+
+        $trip->refresh();
+        $this->assertSame($mobilNew->id, $trip->mobil_id);
+        $this->assertSame(1, $trip->version);
+
+        $peer1->refresh();
+        $peer2->refresh();
+        $this->assertSame($mobilNew->id, $peer1->mobil_id);
+        $this->assertSame($mobilNew->id, $peer2->mobil_id);
+    }
+
+    public function test_no_cascade_when_admin_input_matches_trip(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create(['nama' => 'Sulaiman']);
+
+        $trip = $this->makeMatchingTrip([
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        $originalVersion = $trip->version;
+
+        $payload = $this->validatedPayload([
+            'driver_id'   => $driver->id,   // SAMA dengan trip
+            'mobil_id'    => $mobil->id,    // SAMA dengan trip
+            'driver_name' => 'Sulaiman',
+        ]);
+
+        $booking = $this->svc->createBooking($payload);
+
+        $this->assertSame($trip->id, $booking->trip_id);
+        $this->assertSame($driver->id, $booking->driver_id);
+        $this->assertSame($mobil->id, $booking->mobil_id);
+
+        // Trip TIDAK ter-update (version tidak naik) — cascade di-skip.
+        $trip->refresh();
+        $this->assertSame($originalVersion, $trip->version);
+    }
+
+    public function test_falls_back_to_trip_when_admin_input_null(): void
+    {
+        $mobil = Mobil::factory()->create();
+        $driver = Driver::factory()->create(['nama' => 'Sulaiman']);
+
+        $trip = $this->makeMatchingTrip([
+            'mobil_id'  => $mobil->id,
+            'driver_id' => $driver->id,
+        ]);
+        $originalVersion = $trip->version;
+
+        // Admin TIDAK isi driver_id/mobil_id (null) — booking harus inherit
+        // dari Trip, dan Trip TIDAK boleh ter-update karena tidak ada override.
+        $payload = $this->validatedPayload([
+            // driver_id, mobil_id, driver_name semuanya tidak diisi (null/absent).
+        ]);
+
+        $booking = $this->svc->createBooking($payload);
+
+        $this->assertSame($trip->id, $booking->trip_id);
+        $this->assertSame($driver->id, $booking->driver_id);
+        $this->assertSame($mobil->id, $booking->mobil_id);
+        $this->assertSame('Sulaiman', $booking->driver_name);
+
+        // Trip tidak ter-update (no admin override → no cascade).
+        $trip->refresh();
+        $this->assertSame($originalVersion, $trip->version);
     }
 }
