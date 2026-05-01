@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -309,5 +310,18 @@ class Booking extends Model
         $disk = $this->ticket_pdf_disk ?? 'local';
 
         return Storage::disk($disk)->exists($this->ticket_pdf_path);
+    }
+
+    /**
+     * Sesi 68 PR-CRM-6E — Source tracking relationship.
+     */
+    public function source(): HasOne
+    {
+        return $this->hasOne(BookingSource::class);
+    }
+
+    public function isFromChatbot(): bool
+    {
+        return $this->source?->source === BookingSource::SOURCE_CHATBOT;
     }
 }
