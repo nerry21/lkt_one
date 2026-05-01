@@ -127,6 +127,14 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'chatbot-bridge' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/chatbot-bridge.log'),
+            'level' => 'debug',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

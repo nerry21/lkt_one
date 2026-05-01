@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.role' => EnsureAdminRole::class,
             'jwt.auth' => EnsureJwtAuthenticated::class,
+            'chatbot.bridge' => \App\Http\Middleware\VerifyChatbotBridgeApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
