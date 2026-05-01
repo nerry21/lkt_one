@@ -175,4 +175,8 @@ Route::middleware('chatbot.bridge')
 
         Route::get('/departure-list', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'departureList'])
             ->name('api.chatbot-bridge.departure-list');
+
+        // Sesi 68 PR-CRM-6E — Booking submission dari Chatbot AI
+        Route::post('/booking/create', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreate'])
+            ->name('api.chatbot-bridge.booking.create');
     });

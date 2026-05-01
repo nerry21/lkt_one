@@ -4,18 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\Bridge\BridgeBookingSubmissionService;
 use App\Services\Bridge\BridgeReadService;
 use App\Services\CustomerResolverService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class ChatbotBridgeController extends Controller
 {
     public function __construct(
         protected CustomerResolverService $resolver,
         protected BridgeReadService $bridgeReader,
+        protected BridgeBookingSubmissionService $submissionService,
     ) {
     }
 
@@ -200,5 +203,87 @@ class ChatbotBridgeController extends Controller
                 'count' => count($rows),
             ],
         ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Sesi 68 PR-CRM-6E — Submission endpoint untuk Chatbot AI
+    // -------------------------------------------------------------------------
+
+    /**
+     * Submit booking Reguler dari Chatbot AI.
+     *
+     * POST /api/v1/chatbot-bridge/booking/create
+     *
+     * Hanya support category=Reguler untuk MVP. Booking masuk dengan status
+     * Draft + tag source=chatbot, butuh approve admin (Sesi 70-71 handler).
+     */
+    public function bookingCreate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'customer_phone' => 'required|string|min:9|max:20',
+            'customer_name' => 'required|string|min:2|max:100',
+            'category' => 'required|in:Reguler',
+            'trip_date' => 'required|date_format:Y-m-d',
+            'trip_time' => 'required|string',
+            'direction' => 'required|in:to_pkb,from_pkb',
+            'from_city' => 'required|string|max:100',
+            'to_city' => 'required|string|max:100',
+            'passenger_count' => 'required|integer|min:1|max:14',
+            'selected_seats' => 'required|array|min:1|max:14',
+            'selected_seats.*' => 'string|max:5',
+            'pickup_location' => 'required|string|max:255',
+            'dropoff_location' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $booking = $this->submissionService->submit($data);
+
+            return response()->json([
+                'success' => true,
+                'booking' => [
+                    'id' => $booking->id,
+                    'booking_code' => $booking->booking_code,
+                    'category' => $booking->category,
+                    'trip_date' => $booking->trip_date->format('Y-m-d'),
+                    'trip_time' => $booking->trip_time,
+                    'from_city' => $booking->from_city,
+                    'to_city' => $booking->to_city,
+                    'passenger_count' => (int) $booking->passenger_count,
+                    'selected_seats' => $booking->selected_seats,
+                    'price_per_seat' => (int) $booking->price_per_seat,
+                    'total_amount' => (int) $booking->total_amount,
+                    'pickup_location' => $booking->pickup_location,
+                    'dropoff_location' => $booking->dropoff_location,
+                    'booking_status' => $booking->booking_status,
+                    'payment_status' => $booking->payment_status,
+                    'source' => $booking->source?->source,
+                    'created_at' => $booking->created_at?->toIso8601String(),
+                ],
+                'customer' => [
+                    'id' => $booking->customer?->id,
+                    'display_name' => $booking->customer?->display_name,
+                    'phone_normalized' => $booking->customer?->phone_normalized,
+                ],
+                'message' => 'Booking berhasil dibuat dengan status Draft. Menunggu approval admin.',
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error' => 'validation_failed',
+                'messages' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::channel('chatbot-bridge')->error('[BookingSubmission] failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'payload' => $data,
+            ]);
+            return response()->json([
+                'error' => 'submission_failed',
+                'message' => 'Gagal membuat booking. Silakan coba lagi atau hubungi admin.',
+            ], 500);
+        }
     }
 }
