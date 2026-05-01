@@ -159,4 +159,20 @@ Route::middleware('chatbot.bridge')
 
         Route::get('/customer/lookup', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'customerLookup'])
             ->name('api.chatbot-bridge.customer.lookup');
+
+        // Sesi 67 PR-CRM-6D — read endpoints untuk Chatbot AI
+        Route::get('/seat-availability', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'seatAvailability'])
+            ->name('api.chatbot-bridge.seat-availability');
+
+        Route::get('/fare', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'fareLookup'])
+            ->name('api.chatbot-bridge.fare');
+
+        Route::get('/route', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'routeList'])
+            ->name('api.chatbot-bridge.route');
+
+        Route::get('/customer/detail', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'customerDetail'])
+            ->name('api.chatbot-bridge.customer.detail');
+
+        Route::get('/departure-list', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'departureList'])
+            ->name('api.chatbot-bridge.departure-list');
     });
