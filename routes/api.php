@@ -143,3 +143,20 @@ Route::middleware(['web', 'jwt.auth'])->group(function () {
     Route::get('/export/drivers/csv', [ExportController::class, 'driversCsv'])->name('api.export.drivers');
     Route::get('/export/mobil/csv', [ExportController::class, 'mobilCsv'])->name('api.export.mobil');
 });
+
+// =============================================================================
+// Chatbot AI Bridge (Sesi 64 PR-CRM-6A)
+// -----------------------------------------------------------------------------
+// Server-to-server endpoints untuk Chatbot AI consume LKT One data.
+// Auth: shared-secret X-Chatbot-Bridge-Key header.
+// Tidak pakai jwt.auth karena bukan user session.
+// =============================================================================
+Route::middleware('chatbot.bridge')
+    ->prefix('v1/chatbot-bridge')
+    ->group(function () {
+        Route::get('/health', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'health'])
+            ->name('api.chatbot-bridge.health');
+
+        Route::get('/customer/lookup', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'customerLookup'])
+            ->name('api.chatbot-bridge.customer.lookup');
+    });
