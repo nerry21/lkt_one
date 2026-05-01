@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Jobs\DispatchBookingWebhookJob;
 use App\Models\Booking;
 use App\Models\KeuanganJet;
 use App\Services\KeuanganJetSyncService;
@@ -33,6 +34,28 @@ class BookingObserver
             newTripId: $booking->trip_id,
             oldTripId: $booking->getOriginal('trip_id'),
         );
+    }
+
+    /**
+     * Sesi 66 PR-CRM-6C — emit booking.created event ke Chatbot AI webhook.
+     *
+     * Catch-all defensive: kalau dispatch gagal jangan ke-block save flow
+     * (mirip pattern KeuanganJet sync di saved()).
+     */
+    public function created(Booking $booking): void
+    {
+        if (! (bool) config('chatbot_bridge.webhook_enabled', false)) {
+            return;
+        }
+
+        try {
+            dispatch(DispatchBookingWebhookJob::fromBooking($booking));
+        } catch (\Throwable $e) {
+            Log::channel('chatbot-bridge')->error('Failed to enqueue webhook dispatch', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function deleted(Booking $booking): void

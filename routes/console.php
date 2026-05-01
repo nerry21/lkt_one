@@ -17,3 +17,14 @@ Schedule::command('trips:cutover')
     ->timezone('Asia/Jakarta')
     ->withoutOverlapping(60)
     ->runInBackground();
+
+// Sesi 66 PR-CRM-6C — queue worker scheduler (Hostinger shared hosting).
+// Hostinger tidak punya supervisor; pakai scheduler-based worker yang spawn
+// tiap menit, drain queue, lalu exit. --stop-when-empty supaya cepat dispose
+// memory. --max-time guard hard timeout (di bawah 1 menit interval scheduler).
+// withoutOverlapping mencegah duplikasi kalau previous run masih jalan.
+Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3 --sleep=1')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->runInBackground()
+    ->name('lkt-queue-worker');
