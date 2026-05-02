@@ -25,6 +25,11 @@ Route::get('/unduh/sj/{code}', [PublicDownloadController::class, 'suratJalan'])-
 Route::get('/unduh/tiket/{code}', [PublicDownloadController::class, 'tiketDropping'])->name('dl.tiket-dropping');
 Route::get('/unduh/tiket-reguler/{code}', [PublicDownloadController::class, 'tiketReguler'])->name('dl.tiket-reguler');
 
+// Sesi 71 PR-CRM-6H — Public e-tiket download via signed URL (24h TTL)
+Route::get('/eticket/{code}/download', [\App\Http\Controllers\ETicketDownloadController::class, 'download'])
+    ->name('bridge.eticket.download')
+    ->middleware('signed');
+
 Route::get('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'show'])->name('survey.show');
 Route::post('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'store'])->name('survey.store');
 Route::get('/survey/kepuasan-pelanggan/thank-you', [PublicSurveyController::class, 'thankYou'])->name('survey.thank-you');

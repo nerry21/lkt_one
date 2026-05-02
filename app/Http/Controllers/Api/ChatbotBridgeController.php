@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Services\Bridge\BridgeBookingApprovalService;
 use App\Services\Bridge\BridgeBookingSubmissionService;
+use App\Services\Bridge\BridgeETicketService;
+use App\Services\Bridge\BridgePaymentVerificationService;
 use App\Services\Bridge\BridgeReadService;
 use App\Services\CustomerResolverService;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,8 @@ class ChatbotBridgeController extends Controller
         protected BridgeReadService $bridgeReader,
         protected BridgeBookingSubmissionService $submissionService,
         protected BridgeBookingApprovalService $approvalService,
+        protected BridgePaymentVerificationService $paymentService,
+        protected BridgeETicketService $eticketService,
     ) {
     }
 
@@ -379,6 +383,7 @@ class ChatbotBridgeController extends Controller
             'approver_identifier' => 'required|string|min:8|max:64',
             'total_amount' => 'nullable|numeric|min:0',
             'price_per_seat' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable|string|in:transfer,cash',
             'notes' => 'nullable|string|max:1000',
         ]);
 
@@ -411,6 +416,94 @@ class ChatbotBridgeController extends Controller
             return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
         } catch (\Throwable $e) {
             return $this->logAndReturn500($e, ['booking_code' => $code] + $data, 'Reject');
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Sesi 71 PR-CRM-6H — Payment verification + e-tiket generation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Verify pembayaran transfer dari customer.
+     *
+     * POST /api/v1/chatbot-bridge/booking/{code}/verify-payment
+     */
+    public function verifyPayment(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'verifier_identifier' => 'required|string|min:8|max:64',
+            'amount' => 'nullable|numeric|min:0',
+            'reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $booking = $this->paymentService->verifyTransfer($code, $data);
+            return $this->buildUpdatedBookingResponse($booking, 'Pembayaran transfer berhasil di-verify.');
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['booking_code' => $code] + $data, 'VerifyPayment');
+        }
+    }
+
+    /**
+     * Confirm/deny cash payment dari admin (post-departure).
+     *
+     * POST /api/v1/chatbot-bridge/booking/{code}/confirm-cash
+     */
+    public function confirmCash(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'confirmer_identifier' => 'required|string|min:8|max:64',
+            'paid' => 'required|boolean',
+            'amount' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $booking = $this->paymentService->confirmCashPayment($code, $data);
+            $message = $data['paid']
+                ? 'Cash payment berhasil dikonfirmasi (PAID).'
+                : 'Cash payment dilaporkan UNPAID, akan retry reminder.';
+            return $this->buildUpdatedBookingResponse($booking, $message);
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['booking_code' => $code] + $data, 'ConfirmCash');
+        }
+    }
+
+    /**
+     * Generate e-tiket PDF + return signed URL untuk download.
+     *
+     * POST /api/v1/chatbot-bridge/booking/{code}/eticket/generate
+     */
+    public function eticketGenerate(Request $request, string $code): JsonResponse
+    {
+        try {
+            $booking = \App\Models\Booking::query()
+                ->where('booking_code', $code)
+                ->first();
+
+            if (! $booking) {
+                return response()->json([
+                    'error' => 'validation_failed',
+                    'messages' => ['booking_code' => ["Booking dengan kode {$code} tidak ditemukan."]],
+                ], 422);
+            }
+
+            $result = $this->eticketService->generate($booking);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'message' => 'E-tiket berhasil dibuat.',
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['booking_code' => $code], 'ETicketGenerate');
         }
     }
 
@@ -469,6 +562,7 @@ class ChatbotBridgeController extends Controller
             'dropoff_location' => $booking->dropoff_location,
             'booking_status' => $booking->booking_status,
             'payment_status' => $booking->payment_status,
+            'payment_method' => $booking->payment_method,
             'source' => $booking->source?->source,
             'created_at' => $booking->created_at?->toIso8601String(),
         ];

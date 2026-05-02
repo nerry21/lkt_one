@@ -90,6 +90,7 @@ class BookingManagementService
             ['value' => 'Belum Bayar', 'label' => 'Belum Bayar'],
             ['value' => 'Menunggu Pembayaran', 'label' => 'Menunggu Pembayaran'],
             ['value' => 'Menunggu Verifikasi', 'label' => 'Menunggu Verifikasi'],
+            ['value' => 'Menunggu Konfirmasi Tunai', 'label' => 'Menunggu Konfirmasi Tunai'],
             ['value' => 'Dibayar', 'label' => 'Dibayar'],
             ['value' => 'Dibayar Tunai', 'label' => 'Dibayar Tunai'],
             ['value' => 'Ditolak', 'label' => 'Ditolak'],
@@ -107,6 +108,7 @@ class BookingManagementService
             ['value' => 'Draft', 'label' => 'Draft'],
             ['value' => 'Menunggu Verifikasi Pembayaran', 'label' => 'Menunggu Verifikasi Pembayaran'],
             ['value' => 'Diproses', 'label' => 'Diproses'],
+            ['value' => 'Menunggu Pembayaran Cash', 'label' => 'Menunggu Pembayaran Cash'],
             ['value' => 'Ditolak', 'label' => 'Ditolak'],
         ];
     }
@@ -145,7 +147,7 @@ class BookingManagementService
         return match ($normalizedMethod) {
             'transfer' => 'Menunggu Pembayaran',
             'qris' => 'Dibayar',
-            'cash' => 'Dibayar Tunai',
+            'cash' => 'Menunggu Konfirmasi Tunai',
             default => 'Belum Bayar',
         };
     }
@@ -156,7 +158,8 @@ class BookingManagementService
 
         return match ($normalizedMethod) {
             'transfer' => 'Menunggu Verifikasi Pembayaran',
-            'qris', 'cash' => 'Diproses',
+            'qris' => 'Diproses',
+            'cash' => 'Menunggu Pembayaran Cash',
             default => 'Draft',
         };
     }
