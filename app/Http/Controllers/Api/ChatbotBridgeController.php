@@ -619,6 +619,102 @@ class ChatbotBridgeController extends Controller
         ]);
     }
 
+    // -------------------------------------------------------------------------
+    // Sesi 74 PR-CRM-6K1 — Trip Planning Setup H-1 dari Chatbot
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /api/v1/chatbot-bridge/active-mobil-list
+     */
+    public function activeMobilList(\App\Services\Bridge\BridgeTripPlanningService $tripPlanning): JsonResponse
+    {
+        return response()->json([
+            'data' => $tripPlanning->getActiveMobilAndDriverList(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/chatbot-bridge/trip-planning/setup
+     */
+    public function tripPlanningSetup(
+        Request $request,
+        \App\Services\Bridge\BridgeTripPlanningService $tripPlanning,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'target_date' => ['required', 'date_format:Y-m-d'],
+            'assignments' => ['required', 'array', 'min:1'],
+            'assignments.*.mobil_id' => ['required', 'string'],
+            'assignments.*.driver_id' => ['nullable', 'string'],
+            'assignments.*.pool_override' => ['nullable', 'string', 'in:PKB,ROHUL'],
+            'assignments.*.is_skipped' => ['nullable', 'boolean'],
+        ]);
+
+        $systemUserId = $this->resolveSystemUserId();
+
+        try {
+            $result = $tripPlanning->setup(
+                $validated['target_date'],
+                $validated['assignments'],
+                $systemUserId,
+            );
+
+            return response()->json(['data' => $result]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'error' => 'invalid_input',
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::channel('chatbot-bridge')->error('Trip planning setup failed', [
+                'error' => $e->getMessage(),
+                'payload' => $validated,
+            ]);
+            return response()->json([
+                'error' => 'setup_failed',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/chatbot-bridge/trip-planning/status?target_date=YYYY-MM-DD
+     */
+    public function tripPlanningStatus(
+        Request $request,
+        \App\Services\Bridge\BridgeTripPlanningService $tripPlanning,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'target_date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        return response()->json([
+            'data' => $tripPlanning->status($validated['target_date']),
+        ]);
+    }
+
+    /**
+     * Resolve system user ID untuk audit trail Chatbot operations.
+     * Pakai Super Admin pertama yang aktif. Reality finding: User role enum
+     * value = 'Super Admin' (with space, capital), bukan 'super_admin'.
+     */
+    private function resolveSystemUserId(): string
+    {
+        $user = \App\Models\User::query()
+            ->where('role', 'Super Admin')
+            ->orderBy('created_at')
+            ->first();
+
+        if (! $user) {
+            $user = \App\Models\User::query()->orderBy('created_at')->first();
+        }
+
+        if (! $user) {
+            throw new \RuntimeException('No user found for system audit trail');
+        }
+
+        return (string) $user->id;
+    }
+
     private function buildBookingResponse(\App\Models\Booking $booking, string $message): JsonResponse
     {
         return response()->json([
