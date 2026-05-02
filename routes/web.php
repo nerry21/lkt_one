@@ -30,6 +30,11 @@ Route::get('/eticket/{code}/download', [\App\Http\Controllers\ETicketDownloadCon
     ->name('bridge.eticket.download')
     ->middleware('signed');
 
+// Sesi 73 PR-CRM-6J — Public surat jalan download via signed URL (24h TTL)
+Route::get('/surat-jalan/{trip_date}/{trip_time}/{from_city_slug}/download', [\App\Http\Controllers\SuratJalanDownloadController::class, 'download'])
+    ->name('bridge.surat-jalan.download')
+    ->middleware('signed');
+
 Route::get('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'show'])->name('survey.show');
 Route::post('/survey/kepuasan-pelanggan', [PublicSurveyController::class, 'store'])->name('survey.store');
 Route::get('/survey/kepuasan-pelanggan/thank-you', [PublicSurveyController::class, 'thankYou'])->name('survey.thank-you');

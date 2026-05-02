@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 class ChatbotBridgeController extends Controller
@@ -505,6 +506,117 @@ class ChatbotBridgeController extends Controller
         } catch (\Throwable $e) {
             return $this->logAndReturn500($e, ['booking_code' => $code], 'ETicketGenerate');
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Sesi 73 PR-CRM-6J — Per-keberangkatan summary + Surat Jalan PDF
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /api/v1/chatbot-bridge/departure-summary
+     *
+     * Aggregate confirmed booking untuk satu (trip_date, trip_time, from_city)
+     * cluster — dipakai DepartureSummaryDispatcherService di Chatbot side.
+     */
+    public function departureSummary(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'trip_date' => ['required', 'date_format:Y-m-d'],
+            'trip_time' => ['required', 'regex:/^\d{2}:\d{2}$/'],
+            'from_city' => ['required', 'string', 'max:100'],
+        ]);
+
+        $bookings = \App\Models\Booking::query()
+            ->where('trip_date', $validated['trip_date'])
+            ->where('trip_time', 'like', $validated['trip_time'] . '%')
+            ->where('from_city', $validated['from_city'])
+            ->whereIn('booking_status', ['Diproses', 'Dibayar'])
+            ->with(['mobil', 'driver'])
+            ->orderBy('created_at')
+            ->get();
+
+        $first = $bookings->first();
+
+        return response()->json([
+            'data' => [
+                'trip_date' => $validated['trip_date'],
+                'trip_time' => $validated['trip_time'],
+                'from_city' => $validated['from_city'],
+                'to_city' => optional($first)->to_city,
+                'mobil_kode' => optional(optional($first)->mobil)->kode_mobil,
+                'driver_name' => optional($first)->driver_name,
+                'passenger_count' => $bookings->count(),
+                'total_revenue' => (int) $bookings->sum('total_amount'),
+                'passengers' => $bookings->map(function ($b) {
+                    return [
+                        'booking_code' => $b->booking_code,
+                        'passenger_name' => $b->passenger_name,
+                        'passenger_phone' => $b->passenger_phone,
+                        'seats' => $b->selected_seats,
+                        'pickup_location' => $b->pickup_location,
+                        'dropoff_location' => $b->dropoff_location,
+                        'payment_method' => $b->payment_method,
+                        'payment_status' => $b->payment_status,
+                        'booking_status' => $b->booking_status,
+                        'total_amount' => (int) $b->total_amount,
+                    ];
+                })->all(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/chatbot-bridge/surat-jalan/generate
+     *
+     * Body: { trip_date, trip_time, from_city }
+     * Generate manifest PDF + return signed URL (24h TTL).
+     */
+    public function suratJalanGenerate(Request $request, \App\Services\SuratJalanPdfService $pdfService): JsonResponse
+    {
+        $validated = $request->validate([
+            'trip_date' => ['required', 'date_format:Y-m-d'],
+            'trip_time' => ['required', 'regex:/^\d{2}:\d{2}$/'],
+            'from_city' => ['required', 'string', 'max:100'],
+        ]);
+
+        $tripTimeNormal = $validated['trip_time'] . ':00';
+
+        try {
+            $pdfService->generateAndStore(
+                $validated['trip_date'],
+                $tripTimeNormal,
+                $validated['from_city'],
+            );
+        } catch (\Throwable $e) {
+            Log::channel('chatbot-bridge')->error('Surat jalan generate failed', [
+                'error' => $e->getMessage(),
+                'payload' => $validated,
+            ]);
+            return response()->json(['error' => 'generate_failed', 'message' => $e->getMessage()], 500);
+        }
+
+        $citySlug = strtolower(str_replace(' ', '-', $validated['from_city']));
+        $tripTimeSlug = str_replace(':', '-', $validated['trip_time']);
+
+        $signedUrl = URL::temporarySignedRoute(
+            'bridge.surat-jalan.download',
+            now()->addHours(24),
+            [
+                'trip_date' => $validated['trip_date'],
+                'trip_time' => $tripTimeSlug,
+                'from_city_slug' => $citySlug,
+            ],
+        );
+
+        return response()->json([
+            'data' => [
+                'trip_date' => $validated['trip_date'],
+                'trip_time' => $validated['trip_time'],
+                'from_city' => $validated['from_city'],
+                'download_url' => $signedUrl,
+                'expires_at' => now()->addHours(24)->toIso8601String(),
+            ],
+        ]);
     }
 
     private function buildBookingResponse(\App\Models\Booking $booking, string $message): JsonResponse
