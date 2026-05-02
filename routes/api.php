@@ -176,7 +176,16 @@ Route::middleware('chatbot.bridge')
         Route::get('/departure-list', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'departureList'])
             ->name('api.chatbot-bridge.departure-list');
 
-        // Sesi 68 PR-CRM-6E — Booking submission dari Chatbot AI
-        Route::post('/booking/create', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreate'])
-            ->name('api.chatbot-bridge.booking.create');
+        // Sesi 68 PR-CRM-6E + Sesi 69 PR-CRM-6F — Booking submission per kategori
+        Route::post('/booking/reguler', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreateReguler'])
+            ->name('api.chatbot-bridge.booking.reguler');
+
+        Route::post('/booking/dropping', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreateDropping'])
+            ->name('api.chatbot-bridge.booking.dropping');
+
+        Route::post('/booking/rental', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreateRental'])
+            ->name('api.chatbot-bridge.booking.rental');
+
+        Route::post('/booking/paket', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreatePaket'])
+            ->name('api.chatbot-bridge.booking.paket');
     });
