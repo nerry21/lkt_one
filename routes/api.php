@@ -212,4 +212,14 @@ Route::middleware('chatbot.bridge')
 
         Route::post('/surat-jalan/generate', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'suratJalanGenerate'])
             ->name('api.chatbot-bridge.surat-jalan.generate');
+
+        // Sesi 74 PR-CRM-6K1 — Trip Planning Setup H-1 dari Chatbot
+        Route::get('/active-mobil-list', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'activeMobilList'])
+            ->name('api.chatbot-bridge.active-mobil-list');
+
+        Route::post('/trip-planning/setup', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripPlanningSetup'])
+            ->name('api.chatbot-bridge.trip-planning.setup');
+
+        Route::get('/trip-planning/status', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripPlanningStatus'])
+            ->name('api.chatbot-bridge.trip-planning.status');
     });
