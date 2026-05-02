@@ -188,4 +188,11 @@ Route::middleware('chatbot.bridge')
 
         Route::post('/booking/paket', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCreatePaket'])
             ->name('api.chatbot-bridge.booking.paket');
+
+        // Sesi 70 PR-CRM-6G — Approve/Reject booking dari chatbot bridge
+        Route::post('/booking/{code}/approve', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingApprove'])
+            ->name('api.chatbot-bridge.booking.approve');
+
+        Route::post('/booking/{code}/reject', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingReject'])
+            ->name('api.chatbot-bridge.booking.reject');
     });

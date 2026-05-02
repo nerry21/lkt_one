@@ -107,6 +107,7 @@ class BookingManagementService
             ['value' => 'Draft', 'label' => 'Draft'],
             ['value' => 'Menunggu Verifikasi Pembayaran', 'label' => 'Menunggu Verifikasi Pembayaran'],
             ['value' => 'Diproses', 'label' => 'Diproses'],
+            ['value' => 'Ditolak', 'label' => 'Ditolak'],
         ];
     }
 
