@@ -4,6 +4,7 @@ namespace Tests\Feature\Jobs;
 
 use App\Jobs\DispatchBookingWebhookJob;
 use App\Models\Booking;
+use App\Models\Mobil;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
@@ -120,6 +121,45 @@ class DispatchBookingWebhookJobTest extends TestCase
             $this->assertArrayHasKey('departure_status', $data);
             $this->assertArrayHasKey('ticket_status', $data);
             $this->assertArrayHasKey('selected_seats', $data);
+            return true;
+        });
+    }
+
+    /**
+     * Sesi 73 PR-CRM-6J — payload extension: 4 field baru (payment_method,
+     * customer_id, mobil_kode, driver_name) untuk projection table di Chatbot.
+     */
+    public function test_payload_includes_sesi73_projection_fields(): void
+    {
+        Http::fake([
+            $this->url => Http::response([], 201),
+        ]);
+
+        $mobil = Mobil::factory()->create(['kode_mobil' => 'JET 07']);
+
+        $booking = $this->makeBookingQuiet([
+            'category' => 'Reguler',
+            'payment_method' => 'cash',
+            'mobil_id' => $mobil->id,
+            'driver_name' => 'Pak Joni',
+        ]);
+
+        $job = DispatchBookingWebhookJob::fromBooking($booking);
+        $job->handle();
+
+        Http::assertSent(function (ClientRequest $request): bool {
+            $body = json_decode($request->body(), true);
+            $data = $body['data'];
+
+            $this->assertArrayHasKey('payment_method', $data);
+            $this->assertArrayHasKey('customer_id', $data);
+            $this->assertArrayHasKey('mobil_kode', $data);
+            $this->assertArrayHasKey('driver_name', $data);
+
+            $this->assertSame('cash', $data['payment_method']);
+            $this->assertSame('JET 07', $data['mobil_kode']);
+            $this->assertSame('Pak Joni', $data['driver_name']);
+
             return true;
         });
     }

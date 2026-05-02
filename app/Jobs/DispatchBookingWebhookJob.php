@@ -134,6 +134,8 @@ class DispatchBookingWebhookJob implements ShouldQueue
      */
     private static function buildPayload(Booking $booking): array
     {
+        $booking->loadMissing(['mobil']);
+
         return [
             'booking_id' => $booking->id,
             'booking_code' => $booking->booking_code,
@@ -150,10 +152,14 @@ class DispatchBookingWebhookJob implements ShouldQueue
             'trip_time' => $booking->trip_time,
             'selected_seats' => $booking->selected_seats,
             'total_amount' => $booking->total_amount,
+            'payment_method' => $booking->payment_method,
             'payment_status' => $booking->payment_status,
             'booking_status' => $booking->booking_status,
             'departure_status' => $booking->departure_status,
             'ticket_status' => $booking->ticket_status,
+            'customer_id' => $booking->customer_id,
+            'mobil_kode' => optional($booking->mobil)->kode_mobil,
+            'driver_name' => $booking->driver_name,
             'created_at' => optional($booking->created_at)->toIso8601String(),
         ];
     }

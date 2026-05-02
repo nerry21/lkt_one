@@ -205,4 +205,11 @@ Route::middleware('chatbot.bridge')
 
         Route::post('/booking/{code}/eticket/generate', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'eticketGenerate'])
             ->name('api.chatbot-bridge.booking.eticket.generate');
+
+        // Sesi 73 PR-CRM-6J — Per-keberangkatan summary + Surat Jalan PDF
+        Route::get('/departure-summary', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'departureSummary'])
+            ->name('api.chatbot-bridge.departure-summary');
+
+        Route::post('/surat-jalan/generate', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'suratJalanGenerate'])
+            ->name('api.chatbot-bridge.surat-jalan.generate');
     });
