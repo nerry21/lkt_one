@@ -13,7 +13,7 @@ class ChatbotBridgeBookingSubmissionTest extends TestCase
     use RefreshDatabase;
 
     private string $apiKey = 'test-bridge-key-sesi68';
-    private string $endpoint = '/api/v1/chatbot-bridge/booking/create';
+    private string $endpoint = '/api/v1/chatbot-bridge/booking/reguler';
 
     protected function setUp(): void
     {
@@ -29,7 +29,6 @@ class ChatbotBridgeBookingSubmissionTest extends TestCase
         return array_merge([
             'customer_phone' => '628123456789',
             'customer_name' => 'Budi Test',
-            'category' => 'Reguler',
             'trip_date' => now()->addDays(2)->format('Y-m-d'),
             'trip_time' => '09:00',
             'direction' => 'to_pkb',
@@ -147,15 +146,6 @@ class ChatbotBridgeBookingSubmissionTest extends TestCase
     public function test_invalid_direction_rejected(): void
     {
         $payload = $this->defaultPayload(['direction' => 'invalid']);
-        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
-            ->postJson($this->endpoint, $payload);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_non_reguler_category_rejected(): void
-    {
-        $payload = $this->defaultPayload(['category' => 'Dropping']);
         $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
             ->postJson($this->endpoint, $payload);
 

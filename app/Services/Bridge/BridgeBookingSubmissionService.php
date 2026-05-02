@@ -14,20 +14,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Sesi 68 PR-CRM-6E — Service untuk handle submission booking Reguler dari Chatbot AI.
+ * Sesi 68 PR-CRM-6E + Sesi 69 PR-CRM-6F — Service untuk handle submission booking
+ * dari Chatbot AI (4 kategori: Reguler, Dropping, Rental, Paket).
  *
- * Decoupled dari RegularBookingPersistenceService yang tightly coupled ke Session
- * web admin. Service ini designed untuk consume dari API context (no session, no
- * draft, no auth user — auth via X-Chatbot-Bridge-Key middleware).
+ * Decoupled dari web session services. Designed untuk consume dari API context
+ * (no session, no draft, no auth user — auth via X-Chatbot-Bridge-Key middleware).
  *
- * Flow:
- *   1. Validate payload (8-field flow customer)
- *   2. Resolve/create Customer (firstOrCreate by phone_normalized)
- *   3. Validate seat availability (re-check after Q2 hybrid pattern)
- *   4. Validate fare (Reguler-only via RegularBookingService::resolveFare)
- *   5. Create Booking with booking_status='Draft', payment_status='Belum Bayar'
- *   6. Create BookingSource with source='chatbot' + event_uuid
- *   7. Return booking with relationships loaded
+ * Strategy pattern — 4 public method, 1 per kategori. Tiap method handle field
+ * requirement spesifik kategori-nya.
+ *
+ * Q-Strategis (3 non-Reguler): Submit-First placeholder. Booking masuk dengan
+ *   total_amount=0, price_per_seat=0. Admin quote+approve di Sesi 70-71 handler.
  */
 class BridgeBookingSubmissionService
 {
@@ -40,27 +37,19 @@ class BridgeBookingSubmissionService
     ) {
     }
 
+    // ─── REGULER ──────────────────────────────────────────────────────────
+
     /**
-     * @param array{
-     *   customer_phone: string,
-     *   customer_name: string,
-     *   trip_date: string,
-     *   trip_time: string,
-     *   direction: string,
-     *   from_city: string,
-     *   to_city: string,
-     *   passenger_count: int,
-     *   selected_seats: array<string>,
-     *   pickup_location: string,
-     *   dropoff_location: string,
-     *   notes?: string|null,
-     *   source_event_id?: string|null,
-     *   source_meta?: array|null,
-     * } $payload
+     * Sesi 68 PR-CRM-6E (renamed from submit() in Sesi 69).
+     *
+     * Reguler punya fare matrix → can auto-quote total_amount.
+     * Re-validates seat availability sebelum insert (Q2 hybrid pattern).
      */
-    public function submit(array $payload): Booking
+    public function submitReguler(array $payload): Booking
     {
-        $this->validateBusinessRules($payload);
+        $this->validateBaseFields($payload);
+        $this->validateDirectionAndDate($payload);
+        $this->validateRegulerSpecificFields($payload);
 
         return DB::transaction(function () use ($payload) {
             $customer = $this->resolveOrCreateCustomer(
@@ -107,35 +96,220 @@ class BridgeBookingSubmissionService
             $booking->notes = $payload['notes'] ?? null;
             $booking->save();
 
-            BookingSource::create([
-                'booking_id' => $booking->id,
-                'source' => BookingSource::SOURCE_CHATBOT,
-                'source_event_id' => $payload['source_event_id'] ?? null,
-                'source_channel' => 'whatsapp',
-                'source_meta' => $payload['source_meta'] ?? null,
-            ]);
+            $this->createBookingSource($booking->id, $payload, 'whatsapp');
 
-            Log::channel('chatbot-bridge')->info('[BookingSubmission] booking created from chatbot', [
-                'booking_id' => $booking->id,
-                'booking_code' => $booking->booking_code,
-                'customer_id' => $customer->id,
-                'phone' => $payload['customer_phone'],
-                'event_id' => $payload['source_event_id'] ?? null,
-            ]);
+            $this->logSubmission('Reguler', $booking, $customer, $payload);
 
             return $booking->fresh(['source', 'customer']);
         });
     }
 
-    private function validateBusinessRules(array $payload): void
+    // ─── DROPPING ─────────────────────────────────────────────────────────
+
+    /**
+     * Sesi 69 PR-CRM-6F — Submit booking Dropping (full mobil dedicated).
+     *
+     * Field requirements:
+     *   - passenger_count: auto-set 6 (semua kursi)
+     *   - selected_seats: auto-set ['1A','2A','2B','3A','4A','5A']
+     *   - price_per_seat: 0 (placeholder, admin quote)
+     *   - total_amount: 0 (placeholder, admin quote)
+     *   - dropoff_location: WAJIB (alamat tujuan lengkap)
+     *   - pickup_location: WAJIB
+     */
+    public function submitDropping(array $payload): Booking
+    {
+        $this->validateBaseFields($payload);
+        $this->validateDirectionAndDate($payload);
+
+        return DB::transaction(function () use ($payload) {
+            $customer = $this->resolveOrCreateCustomer(
+                phone: $payload['customer_phone'],
+                name: $payload['customer_name'],
+            );
+
+            $booking = new Booking();
+            $booking->booking_code = $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'DBK', 4);
+            $booking->customer_id = $customer->id;
+            $booking->category = 'Dropping';
+            $booking->from_city = $payload['from_city'];
+            $booking->to_city = $payload['to_city'];
+            $booking->direction = $payload['direction'];
+            $booking->trip_date = $payload['trip_date'];
+            $booking->trip_time = $payload['trip_time'];
+            $booking->booking_for = 'self';
+            $booking->passenger_name = $payload['customer_name'];
+            $booking->passenger_phone = $payload['customer_phone'];
+            $booking->passenger_count = 6;
+            $booking->pickup_location = $payload['pickup_location'];
+            $booking->dropoff_location = $payload['dropoff_location'];
+            $booking->selected_seats = ['1A', '2A', '2B', '3A', '4A', '5A'];
+            $booking->price_per_seat = 0;
+            $booking->total_amount = 0;
+            $booking->payment_status = 'Belum Bayar';
+            $booking->booking_status = 'Draft';
+            $booking->notes = $payload['notes'] ?? null;
+            $booking->save();
+
+            $this->createBookingSource($booking->id, $payload, 'whatsapp');
+
+            $this->logSubmission('Dropping', $booking, $customer, $payload);
+
+            return $booking->fresh(['source', 'customer']);
+        });
+    }
+
+    // ─── RENTAL ───────────────────────────────────────────────────────────
+
+    /**
+     * Sesi 69 PR-CRM-6F — Submit booking Rental (multi-day).
+     *
+     * Field requirements:
+     *   - rental_end_date: WAJIB, harus setelah trip_date
+     *   - passenger_count: auto-set 6 (full mobil)
+     *   - trip_time: auto-set '00:00:00' (Rental tidak punya jam keberangkatan strict)
+     *   - selected_seats: auto-set ['1A','2A','2B','3A','4A','5A']
+     *   - price_per_seat: 0, total_amount: 0 (placeholder)
+     *   - rental_pool_target/keberangkatan/kepulangan: null (admin set saat approve)
+     */
+    public function submitRental(array $payload): Booking
+    {
+        $this->validateBaseFields($payload);
+        $this->validateDirectionAndDate($payload);
+        $this->validateRentalEndDate($payload);
+
+        return DB::transaction(function () use ($payload) {
+            $customer = $this->resolveOrCreateCustomer(
+                phone: $payload['customer_phone'],
+                name: $payload['customer_name'],
+            );
+
+            $booking = new Booking();
+            $booking->booking_code = $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'RNT', 4);
+            $booking->customer_id = $customer->id;
+            $booking->category = 'Rental';
+            $booking->from_city = $payload['from_city'];
+            $booking->to_city = $payload['to_city'];
+            $booking->direction = $payload['direction'];
+            $booking->trip_date = $payload['trip_date'];
+            $booking->rental_end_date = $payload['rental_end_date'];
+            $booking->trip_time = '00:00:00';
+            $booking->booking_for = 'self';
+            $booking->passenger_name = $payload['customer_name'];
+            $booking->passenger_phone = $payload['customer_phone'];
+            $booking->passenger_count = 6;
+            $booking->pickup_location = $payload['pickup_location'];
+            $booking->dropoff_location = $payload['dropoff_location'];
+            $booking->selected_seats = ['1A', '2A', '2B', '3A', '4A', '5A'];
+            $booking->price_per_seat = 0;
+            $booking->total_amount = 0;
+            $booking->payment_status = 'Belum Bayar';
+            $booking->booking_status = 'Draft';
+            $booking->notes = $payload['notes'] ?? null;
+            $booking->save();
+
+            $this->createBookingSource($booking->id, $payload, 'whatsapp');
+
+            $this->logSubmission('Rental', $booking, $customer, $payload);
+
+            return $booking->fresh(['source', 'customer']);
+        });
+    }
+
+    // ─── PAKET ────────────────────────────────────────────────────────────
+
+    /**
+     * Sesi 69 PR-CRM-6F — Submit booking Paket (kirim barang).
+     *
+     * Field requirements:
+     *   - sender_name/sender_phone: pemesan (passenger_name/phone di Booking)
+     *   - receiver_name/receiver_phone: penerima (di JSON notes)
+     *   - sender_address/receiver_address: alamat asal/tujuan
+     *   - package_size: WAJIB Kecil/Sedang/Besar (booking_for di Booking)
+     *   - item_description: deskripsi barang (di JSON notes)
+     *   - item_qty: opsional default 1 (passenger_count di Booking)
+     *   - electronics_flag: opsional (di JSON notes)
+     *   - selected_seats: ['5A'] untuk Besar, [] untuk Kecil/Sedang
+     *   - price_per_seat: 0, total_amount: 0 (placeholder)
+     */
+    public function submitPaket(array $payload): Booking
+    {
+        $this->validatePaketFields($payload);
+        $this->validateDirectionAndDate($payload);
+
+        return DB::transaction(function () use ($payload) {
+            $customer = $this->resolveOrCreateCustomer(
+                phone: $payload['sender_phone'],
+                name: $payload['sender_name'],
+            );
+
+            $packageSize = $payload['package_size'];
+            $itemQty = max(1, (int) ($payload['item_qty'] ?? 1));
+
+            $selectedSeats = ($packageSize === 'Besar') ? ['5A'] : [];
+
+            $notesPayload = json_encode([
+                'recipient_name' => $payload['receiver_name'],
+                'recipient_phone' => $payload['receiver_phone'],
+                'item_name' => $payload['item_description'] ?? 'Paket umum',
+                'item_qty' => $itemQty,
+                'package_size' => $packageSize,
+                'electronics_flag' => (bool) ($payload['electronics_flag'] ?? false),
+                'customer_notes' => $payload['notes'] ?? null,
+            ], JSON_UNESCAPED_UNICODE);
+
+            $booking = new Booking();
+            $booking->booking_code = $this->generateUniqueBookingCode(Booking::class, 'booking_code', 'PKT', 4);
+            $booking->customer_id = $customer->id;
+            $booking->category = 'Paket';
+            $booking->from_city = $payload['from_city'];
+            $booking->to_city = $payload['to_city'];
+            $booking->direction = $payload['direction'];
+            $booking->trip_date = $payload['trip_date'];
+            $booking->trip_time = $payload['trip_time'] ?? '09:00';
+            $booking->booking_for = $packageSize;
+            $booking->passenger_name = $payload['sender_name'];
+            $booking->passenger_phone = $payload['sender_phone'];
+            $booking->passenger_count = $itemQty;
+            $booking->pickup_location = $payload['sender_address'];
+            $booking->dropoff_location = $payload['receiver_address'];
+            $booking->selected_seats = $selectedSeats;
+            $booking->price_per_seat = 0;
+            $booking->total_amount = 0;
+            $booking->payment_status = 'Belum Bayar';
+            $booking->booking_status = 'Draft';
+            $booking->notes = $notesPayload;
+            $booking->save();
+
+            $this->createBookingSource($booking->id, $payload, 'whatsapp');
+
+            $this->logSubmission('Paket', $booking, $customer, $payload);
+
+            return $booking->fresh(['source', 'customer']);
+        });
+    }
+
+    // ─── PRIVATE HELPERS ──────────────────────────────────────────────────
+
+    private function validateBaseFields(array $payload): void
     {
         $required = [
             'customer_phone', 'customer_name',
-            'trip_date', 'trip_time', 'direction',
-            'from_city', 'to_city', 'passenger_count',
-            'selected_seats', 'pickup_location', 'dropoff_location',
+            'from_city', 'to_city', 'direction', 'trip_date',
+            'pickup_location', 'dropoff_location',
         ];
         foreach ($required as $field) {
+            if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
+                throw ValidationException::withMessages([
+                    $field => ["{$field} wajib diisi."],
+                ]);
+            }
+        }
+    }
+
+    private function validateRegulerSpecificFields(array $payload): void
+    {
+        foreach (['trip_time', 'passenger_count', 'selected_seats'] as $field) {
             if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
                 throw ValidationException::withMessages([
                     $field => ["{$field} wajib diisi."],
@@ -148,7 +322,10 @@ class BridgeBookingSubmissionService
                 'selected_seats' => ['Jumlah seat dipilih harus sama dengan passenger_count.'],
             ]);
         }
+    }
 
+    private function validateDirectionAndDate(array $payload): void
+    {
         if (! in_array($payload['direction'], ['to_pkb', 'from_pkb'], true)) {
             throw ValidationException::withMessages([
                 'direction' => ['direction harus to_pkb atau from_pkb.'],
@@ -165,6 +342,51 @@ class BridgeBookingSubmissionService
         if ($tripDate->isBefore(Carbon::today())) {
             throw ValidationException::withMessages([
                 'trip_date' => ['trip_date tidak boleh di masa lalu.'],
+            ]);
+        }
+    }
+
+    private function validateRentalEndDate(array $payload): void
+    {
+        if (empty($payload['rental_end_date'])) {
+            throw ValidationException::withMessages([
+                'rental_end_date' => ['rental_end_date wajib diisi untuk Rental.'],
+            ]);
+        }
+        try {
+            $start = Carbon::parse($payload['trip_date'])->startOfDay();
+            $end = Carbon::parse($payload['rental_end_date'])->startOfDay();
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'rental_end_date' => ['Format rental_end_date tidak valid.'],
+            ]);
+        }
+        if ($end->lessThanOrEqualTo($start)) {
+            throw ValidationException::withMessages([
+                'rental_end_date' => ['rental_end_date harus setelah trip_date.'],
+            ]);
+        }
+    }
+
+    private function validatePaketFields(array $payload): void
+    {
+        $required = [
+            'sender_name', 'sender_phone',
+            'receiver_name', 'receiver_phone',
+            'sender_address', 'receiver_address',
+            'package_size', 'item_description',
+            'from_city', 'to_city', 'direction', 'trip_date',
+        ];
+        foreach ($required as $field) {
+            if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
+                throw ValidationException::withMessages([
+                    $field => ["{$field} wajib diisi untuk Paket."],
+                ]);
+            }
+        }
+        if (! in_array($payload['package_size'], ['Kecil', 'Sedang', 'Besar'], true)) {
+            throw ValidationException::withMessages([
+                'package_size' => ['package_size harus Kecil/Sedang/Besar.'],
             ]);
         }
     }
@@ -222,5 +444,26 @@ class BridgeBookingSubmissionService
                 ],
             ]);
         }
+    }
+
+    private function createBookingSource(int $bookingId, array $payload, string $channel): void
+    {
+        BookingSource::create([
+            'booking_id' => $bookingId,
+            'source' => BookingSource::SOURCE_CHATBOT,
+            'source_event_id' => $payload['source_event_id'] ?? null,
+            'source_channel' => $channel,
+            'source_meta' => $payload['source_meta'] ?? null,
+        ]);
+    }
+
+    private function logSubmission(string $category, Booking $booking, Customer $customer, array $payload): void
+    {
+        Log::channel('chatbot-bridge')->info("[BookingSubmission] {$category} booking created from chatbot", [
+            'booking_id' => $booking->id,
+            'booking_code' => $booking->booking_code,
+            'customer_id' => $customer->id,
+            'event_id' => $payload['source_event_id'] ?? null,
+        ]);
     }
 }

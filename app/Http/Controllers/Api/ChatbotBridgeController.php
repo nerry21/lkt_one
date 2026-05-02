@@ -206,23 +206,23 @@ class ChatbotBridgeController extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // Sesi 68 PR-CRM-6E — Submission endpoint untuk Chatbot AI
+    // Sesi 68 PR-CRM-6E + Sesi 69 PR-CRM-6F — Submission endpoints untuk Chatbot AI
     // -------------------------------------------------------------------------
 
     /**
      * Submit booking Reguler dari Chatbot AI.
      *
-     * POST /api/v1/chatbot-bridge/booking/create
+     * POST /api/v1/chatbot-bridge/booking/reguler
+     * (renamed Sesi 69 dari /booking/create — explicit per kategori)
      *
-     * Hanya support category=Reguler untuk MVP. Booking masuk dengan status
-     * Draft + tag source=chatbot, butuh approve admin (Sesi 70-71 handler).
+     * Booking masuk dengan status Draft + tag source=chatbot, butuh approve
+     * admin (Sesi 70-71 handler).
      */
-    public function bookingCreate(Request $request): JsonResponse
+    public function bookingCreateReguler(Request $request): JsonResponse
     {
         $data = $request->validate([
             'customer_phone' => 'required|string|min:9|max:20',
             'customer_name' => 'required|string|min:2|max:100',
-            'category' => 'required|in:Reguler',
             'trip_date' => 'required|date_format:Y-m-d',
             'trip_time' => 'required|string',
             'direction' => 'required|in:to_pkb,from_pkb',
@@ -239,51 +239,172 @@ class ChatbotBridgeController extends Controller
         ]);
 
         try {
-            $booking = $this->submissionService->submit($data);
-
-            return response()->json([
-                'success' => true,
-                'booking' => [
-                    'id' => $booking->id,
-                    'booking_code' => $booking->booking_code,
-                    'category' => $booking->category,
-                    'trip_date' => $booking->trip_date->format('Y-m-d'),
-                    'trip_time' => $booking->trip_time,
-                    'from_city' => $booking->from_city,
-                    'to_city' => $booking->to_city,
-                    'passenger_count' => (int) $booking->passenger_count,
-                    'selected_seats' => $booking->selected_seats,
-                    'price_per_seat' => (int) $booking->price_per_seat,
-                    'total_amount' => (int) $booking->total_amount,
-                    'pickup_location' => $booking->pickup_location,
-                    'dropoff_location' => $booking->dropoff_location,
-                    'booking_status' => $booking->booking_status,
-                    'payment_status' => $booking->payment_status,
-                    'source' => $booking->source?->source,
-                    'created_at' => $booking->created_at?->toIso8601String(),
-                ],
-                'customer' => [
-                    'id' => $booking->customer?->id,
-                    'display_name' => $booking->customer?->display_name,
-                    'phone_normalized' => $booking->customer?->phone_normalized,
-                ],
-                'message' => 'Booking berhasil dibuat dengan status Draft. Menunggu approval admin.',
-            ], 201);
+            $booking = $this->submissionService->submitReguler($data);
+            return $this->buildBookingResponse(
+                $booking,
+                'Booking Reguler berhasil dibuat dengan status Draft. Menunggu approval admin.',
+            );
         } catch (ValidationException $e) {
-            return response()->json([
-                'error' => 'validation_failed',
-                'messages' => $e->errors(),
-            ], 422);
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
         } catch (\Throwable $e) {
-            Log::channel('chatbot-bridge')->error('[BookingSubmission] failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'payload' => $data,
-            ]);
-            return response()->json([
-                'error' => 'submission_failed',
-                'message' => 'Gagal membuat booking. Silakan coba lagi atau hubungi admin.',
-            ], 500);
+            return $this->logAndReturn500($e, $data, 'Reguler');
         }
+    }
+
+    /**
+     * Submit booking Dropping (full mobil dedicated, harga di-quote admin).
+     *
+     * POST /api/v1/chatbot-bridge/booking/dropping
+     */
+    public function bookingCreateDropping(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'customer_phone' => 'required|string|min:9|max:20',
+            'customer_name' => 'required|string|min:2|max:100',
+            'trip_date' => 'required|date_format:Y-m-d',
+            'trip_time' => 'required|string',
+            'direction' => 'required|in:to_pkb,from_pkb',
+            'from_city' => 'required|string|max:100',
+            'to_city' => 'required|string|max:100',
+            'pickup_location' => 'required|string|max:255',
+            'dropoff_location' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $booking = $this->submissionService->submitDropping($data);
+            return $this->buildBookingResponse(
+                $booking,
+                'Booking Dropping berhasil dibuat dengan status Draft. Admin akan quote harga + konfirmasi.',
+            );
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'Dropping');
+        }
+    }
+
+    /**
+     * Submit booking Rental (multi-day, harga di-quote admin).
+     *
+     * POST /api/v1/chatbot-bridge/booking/rental
+     */
+    public function bookingCreateRental(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'customer_phone' => 'required|string|min:9|max:20',
+            'customer_name' => 'required|string|min:2|max:100',
+            'trip_date' => 'required|date_format:Y-m-d',
+            'rental_end_date' => 'required|date_format:Y-m-d|after:trip_date',
+            'direction' => 'required|in:to_pkb,from_pkb',
+            'from_city' => 'required|string|max:100',
+            'to_city' => 'required|string|max:100',
+            'pickup_location' => 'required|string|max:255',
+            'dropoff_location' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $booking = $this->submissionService->submitRental($data);
+            return $this->buildBookingResponse(
+                $booking,
+                'Booking Rental berhasil dibuat dengan status Draft. Admin akan quote harga + konfirmasi.',
+            );
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'Rental');
+        }
+    }
+
+    /**
+     * Submit booking Paket (kirim barang, harga di-quote admin).
+     *
+     * POST /api/v1/chatbot-bridge/booking/paket
+     */
+    public function bookingCreatePaket(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'sender_name' => 'required|string|min:2|max:100',
+            'sender_phone' => 'required|string|min:9|max:20',
+            'receiver_name' => 'required|string|min:2|max:100',
+            'receiver_phone' => 'required|string|min:9|max:20',
+            'sender_address' => 'required|string|max:255',
+            'receiver_address' => 'required|string|max:255',
+            'package_size' => 'required|in:Kecil,Sedang,Besar',
+            'item_description' => 'required|string|max:500',
+            'item_qty' => 'nullable|integer|min:1|max:50',
+            'electronics_flag' => 'nullable|boolean',
+            'trip_date' => 'required|date_format:Y-m-d',
+            'trip_time' => 'nullable|string',
+            'direction' => 'required|in:to_pkb,from_pkb',
+            'from_city' => 'required|string|max:100',
+            'to_city' => 'required|string|max:100',
+            'notes' => 'nullable|string|max:1000',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $booking = $this->submissionService->submitPaket($data);
+            return $this->buildBookingResponse(
+                $booking,
+                'Booking Paket berhasil dibuat dengan status Draft. Admin akan quote harga + konfirmasi.',
+            );
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'Paket');
+        }
+    }
+
+    private function buildBookingResponse(\App\Models\Booking $booking, string $message): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'booking' => [
+                'id' => $booking->id,
+                'booking_code' => $booking->booking_code,
+                'category' => $booking->category,
+                'trip_date' => $booking->trip_date->format('Y-m-d'),
+                'trip_time' => $booking->trip_time,
+                'rental_end_date' => $booking->rental_end_date?->format('Y-m-d'),
+                'from_city' => $booking->from_city,
+                'to_city' => $booking->to_city,
+                'passenger_count' => (int) $booking->passenger_count,
+                'selected_seats' => $booking->selected_seats,
+                'price_per_seat' => (int) $booking->price_per_seat,
+                'total_amount' => (int) $booking->total_amount,
+                'pickup_location' => $booking->pickup_location,
+                'dropoff_location' => $booking->dropoff_location,
+                'booking_status' => $booking->booking_status,
+                'payment_status' => $booking->payment_status,
+                'source' => $booking->source?->source,
+                'created_at' => $booking->created_at?->toIso8601String(),
+            ],
+            'customer' => [
+                'id' => $booking->customer?->id,
+                'display_name' => $booking->customer?->display_name,
+                'phone_normalized' => $booking->customer?->phone_normalized,
+            ],
+            'message' => $message,
+        ], 201);
+    }
+
+    private function logAndReturn500(\Throwable $e, array $payload, string $category): JsonResponse
+    {
+        Log::channel('chatbot-bridge')->error("[BookingSubmission] {$category} failed", [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'payload' => $payload,
+        ]);
+        return response()->json([
+            'error' => 'submission_failed',
+            'message' => "Gagal membuat booking {$category}. Silakan coba lagi atau hubungi admin.",
+        ], 500);
     }
 }
