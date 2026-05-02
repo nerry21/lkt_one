@@ -39,6 +39,7 @@ class BridgeBookingApprovalService
      *     approver_identifier: string,
      *     total_amount?: float|int|null,
      *     price_per_seat?: float|int|null,
+     *     payment_method?: string|null,
      *     notes?: string|null,
      * } $payload
      * @throws ValidationException
@@ -52,6 +53,16 @@ class BridgeBookingApprovalService
             $isReguler = $this->isRegulerBooking($booking);
             $totalAmount = isset($payload['total_amount']) ? (float) $payload['total_amount'] : null;
             $pricePerSeat = isset($payload['price_per_seat']) ? (float) $payload['price_per_seat'] : null;
+
+            // Sesi 71 — capture payment_method (default 'transfer' if not specified)
+            $paymentMethod = isset($payload['payment_method']) && $payload['payment_method'] !== null && $payload['payment_method'] !== ''
+                ? mb_strtolower(trim((string) $payload['payment_method']))
+                : 'transfer';
+            if (! in_array($paymentMethod, ['transfer', 'cash'], true)) {
+                throw ValidationException::withMessages([
+                    'payment_method' => ['payment_method harus salah satu dari: transfer, cash.'],
+                ]);
+            }
 
             if (! $isReguler) {
                 if ($totalAmount === null || $totalAmount <= 0) {
@@ -72,16 +83,31 @@ class BridgeBookingApprovalService
                 }
             }
 
+            $booking->payment_method = $paymentMethod;
+
             $now = Carbon::now();
             $approverPhone = (string) ($payload['approver_identifier'] ?? 'unknown');
             $extraNotes = trim((string) ($payload['notes'] ?? ''));
-            $auditPrefix = sprintf('[approved by chatbot:%s @ %s]', $approverPhone, $now->toIso8601String());
+            $auditPrefix = sprintf(
+                '[approved by chatbot:%s @ %s, method=%s]',
+                $approverPhone,
+                $now->toIso8601String(),
+                $paymentMethod
+            );
             $existingNotes = trim((string) $booking->validation_notes);
             $newNotes = $existingNotes === ''
                 ? ($extraNotes === '' ? $auditPrefix : "{$auditPrefix} {$extraNotes}")
                 : "{$existingNotes}\n{$auditPrefix}" . ($extraNotes === '' ? '' : " {$extraNotes}");
 
-            $booking->booking_status = 'Diproses';
+            // Sesi 71 — branch booking_status & payment_status by payment_method
+            if ($paymentMethod === 'cash') {
+                $booking->booking_status = 'Menunggu Pembayaran Cash';
+                $booking->payment_status = 'Menunggu Konfirmasi Tunai';
+            } else {
+                $booking->booking_status = 'Diproses';
+                $booking->payment_status = 'Menunggu Verifikasi';
+            }
+
             $booking->validated_at = $now;
             $booking->validation_notes = $newNotes;
             $booking->validated_by = $this->resolveValidatorUserId($approverPhone);
@@ -93,6 +119,8 @@ class BridgeBookingApprovalService
                 'approver_phone' => $approverPhone,
                 'validated_by' => $booking->validated_by,
                 'total_amount' => $booking->total_amount,
+                'payment_method' => $paymentMethod,
+                'booking_status' => $booking->booking_status,
                 'is_reguler' => $isReguler,
             ]);
 

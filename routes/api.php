@@ -195,4 +195,14 @@ Route::middleware('chatbot.bridge')
 
         Route::post('/booking/{code}/reject', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingReject'])
             ->name('api.chatbot-bridge.booking.reject');
+
+        // Sesi 71 PR-CRM-6H — Payment verification + e-tiket generation
+        Route::post('/booking/{code}/verify-payment', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'verifyPayment'])
+            ->name('api.chatbot-bridge.booking.verify-payment');
+
+        Route::post('/booking/{code}/confirm-cash', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'confirmCash'])
+            ->name('api.chatbot-bridge.booking.confirm-cash');
+
+        Route::post('/booking/{code}/eticket/generate', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'eticketGenerate'])
+            ->name('api.chatbot-bridge.booking.eticket.generate');
     });

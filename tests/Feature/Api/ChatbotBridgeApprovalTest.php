@@ -211,4 +211,57 @@ class ChatbotBridgeApprovalTest extends TestCase
         );
         $response->assertStatus(401);
     }
+
+    // -------------------------------------------------------------------------
+    // Sesi 71 PR-CRM-6H — payment_method branch tests
+    // -------------------------------------------------------------------------
+
+    public function test_approve_with_payment_method_cash_flips_to_menunggu_pembayaran_cash(): void
+    {
+        $booking = $this->makeDraftBooking('RBK');
+
+        $response = $this->withHeaders($this->authHeaders())->postJson(
+            "/api/v1/chatbot-bridge/booking/{$booking->booking_code}/approve",
+            [
+                'approver_identifier' => '628117598804',
+                'payment_method' => 'cash',
+            ]
+        );
+
+        $response->assertStatus(200);
+        $fresh = $booking->fresh();
+        $this->assertEquals('Menunggu Pembayaran Cash', $fresh->booking_status);
+        $this->assertEquals('Menunggu Konfirmasi Tunai', $fresh->payment_status);
+        $this->assertEquals('cash', $fresh->payment_method);
+    }
+
+    public function test_approve_default_payment_method_is_transfer(): void
+    {
+        $booking = $this->makeDraftBooking('RBK');
+
+        $response = $this->withHeaders($this->authHeaders())->postJson(
+            "/api/v1/chatbot-bridge/booking/{$booking->booking_code}/approve",
+            ['approver_identifier' => '628117598804']
+        );
+
+        $response->assertStatus(200);
+        $fresh = $booking->fresh();
+        $this->assertEquals('Diproses', $fresh->booking_status);
+        $this->assertEquals('transfer', $fresh->payment_method);
+    }
+
+    public function test_approve_with_invalid_payment_method_returns_422(): void
+    {
+        $booking = $this->makeDraftBooking('RBK');
+
+        $response = $this->withHeaders($this->authHeaders())->postJson(
+            "/api/v1/chatbot-bridge/booking/{$booking->booking_code}/approve",
+            [
+                'approver_identifier' => '628117598804',
+                'payment_method' => 'gopay',
+            ]
+        );
+
+        $response->assertStatus(422);
+    }
 }
