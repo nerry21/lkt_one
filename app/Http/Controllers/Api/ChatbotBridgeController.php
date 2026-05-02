@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\Bridge\BridgeBookingApprovalService;
 use App\Services\Bridge\BridgeBookingSubmissionService;
 use App\Services\Bridge\BridgeReadService;
 use App\Services\CustomerResolverService;
@@ -19,6 +20,7 @@ class ChatbotBridgeController extends Controller
         protected CustomerResolverService $resolver,
         protected BridgeReadService $bridgeReader,
         protected BridgeBookingSubmissionService $submissionService,
+        protected BridgeBookingApprovalService $approvalService,
     ) {
     }
 
@@ -362,30 +364,61 @@ class ChatbotBridgeController extends Controller
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Sesi 70 PR-CRM-6G — Approve/Reject endpoints untuk Chatbot AI
+    // -------------------------------------------------------------------------
+
+    /**
+     * Approve booking yang masih Draft.
+     *
+     * POST /api/v1/chatbot-bridge/booking/{code}/approve
+     */
+    public function bookingApprove(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'approver_identifier' => 'required|string|min:8|max:64',
+            'total_amount' => 'nullable|numeric|min:0',
+            'price_per_seat' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $booking = $this->approvalService->approve($code, $data);
+            return $this->buildUpdatedBookingResponse($booking, 'Booking berhasil di-approve.');
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['booking_code' => $code] + $data, 'Approve');
+        }
+    }
+
+    /**
+     * Reject booking yang masih Draft.
+     *
+     * POST /api/v1/chatbot-bridge/booking/{code}/reject
+     */
+    public function bookingReject(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'rejecter_identifier' => 'required|string|min:8|max:64',
+            'reason' => 'required|string|min:3|max:1000',
+        ]);
+
+        try {
+            $booking = $this->approvalService->reject($code, $data);
+            return $this->buildUpdatedBookingResponse($booking, 'Booking berhasil di-reject.');
+        } catch (ValidationException $e) {
+            return response()->json(['error' => 'validation_failed', 'messages' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['booking_code' => $code] + $data, 'Reject');
+        }
+    }
+
     private function buildBookingResponse(\App\Models\Booking $booking, string $message): JsonResponse
     {
         return response()->json([
             'success' => true,
-            'booking' => [
-                'id' => $booking->id,
-                'booking_code' => $booking->booking_code,
-                'category' => $booking->category,
-                'trip_date' => $booking->trip_date->format('Y-m-d'),
-                'trip_time' => $booking->trip_time,
-                'rental_end_date' => $booking->rental_end_date?->format('Y-m-d'),
-                'from_city' => $booking->from_city,
-                'to_city' => $booking->to_city,
-                'passenger_count' => (int) $booking->passenger_count,
-                'selected_seats' => $booking->selected_seats,
-                'price_per_seat' => (int) $booking->price_per_seat,
-                'total_amount' => (int) $booking->total_amount,
-                'pickup_location' => $booking->pickup_location,
-                'dropoff_location' => $booking->dropoff_location,
-                'booking_status' => $booking->booking_status,
-                'payment_status' => $booking->payment_status,
-                'source' => $booking->source?->source,
-                'created_at' => $booking->created_at?->toIso8601String(),
-            ],
+            'booking' => $this->bookingPayload($booking),
             'customer' => [
                 'id' => $booking->customer?->id,
                 'display_name' => $booking->customer?->display_name,
@@ -393,6 +426,52 @@ class ChatbotBridgeController extends Controller
             ],
             'message' => $message,
         ], 201);
+    }
+
+    /**
+     * Sesi 70 — response untuk update (approve/reject). 200 OK, wrapper 'data'
+     * supaya konsisten dengan gaya read endpoint dan beda dengan create (201/'booking').
+     */
+    private function buildUpdatedBookingResponse(\App\Models\Booking $booking, string $message): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->bookingPayload($booking) + [
+                'validated_at' => $booking->validated_at?->toIso8601String(),
+                'validated_by' => $booking->validated_by,
+                'validation_notes' => $booking->validation_notes,
+            ],
+            'customer' => [
+                'id' => $booking->customer?->id,
+                'display_name' => $booking->customer?->display_name,
+                'phone_normalized' => $booking->customer?->phone_normalized,
+            ],
+            'message' => $message,
+        ], 200);
+    }
+
+    private function bookingPayload(\App\Models\Booking $booking): array
+    {
+        return [
+            'id' => $booking->id,
+            'booking_code' => $booking->booking_code,
+            'category' => $booking->category,
+            'trip_date' => $booking->trip_date?->format('Y-m-d'),
+            'trip_time' => $booking->trip_time,
+            'rental_end_date' => $booking->rental_end_date?->format('Y-m-d'),
+            'from_city' => $booking->from_city,
+            'to_city' => $booking->to_city,
+            'passenger_count' => (int) $booking->passenger_count,
+            'selected_seats' => $booking->selected_seats,
+            'price_per_seat' => (int) $booking->price_per_seat,
+            'total_amount' => (int) $booking->total_amount,
+            'pickup_location' => $booking->pickup_location,
+            'dropoff_location' => $booking->dropoff_location,
+            'booking_status' => $booking->booking_status,
+            'payment_status' => $booking->payment_status,
+            'source' => $booking->source?->source,
+            'created_at' => $booking->created_at?->toIso8601String(),
+        ];
     }
 
     private function logAndReturn500(\Throwable $e, array $payload, string $category): JsonResponse
