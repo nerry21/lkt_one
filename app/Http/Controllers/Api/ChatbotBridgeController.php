@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Exceptions\SeatConflictException;
+use App\Models\Trip;
 use App\Services\Bridge\BridgeBookingApprovalService;
+use App\Services\Bridge\BridgeBookingCancelService;
 use App\Services\Bridge\BridgeBookingSubmissionService;
 use App\Services\Bridge\BridgeETicketService;
 use App\Services\Bridge\BridgePaymentVerificationService;
 use App\Services\Bridge\BridgeReadService;
+use App\Services\Bridge\BridgeTripActionService;
 use App\Services\CustomerResolverService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +30,8 @@ class ChatbotBridgeController extends Controller
         protected BridgeBookingApprovalService $approvalService,
         protected BridgePaymentVerificationService $paymentService,
         protected BridgeETicketService $eticketService,
+        protected BridgeBookingCancelService $cancelService,
+        protected BridgeTripActionService $tripActionService,
     ) {
     }
 
@@ -690,6 +696,136 @@ class ChatbotBridgeController extends Controller
         return response()->json([
             'data' => $tripPlanning->status($validated['target_date']),
         ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Sesi 76 PR-CRM-6K3 — Cascade reschedule T+30min endpoints
+    // -------------------------------------------------------------------------
+
+    public function bookingCancel(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'cancellation_reason' => 'required|in:cancelled_by_admin,no_show_final',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $booking = $this->cancelService->cancelBooking($code, $data['cancellation_reason']);
+            return response()->json([
+                'success' => true,
+                'booking' => $this->bookingPayload($booking) + [
+                    'cancellation_reason' => $booking->cancellation_reason,
+                ],
+                'message' => 'Booking berhasil dibatalkan.',
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'BookingCancel');
+        }
+    }
+
+    public function bookingReschedule(Request $request, string $code): JsonResponse
+    {
+        $data = $request->validate([
+            'new_trip_time' => 'required|string',
+            'new_seat' => 'nullable|string|max:5',
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $result = $this->cancelService->rescheduleBooking(
+                $code,
+                $data['new_trip_time'],
+                $data['new_seat'] ?? null,
+            );
+
+            return response()->json([
+                'success' => true,
+                'booking' => $this->bookingPayload($result['booking']),
+                'old_trip_time' => $result['old_trip_time'],
+                'new_trip_time' => $result['new_trip_time'],
+            ]);
+        } catch (SeatConflictException $e) {
+            $first = $e->conflicts[0] ?? [];
+            $tripDate = (string) ($first['date'] ?? '');
+            $direction = (string) $request->input('source_meta.direction_trip', '');
+
+            $availableSeats = [];
+            if ($tripDate !== '' && $direction !== '') {
+                $slots = $this->tripActionService->getAvailableSlotsToday($tripDate, $direction, 0);
+                foreach ($slots as $slot) {
+                    if ($slot['trip_time'] === ($first['time'] ?? null)) {
+                        $availableSeats = $slot['available_seats'];
+                        break;
+                    }
+                }
+            }
+
+            return response()->json([
+                'error' => 'seat_conflict',
+                'message' => $e->getMessage(),
+                'conflicts' => $e->conflicts,
+                'available_seats' => $availableSeats,
+            ], 409);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'BookingReschedule');
+        }
+    }
+
+    public function tripMarkTidakBerangkat(Request $request, int $tripId): JsonResponse
+    {
+        $data = $request->validate([
+            'source_event_id' => 'nullable|string|max:64',
+            'source_meta' => 'nullable|array',
+        ]);
+
+        try {
+            $trip = $this->tripActionService->markTripTidakBerangkat($tripId);
+
+            $affectedCount = \App\Models\Booking::query()
+                ->where('trip_id', $tripId)
+                ->whereIn('booking_status', BridgeBookingCancelService::CANCELLABLE_STATUSES)
+                ->count();
+
+            return response()->json([
+                'success' => true,
+                'trip_id' => $trip->id,
+                'status' => $trip->status,
+                'affected_bookings_count' => $affectedCount,
+            ]);
+        } catch (\App\Exceptions\TripInvalidTransitionException $e) {
+            return response()->json([
+                'error' => 'invalid_transition',
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, $data, 'TripTidakBerangkat');
+        }
+    }
+
+    public function tripAvailableSlotsToday(Request $request, int $tripId): JsonResponse
+    {
+        try {
+            $trip = Trip::query()->findOrFail($tripId);
+            $slots = $this->tripActionService->getAvailableSlotsToday(
+                optional($trip->trip_date)->toDateString() ?? (string) $trip->trip_date,
+                (string) $trip->direction,
+                $tripId,
+            );
+
+            return response()->json([
+                'trip_date' => optional($trip->trip_date)->toDateString() ?? (string) $trip->trip_date,
+                'direction' => $trip->direction,
+                'available_slots' => $slots,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, [], 'AvailableSlotsToday');
+        }
     }
 
     /**

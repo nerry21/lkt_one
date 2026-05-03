@@ -67,6 +67,7 @@ class Booking extends Model
         'eligible_discount',
         'departure_id',
         'booking_status',
+        'cancellation_reason',
         'departure_status',
         'armada_index',
         'trip_id',

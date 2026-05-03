@@ -222,4 +222,19 @@ Route::middleware('chatbot.bridge')
 
         Route::get('/trip-planning/status', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripPlanningStatus'])
             ->name('api.chatbot-bridge.trip-planning.status');
+
+        // Sesi 76 PR-CRM-6K3 — Cascade reschedule T+30min endpoints
+        Route::post('/booking/{code}/cancel', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingCancel'])
+            ->name('api.chatbot-bridge.booking.cancel');
+
+        Route::post('/booking/{code}/reschedule', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'bookingReschedule'])
+            ->name('api.chatbot-bridge.booking.reschedule');
+
+        Route::post('/trip/{tripId}/mark-tidak-berangkat', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripMarkTidakBerangkat'])
+            ->name('api.chatbot-bridge.trip.mark-tidak-berangkat')
+            ->whereNumber('tripId');
+
+        Route::get('/trip/{tripId}/available-slots-today', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripAvailableSlotsToday'])
+            ->name('api.chatbot-bridge.trip.available-slots-today')
+            ->whereNumber('tripId');
     });
