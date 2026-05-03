@@ -9417,3 +9417,92 @@ button {
     color: #dc2626;
     font-weight: 700;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Sesi 77 PR-CRM-6K4 — Dashboard system health + trend 7d
+   ════════════════════════════════════════════════════════════ */
+
+.dashboard-system-health-section,
+.dashboard-trend-section {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-section-header h2 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.dashboard-section-header p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.dashboard-system-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.dashboard-stat-card {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-left: 4px solid transparent;
+}
+
+.dashboard-stat-card--healthy {
+    border-left-color: #10b981;
+}
+
+.dashboard-stat-card--warning {
+    border-left-color: #f59e0b;
+}
+
+.dashboard-stat-card--degraded,
+.dashboard-stat-card--down {
+    border-left-color: #ef4444;
+}
+
+.dashboard-stat-icon {
+    font-size: 1.5rem;
+}
+
+.dashboard-stat-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.dashboard-stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.dashboard-stat-detail {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.dashboard-trend-chart-container {
+    margin-top: 1rem;
+    max-height: 350px;
+}

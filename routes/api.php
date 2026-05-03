@@ -237,4 +237,14 @@ Route::middleware('chatbot.bridge')
         Route::get('/trip/{tripId}/available-slots-today', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripAvailableSlotsToday'])
             ->name('api.chatbot-bridge.trip.available-slots-today')
             ->whereNumber('tripId');
+
+        // Sesi 77 PR-CRM-6K4 — Post-Recap T+1 jam + Dashboard trend 7 hari
+        Route::get('/trip-recap-data', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripRecapData'])
+            ->name('api.chatbot-bridge.trip-recap-data');
+
+        Route::get('/trip-recap-detail', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'tripRecapDetail'])
+            ->name('api.chatbot-bridge.trip-recap-detail');
+
+        Route::get('/dashboard-trend-7d', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'dashboardTrend7d'])
+            ->name('api.chatbot-bridge.dashboard-trend-7d');
     });
