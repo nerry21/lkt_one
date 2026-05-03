@@ -13,7 +13,9 @@ use App\Services\Bridge\BridgeETicketService;
 use App\Services\Bridge\BridgePaymentVerificationService;
 use App\Services\Bridge\BridgeReadService;
 use App\Services\Bridge\BridgeTripActionService;
+use App\Services\Bridge\TripRecapDataService;
 use App\Services\CustomerResolverService;
+use App\Services\DashboardMetricsAggregatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -826,6 +828,72 @@ class ChatbotBridgeController extends Controller
         } catch (\Throwable $e) {
             return $this->logAndReturn500($e, [], 'AvailableSlotsToday');
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Sesi 77 PR-CRM-6K4 — Post-Recap T+1 jam + Dashboard trend 7 hari
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /api/v1/chatbot-bridge/trip-recap-data?trip_id=X
+     *
+     * Ringkasan singkat untuk header WA. Return juga `cluster` (ROHUL/PKB) —
+     * Chatbot side resolve cluster → phone numbers via env JET_ADMIN_PHONES +
+     * JET_APPROVER_PHONES.
+     */
+    public function tripRecapData(Request $request, TripRecapDataService $service): JsonResponse
+    {
+        $request->validate(['trip_id' => 'required|integer']);
+
+        try {
+            return response()->json([
+                'data' => $service->getRecapData((int) $request->query('trip_id')),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'trip_not_found',
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['trip_id' => $request->query('trip_id')], 'TripRecapData');
+        }
+    }
+
+    /**
+     * GET /api/v1/chatbot-bridge/trip-recap-detail?trip_id=X
+     *
+     * Detail lengkap (passengers + cancellations + cash/transfer breakdown)
+     * untuk balasan "DETAIL" di Chatbot.
+     */
+    public function tripRecapDetail(Request $request, TripRecapDataService $service): JsonResponse
+    {
+        $request->validate(['trip_id' => 'required|integer']);
+
+        try {
+            return response()->json([
+                'data' => $service->getDetailData((int) $request->query('trip_id')),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'error' => 'trip_not_found',
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            return $this->logAndReturn500($e, ['trip_id' => $request->query('trip_id')], 'TripRecapDetail');
+        }
+    }
+
+    /**
+     * GET /api/v1/chatbot-bridge/dashboard-trend-7d
+     *
+     * Cache aggregation 7 hari untuk grafik dashboard. Pakai data dari
+     * dashboard_daily_metrics; kalau belum ada untuk tanggal tertentu, isi 0.
+     */
+    public function dashboardTrend7d(DashboardMetricsAggregatorService $service): JsonResponse
+    {
+        return response()->json([
+            'data' => $service->getTrend7Days(),
+        ]);
     }
 
     /**
