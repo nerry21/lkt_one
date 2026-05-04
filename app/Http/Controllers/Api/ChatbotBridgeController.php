@@ -19,6 +19,7 @@ use App\Services\DashboardMetricsAggregatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
@@ -991,5 +992,149 @@ class ChatbotBridgeController extends Controller
             'error' => 'submission_failed',
             'message' => "Gagal membuat booking {$category}. Silakan coba lagi atau hubungi admin.",
         ], 500);
+    }
+
+    // =========================================================================
+    // Sesi 78 PR-CRM-6L — Bot control (kill switch + whitelist) endpoints
+    // -------------------------------------------------------------------------
+    // Dipanggil oleh:
+    //   - Chatbot AI worker (poll /bot-status-poll setiap 30 detik)
+    //   - Dashboard LKT (set mode via tombol)
+    // =========================================================================
+
+    /**
+     * GET /api/v1/chatbot-bridge/bot-status-poll
+     */
+    public function botStatusPoll(\App\Services\BotControl\BotControlService $service): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $service->snapshot(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/chatbot-bridge/bot-status-set
+     */
+    public function botStatusSet(
+        Request $request,
+        \App\Services\BotControl\BotControlService $service,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'mode' => 'required|string|in:off,whitelist,live_public',
+            'updated_by_phone' => 'nullable|string|max:32',
+        ]);
+
+        $service->setMode($validated['mode'], $validated['updated_by_phone'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'data' => $service->snapshot(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/chatbot-bridge/bot-whitelist-set
+     */
+    public function botWhitelistSet(
+        Request $request,
+        \App\Services\BotControl\BotControlService $service,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'phones' => 'required|array',
+            'phones.*' => 'string|max:32',
+            'updated_by_phone' => 'nullable|string|max:32',
+        ]);
+
+        $service->setWhitelist($validated['phones'], $validated['updated_by_phone'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'data' => $service->snapshot(),
+        ]);
+    }
+
+    /**
+     * GET /api/v1/chatbot-bridge/backfill-walkin-preview
+     *
+     * Daftar booking yang punya source_meta.origin = 'passenger_inquiry_t1jam'
+     * tapi created_at > scheduled_departure (terbukti walk-in retroaktif).
+     *
+     * CATATAN: Endpoint return empty array sampai Bagian B (Chatbot AI) live
+     * dan customer booking via T-1jam inquiry mulai populate
+     * source_meta.origin field. Tidak ada breaking change, behavior empty
+     * adalah expected.
+     */
+    public function backfillWalkinPreview(): JsonResponse
+    {
+        $candidates = DB::table('booking_sources')
+            ->join('bookings', 'bookings.id', '=', 'booking_sources.booking_id')
+            ->whereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.origin') = 'passenger_inquiry_t1jam'")
+            ->where(function ($q) {
+                $q->whereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') IS NULL")
+                    ->orWhereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') = false");
+            })
+            ->whereRaw("TIMESTAMPDIFF(MINUTE, CONCAT(bookings.trip_date, ' ', bookings.trip_time), bookings.created_at) > 0")
+            ->select(
+                'bookings.booking_code',
+                'bookings.trip_date',
+                'bookings.trip_time',
+                'bookings.created_at',
+                DB::raw("TIMESTAMPDIFF(MINUTE, CONCAT(bookings.trip_date, ' ', bookings.trip_time), bookings.created_at) AS minutes_after_departure")
+            )
+            ->orderByDesc('bookings.created_at')
+            ->limit(200)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'candidates' => $candidates,
+                'total' => $candidates->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/chatbot-bridge/backfill-walkin-execute
+     *
+     * Set source_meta.walk_in=true untuk booking yang match kriteria preview.
+     *
+     * CATATAN: Endpoint return updated_count=0 sampai Bagian B (Chatbot AI) live
+     * dan customer booking via T-1jam inquiry mulai populate
+     * source_meta.origin field. Tidak ada breaking change, behavior empty
+     * adalah expected.
+     */
+    public function backfillWalkinExecute(): JsonResponse
+    {
+        $rows = DB::table('booking_sources')
+            ->join('bookings', 'bookings.id', '=', 'booking_sources.booking_id')
+            ->whereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.origin') = 'passenger_inquiry_t1jam'")
+            ->where(function ($q) {
+                $q->whereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') IS NULL")
+                    ->orWhereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') = false");
+            })
+            ->whereRaw("TIMESTAMPDIFF(MINUTE, CONCAT(bookings.trip_date, ' ', bookings.trip_time), bookings.created_at) > 0")
+            ->select('booking_sources.id', 'booking_sources.source_meta')
+            ->get();
+
+        $updated = 0;
+        foreach ($rows as $row) {
+            $meta = json_decode((string) $row->source_meta, true) ?? [];
+            $meta['walk_in'] = true;
+            $meta['backfilled_at'] = now()->toIso8601String();
+
+            DB::table('booking_sources')
+                ->where('id', $row->id)
+                ->update(['source_meta' => json_encode($meta), 'updated_at' => now()]);
+            $updated++;
+        }
+
+        Log::channel('chatbot-bridge')->info('[BackfillWalkin] executed', ['updated_count' => $updated]);
+
+        return response()->json([
+            'success' => true,
+            'data' => ['updated_count' => $updated],
+        ]);
     }
 }
