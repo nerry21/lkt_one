@@ -9,6 +9,9 @@
             </div>
         </section>
 
+        {{-- Sesi 78 PR-CRM-6L — Bot control (kill switch + whitelist) --}}
+        @include('dashboard.partials.bot-control')
+
         {{-- Sesi 77 PR-CRM-6K4 — System health widgets --}}
         @include('dashboard.partials.system-health-widgets')
 

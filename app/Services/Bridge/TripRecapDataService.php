@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BookingSource;
 use App\Models\Trip;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -77,6 +78,9 @@ class TripRecapDataService
         $revenueCash = (int) $cashBookings->sum(fn ($b) => (float) $b->total_amount);
         $revenueTransfer = (int) $transferBookings->sum(fn ($b) => (float) $b->total_amount);
 
+        $bookingIds = $bookings->pluck('id')->all();
+        $this->logMissingWalkInFlags($bookingIds);
+
         return [
             'trip_id' => (int) $trip->id,
             'trip_date' => $trip->trip_date?->toDateString() ?? (string) $trip->trip_date,
@@ -88,11 +92,51 @@ class TripRecapDataService
             'is_cancelled' => $isCancelled,
             'passenger_count_berangkat' => $activeBookings->count(),
             'passenger_count_cancelled' => $cancelledBookings->count(),
-            'walk_in_count' => $this->countWalkIn($bookings->pluck('id')->all()),
+            'walk_in_count' => $this->countWalkIn($bookingIds),
             'revenue_cash' => $revenueCash,
             'revenue_transfer' => $revenueTransfer,
             'revenue_total' => $revenueCash + $revenueTransfer,
         ];
+    }
+
+    /**
+     * Sesi 78 PR-CRM-6L — Log warning untuk booking yang dibuat sesudah jam
+     * keberangkatan tapi flag walk_in belum ter-set.
+     *
+     * Sumber masalah: chatbot bisa lupa set source_meta.walk_in saat customer
+     * lapor naik (post-departure). Endpoint backfill-walkin-execute bisa sapu
+     * balik hasilnya.
+     *
+     * @param  array<int>  $bookingIds
+     */
+    public function logMissingWalkInFlags(array $bookingIds): void
+    {
+        if (empty($bookingIds)) {
+            return;
+        }
+
+        $missing = DB::table('booking_sources')
+            ->join('bookings', 'bookings.id', '=', 'booking_sources.booking_id')
+            ->whereIn('bookings.id', $bookingIds)
+            ->where(function ($q) {
+                $q->whereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') IS NULL")
+                    ->orWhereRaw("JSON_EXTRACT(booking_sources.source_meta, '$.walk_in') = false");
+            })
+            ->whereRaw("TIMESTAMPDIFF(MINUTE, CONCAT(bookings.trip_date, ' ', bookings.trip_time), bookings.created_at) > 0")
+            ->select(
+                'bookings.booking_code',
+                'bookings.trip_date',
+                DB::raw("TIMESTAMPDIFF(MINUTE, CONCAT(bookings.trip_date, ' ', bookings.trip_time), bookings.created_at) AS minutes_after")
+            )
+            ->get();
+
+        foreach ($missing as $m) {
+            Log::channel('chatbot-bridge')->warning('[TripRecap] walk-in flag missing pada booking retroaktif', [
+                'booking_code' => $m->booking_code,
+                'trip_date' => $m->trip_date,
+                'minutes_after' => (int) $m->minutes_after,
+            ]);
+        }
     }
 
     /**

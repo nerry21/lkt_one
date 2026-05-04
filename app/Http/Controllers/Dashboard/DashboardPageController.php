@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Services\BotControl\BotControlService;
 use App\Services\DashboardMetricsAggregatorService;
 use App\Services\KeuanganJetStatsService;
 use Illuminate\Contracts\View\View;
@@ -12,6 +13,7 @@ class DashboardPageController extends Controller
     public function index(
         KeuanganJetStatsService $keuanganJetStats,
         DashboardMetricsAggregatorService $metrics,
+        BotControlService $botControl,
     ): View {
         $current = $metrics->getCurrentDayStats();
 
@@ -30,6 +32,7 @@ class DashboardPageController extends Controller
             'keuanganJetStats' => $keuanganJetStats->dashboardPayload(),
             'systemHealthStats' => $systemHealthStats,
             'trend7d' => $metrics->getTrend7Days(),
+            'botStatus' => $botControl->snapshot(),
         ]);
     }
 }

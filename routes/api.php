@@ -247,4 +247,20 @@ Route::middleware('chatbot.bridge')
 
         Route::get('/dashboard-trend-7d', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'dashboardTrend7d'])
             ->name('api.chatbot-bridge.dashboard-trend-7d');
+
+        // Sesi 78 PR-CRM-6L — Bot control (kill switch + whitelist) + walk-in backfill
+        Route::get('/bot-status-poll', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'botStatusPoll'])
+            ->name('api.chatbot-bridge.bot-status-poll');
+
+        Route::post('/bot-status-set', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'botStatusSet'])
+            ->name('api.chatbot-bridge.bot-status-set');
+
+        Route::post('/bot-whitelist-set', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'botWhitelistSet'])
+            ->name('api.chatbot-bridge.bot-whitelist-set');
+
+        Route::get('/backfill-walkin-preview', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'backfillWalkinPreview'])
+            ->name('api.chatbot-bridge.backfill-walkin-preview');
+
+        Route::post('/backfill-walkin-execute', [\App\Http\Controllers\Api\ChatbotBridgeController::class, 'backfillWalkinExecute'])
+            ->name('api.chatbot-bridge.backfill-walkin-execute');
     });

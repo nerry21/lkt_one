@@ -216,4 +216,19 @@ Route::middleware(['jwt.auth'])->prefix('dashboard')->group(function () {
         Route::post('/{siklus}/driver-override', [\App\Http\Controllers\KeuanganJet\KeuanganJetPageController::class, 'overrideDriver'])
             ->name('keuangan-jet.driver-override');
     });
+
+    // Sesi 78 PR-CRM-6L — Bot mode set dari tombol dashboard
+    Route::post('/bot-mode-set', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'mode' => 'required|string|in:off,whitelist,live_public',
+        ]);
+
+        $service = app(\App\Services\BotControl\BotControlService::class);
+        $service->setMode($validated['mode'], auth()->user()?->phone);
+
+        return response()->json([
+            'success' => true,
+            'data' => $service->snapshot(),
+        ]);
+    })->name('dashboard.bot-mode-set');
 });
