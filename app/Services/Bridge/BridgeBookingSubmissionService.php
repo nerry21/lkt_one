@@ -96,6 +96,12 @@ class BridgeBookingSubmissionService
             $booking->notes = $payload['notes'] ?? null;
             $booking->save();
 
+            $this->createPassengersFromPayload(
+                $booking,
+                $payload['passengers'] ?? [],
+                $payload['customer_phone'],
+            );
+
             $this->createBookingSource($booking->id, $payload, 'whatsapp');
 
             $this->logSubmission('Reguler', $booking, $customer, $payload);
@@ -150,6 +156,12 @@ class BridgeBookingSubmissionService
             $booking->booking_status = 'Draft';
             $booking->notes = $payload['notes'] ?? null;
             $booking->save();
+
+            $this->createPassengersFromPayload(
+                $booking,
+                $payload['passengers'] ?? [],
+                $payload['customer_phone'],
+            );
 
             $this->createBookingSource($booking->id, $payload, 'whatsapp');
 
@@ -207,6 +219,12 @@ class BridgeBookingSubmissionService
             $booking->booking_status = 'Draft';
             $booking->notes = $payload['notes'] ?? null;
             $booking->save();
+
+            $this->createPassengersFromPayload(
+                $booking,
+                $payload['passengers'] ?? [],
+                $payload['customer_phone'],
+            );
 
             $this->createBookingSource($booking->id, $payload, 'whatsapp');
 
@@ -280,6 +298,12 @@ class BridgeBookingSubmissionService
             $booking->booking_status = 'Draft';
             $booking->notes = $notesPayload;
             $booking->save();
+
+            $this->createPassengersFromPayload(
+                $booking,
+                $payload['passengers'] ?? [],
+                $payload['sender_phone'],
+            );
 
             $this->createBookingSource($booking->id, $payload, 'whatsapp');
 
@@ -455,6 +479,59 @@ class BridgeBookingSubmissionService
             'source_channel' => $channel,
             'source_meta' => $payload['source_meta'] ?? null,
         ]);
+    }
+
+    /**
+     * Sesi 97 PR-BUG-B-A — Create rows di booking_passengers dari payload
+     * passengers[] (optional). Backward-compatible: kalau payload kosong, no-op.
+     *
+     * Phone resolution:
+     *   - Pnp index 0 → fallback ke $fallbackPhone kalau empty/null
+     *     (customer_phone untuk Reguler/Dropping/Rental, sender_phone untuk Paket)
+     *   - Pnp index 1+ → boleh null (kolom phone di booking_passengers nullable)
+     *
+     * Customer linking pakai pattern mirror RegularBookingPersistenceService:232-249.
+     *
+     * @param  array<int, array{name: string, seat_no: string, phone?: string|null}>  $passengers
+     */
+    protected function createPassengersFromPayload(
+        Booking $booking,
+        array $passengers,
+        string $fallbackPhone,
+    ): void {
+        if (empty($passengers)) {
+            return;
+        }
+
+        $rows = collect($passengers)
+            ->map(function (array $p, int $i) use ($booking, $fallbackPhone): array {
+                $rawPhone = trim((string) ($p['phone'] ?? ''));
+                $phoneEffective = $rawPhone !== ''
+                    ? $rawPhone
+                    : ($i === 0 ? $fallbackPhone : null);
+
+                $customerId = null;
+                if ($phoneEffective !== null && $phoneEffective !== '') {
+                    $resolved = $this->customerResolver->resolve(
+                        $phoneEffective,
+                        $p['name'],
+                        (int) $booking->getKey(),
+                    );
+                    $customerId = $resolved?->id;
+                }
+
+                return [
+                    'seat_no'       => $p['seat_no'],
+                    'name'          => $p['name'],
+                    'phone'         => $phoneEffective,
+                    'ticket_status' => 'Draft',
+                    'customer_id'   => $customerId,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $booking->passengers()->createMany($rows);
     }
 
     private function logSubmission(string $category, Booking $booking, Customer $customer, array $payload): void
