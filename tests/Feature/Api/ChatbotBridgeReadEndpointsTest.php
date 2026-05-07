@@ -307,4 +307,102 @@ class ChatbotBridgeReadEndpointsTest extends TestCase
             ->assertJsonPath('meta.count', 1)
             ->assertJsonPath('data.0.trip_time', '06:00');
     }
+
+    // -------------------------------------------------------------------------
+    // Sesi 99 PR-N5a — Fallback path: query booking_seats direct kalau Trip empty
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sesi 99 PR-N5a — Fallback path: Trip belum ada → query booking_seats direct.
+     */
+    public function test_seat_availability_fallback_returns_occupied_from_booking_seats_when_no_trip(): void
+    {
+        $tripDate = now()->addDays(2)->format('Y-m-d');
+        $tripTime = '07:00';
+
+        $customer = Customer::create([
+            'phone_normalized' => '628111000222',
+            'phone_original' => '08111000222',
+            'display_name' => 'Customer Booking Lain',
+        ]);
+
+        $booking = Booking::factory()->create([
+            'customer_id' => $customer->id,
+            'category' => 'Reguler',
+            'from_city' => 'Pasirpengaraian',
+            'to_city' => 'Pekanbaru',
+            'direction' => 'to_pkb',
+            'trip_date' => $tripDate,
+            'trip_time' => $tripTime,
+            'selected_seats' => ['1A', '2A'],
+        ]);
+
+        app(\App\Services\SeatLockService::class)->lockSeats(
+            booking: $booking,
+            slots: [[
+                'trip_date' => $tripDate,
+                'trip_time' => $tripTime,
+                'from_city' => 'Pasirpengaraian',
+                'to_city' => 'Pekanbaru',
+                'direction' => 'to_pkb',
+                'route_via' => 'BANGKINANG',
+                'armada_index' => 1,
+            ]],
+            seatNumbers: ['1A', '2A'],
+        );
+
+        $this->assertDatabaseCount('trips', 0);
+
+        $response = $this->authedGet(
+            '/api/v1/chatbot-bridge/seat-availability?trip_date=' . $tripDate . '&direction=ROHUL_TO_PKB&trip_time=' . $tripTime
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.trip_id', null)
+            ->assertJsonPath('data.0.trip_time', '07:00')
+            ->assertJsonPath('data.0.route_via', 'BANGKINANG')
+            ->assertJsonPath('data.0.total_count', 6)
+            ->assertJsonPath('data.0.available_count', 4);
+
+        $occupiedSeats = $response->json('data.0.occupied_seats');
+        $this->assertContains('1A', $occupiedSeats);
+        $this->assertContains('2A', $occupiedSeats);
+        $this->assertCount(2, $occupiedSeats);
+    }
+
+    /**
+     * Sesi 99 PR-N5a — Fallback NOT triggered kalau tripTime tidak provided.
+     */
+    public function test_seat_availability_returns_empty_when_no_trip_and_no_trip_time(): void
+    {
+        $tripDate = now()->addDays(2)->format('Y-m-d');
+
+        $response = $this->authedGet(
+            '/api/v1/chatbot-bridge/seat-availability?trip_date=' . $tripDate . '&direction=ROHUL_TO_PKB'
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('meta.count', 0);
+    }
+
+    /**
+     * Sesi 99 PR-N5a — Fallback path empty occupied saat tidak ada booking sama sekali.
+     */
+    public function test_seat_availability_fallback_returns_empty_occupied_when_no_bookings(): void
+    {
+        $tripDate = now()->addDays(2)->format('Y-m-d');
+        $tripTime = '09:00';
+
+        $response = $this->authedGet(
+            '/api/v1/chatbot-bridge/seat-availability?trip_date=' . $tripDate . '&direction=ROHUL_TO_PKB&trip_time=' . $tripTime
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.trip_id', null)
+            ->assertJsonPath('data.0.trip_time', '09:00')
+            ->assertJsonPath('data.0.occupied_seats', [])
+            ->assertJsonPath('data.0.available_count', 6)
+            ->assertJsonPath('data.0.total_count', 6);
+    }
 }
