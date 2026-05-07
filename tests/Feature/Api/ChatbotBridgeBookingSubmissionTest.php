@@ -307,4 +307,96 @@ class ChatbotBridgeBookingSubmissionTest extends TestCase
         $passenger1 = $booking->passengers->where('name', 'Bu Sari')->first();
         $this->assertNull($passenger1->phone, 'Passenger index 1+ phone should remain null');
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Sesi 99 PR-N4 — SeatLockService integration: lock booking_seats rows
+    // + direct conflict pre-check (replace Trip-based check).
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Sesi 99 PR-N4 — Bridge submitReguler creates row di booking_seats.
+     */
+    public function test_reguler_submission_creates_booking_seats_rows(): void
+    {
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $this->defaultPayload());
+
+        $response->assertStatus(201);
+
+        $bookingId = $response->json('booking.id');
+        $this->assertNotNull($bookingId);
+
+        // Verify 2 row tercipta di booking_seats (untuk 2 selected_seats di defaultPayload).
+        $this->assertDatabaseCount('booking_seats', 2);
+
+        $this->assertDatabaseHas('booking_seats', [
+            'booking_id'  => $bookingId,
+            'seat_number' => '1A',
+            'lock_type'   => 'soft',
+        ]);
+        $this->assertDatabaseHas('booking_seats', [
+            'booking_id'  => $bookingId,
+            'seat_number' => '1B',
+            'lock_type'   => 'soft',
+        ]);
+    }
+
+    /**
+     * Sesi 99 PR-N4 — Bridge rejects submission saat seat sudah di-lock booking lain.
+     */
+    public function test_reguler_submission_rejects_when_seat_already_locked(): void
+    {
+        // Booking pertama lock seat 1A & 1B
+        $first = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $this->defaultPayload());
+        $first->assertStatus(201);
+
+        // Booking kedua coba seat sama (1A) → harus reject
+        $secondPayload = $this->defaultPayload([
+            'customer_phone' => '628999888777',
+            'customer_name'  => 'Customer Lain',
+            'passenger_count' => 1,
+            'selected_seats' => ['1A'],
+        ]);
+
+        $second = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $secondPayload);
+
+        // Pre-check di revalidateSeatAvailability harus catch dulu → 422 ValidationException
+        $second->assertStatus(422)
+            ->assertJsonPath('error', 'validation_failed')
+            ->assertJsonStructure(['messages' => ['selected_seats']]);
+
+        // Verify booking kedua tidak ter-insert (transaction rollback)
+        $this->assertDatabaseCount('bookings', 1);
+        $this->assertDatabaseCount('booking_seats', 2); // tetap 2 dari booking pertama
+    }
+
+    /**
+     * Sesi 99 PR-N4 — Bridge accepts non-conflicting submission walau ada booking existing.
+     */
+    public function test_reguler_submission_accepts_non_conflicting_seats(): void
+    {
+        // Booking pertama lock seat 1A & 1B
+        $first = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $this->defaultPayload());
+        $first->assertStatus(201);
+
+        // Booking kedua pakai seat berbeda (3A & 4A) → harus accept
+        $secondPayload = $this->defaultPayload([
+            'customer_phone' => '628999888777',
+            'customer_name'  => 'Customer Lain',
+            'passenger_count' => 2,
+            'selected_seats' => ['3A', '4A'],
+        ]);
+
+        $second = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $secondPayload);
+
+        $second->assertStatus(201);
+
+        // Verify total 4 row di booking_seats (2 + 2)
+        $this->assertDatabaseCount('booking_seats', 4);
+        $this->assertDatabaseCount('bookings', 2);
+    }
 }

@@ -34,6 +34,7 @@ class BridgeBookingSubmissionService
         protected CustomerResolverService $customerResolver,
         protected RegularBookingService $regularBookingService,
         protected BridgeReadService $bridgeReader,
+        protected \App\Services\SeatLockService $seatLock,
     ) {
     }
 
@@ -100,6 +101,28 @@ class BridgeBookingSubmissionService
                 $booking,
                 $payload['passengers'] ?? [],
                 $payload['customer_phone'],
+            );
+
+            // Sesi 99 PR-N4: lock seats di booking_seats table.
+            // CRITICAL: tanpa ini, 2 booking dengan kursi sama bisa co-exist.
+            // Pre-check `revalidateSeatAvailability` (Edit 1c) sudah cegah race
+            // detection-window — sini final guard via lockForUpdate.
+            // SeatConflictException akan throw kalau race lost → DB::transaction
+            // rollback otomatis (booking + passengers + source ikut rollback).
+            $this->seatLock->lockSeats(
+                booking: $booking,
+                slots: [
+                    [
+                        'trip_date'    => $payload['trip_date'],
+                        'trip_time'    => $payload['trip_time'],
+                        'from_city'    => $payload['from_city'],
+                        'to_city'      => $payload['to_city'],
+                        'direction'    => $payload['direction'], // 'to_pkb' | 'from_pkb' — match booking_seats.direction varchar(10)
+                        'route_via'    => 'BANGKINANG', // default cluster, future: detect dari from/to_city
+                        'armada_index' => 1,            // default mobil ke-1, future: auto-increment
+                    ],
+                ],
+                seatNumbers: $seats,
             );
 
             $this->createBookingSource($booking->id, $payload, 'whatsapp');
@@ -443,23 +466,23 @@ class BridgeBookingSubmissionService
 
     private function revalidateSeatAvailability(array $payload): void
     {
-        $tripDirection = $payload['direction'] === 'to_pkb' ? 'ROHUL_TO_PKB' : 'PKB_TO_ROHUL';
+        // Sesi 99 PR-N4: query SeatLockService::getOccupiedSeats direct,
+        // BUKAN via Trip table. Trip schedule mungkin belum di-create untuk
+        // tanggal+jam tersebut (chatbot bisa submit untuk masa depan tanpa
+        // Trip schedule). Direct query booking_seats lebih robust + konsisten
+        // dengan lockSeats() final guard di submitReguler.
+        $occupied = $this->seatLock->getOccupiedSeats([
+            'trip_date'    => $payload['trip_date'],
+            'trip_time'    => $payload['trip_time'],
+            'direction'    => $payload['direction'], // 'to_pkb' | 'from_pkb' — booking format
+            'route_via'    => 'BANGKINANG',
+            'armada_index' => 1,
+            'from_city'    => $payload['from_city'],
+            'to_city'      => $payload['to_city'],
+        ]);
 
-        $availability = $this->bridgeReader->getSeatAvailability(
-            tripDate: $payload['trip_date'],
-            direction: $tripDirection,
-            tripTime: $payload['trip_time'],
-        );
-
-        $occupiedAtTime = [];
-        foreach ($availability as $entry) {
-            if (($entry['trip_time'] ?? null) === $payload['trip_time']) {
-                $occupiedAtTime = $entry['occupied_seats'] ?? [];
-                break;
-            }
-        }
-
-        $conflict = array_intersect($payload['selected_seats'], $occupiedAtTime);
+        $occupiedArray = $occupied->toArray();
+        $conflict = array_intersect($payload['selected_seats'], $occupiedArray);
         if (! empty($conflict)) {
             throw ValidationException::withMessages([
                 'selected_seats' => [
