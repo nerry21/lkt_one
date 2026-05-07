@@ -182,4 +182,129 @@ class ChatbotBridgeBookingSubmissionTest extends TestCase
         $this->assertTrue(Schema::hasColumn('booking_sources', 'source_channel'));
         $this->assertTrue(Schema::hasColumn('booking_sources', 'source_meta'));
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Sesi 97 PR-BUG-B-A — Multi-Penumpang Strategy C, PR Side A.
+    // Bridge endpoint extend untuk accept optional passengers[].
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_reguler_passengers_array_creates_booking_passengers_rows(): void
+    {
+        $payload = $this->defaultPayload([
+            'passengers' => [
+                ['name' => 'Pak Budi', 'seat_no' => '1A', 'phone' => '628111111111'],
+                ['name' => 'Bu Sari', 'seat_no' => '1B'],
+            ],
+        ]);
+
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $payload);
+
+        $response->assertStatus(201);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertCount(2, $booking->passengers);
+
+        $this->assertDatabaseHas('booking_passengers', [
+            'booking_id' => $booking->id,
+            'name' => 'Pak Budi',
+            'seat_no' => '1A',
+            'phone' => '628111111111',
+        ]);
+
+        $this->assertDatabaseHas('booking_passengers', [
+            'booking_id' => $booking->id,
+            'name' => 'Bu Sari',
+            'seat_no' => '1B',
+            'phone' => null,
+        ]);
+    }
+
+    public function test_reguler_passengers_optional_when_not_provided(): void
+    {
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $this->defaultPayload());
+
+        $response->assertStatus(201);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertCount(0, $booking->passengers);
+    }
+
+    public function test_reguler_passengers_count_must_match_passenger_count(): void
+    {
+        $payload = $this->defaultPayload([
+            'passenger_count' => 2,
+            'selected_seats' => ['1A', '1B'],
+            'passengers' => [
+                ['name' => 'Pak Budi', 'seat_no' => '1A'],
+            ],
+        ]);
+
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $payload);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('error', 'validation_failed');
+        $response->assertJsonStructure(['messages' => ['passengers']]);
+    }
+
+    public function test_reguler_passenger_seat_must_exist_in_selected_seats(): void
+    {
+        $payload = $this->defaultPayload([
+            'passenger_count' => 2,
+            'selected_seats' => ['1A', '1B'],
+            'passengers' => [
+                ['name' => 'Pak Budi', 'seat_no' => '1A'],
+                ['name' => 'Bu Sari', 'seat_no' => '2A'],
+            ],
+        ]);
+
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $payload);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('error', 'validation_failed');
+    }
+
+    public function test_reguler_passenger_seats_must_be_distinct(): void
+    {
+        $payload = $this->defaultPayload([
+            'passenger_count' => 2,
+            'selected_seats' => ['1A', '1B'],
+            'passengers' => [
+                ['name' => 'Pak Budi', 'seat_no' => '1A'],
+                ['name' => 'Bu Sari', 'seat_no' => '1A'],
+            ],
+        ]);
+
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $payload);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_reguler_passenger_index_0_phone_fallback_to_customer_phone(): void
+    {
+        $payload = $this->defaultPayload([
+            'customer_phone' => '628999888777',
+            'passengers' => [
+                ['name' => 'Pak Budi', 'seat_no' => '1A'],
+                ['name' => 'Bu Sari', 'seat_no' => '1B'],
+            ],
+        ]);
+
+        $response = $this->withHeaders(['X-Chatbot-Bridge-Key' => $this->apiKey])
+            ->postJson($this->endpoint, $payload);
+
+        $response->assertStatus(201);
+
+        $booking = Booking::latest('id')->first();
+
+        $passenger0 = $booking->passengers->where('name', 'Pak Budi')->first();
+        $this->assertNotNull($passenger0->phone, 'Passenger index 0 phone should fallback to customer_phone');
+
+        $passenger1 = $booking->passengers->where('name', 'Bu Sari')->first();
+        $this->assertNull($passenger1->phone, 'Passenger index 1+ phone should remain null');
+    }
 }

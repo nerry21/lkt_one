@@ -252,9 +252,17 @@ class ChatbotBridgeController extends Controller
             'notes' => 'nullable|string|max:1000',
             'source_event_id' => 'nullable|string|max:64',
             'source_meta' => 'nullable|array',
+            'passengers' => 'sometimes|array',
+            'passengers.*.name' => 'required_with:passengers|string|max:100',
+            'passengers.*.seat_no' => 'required_with:passengers|string|max:10',
+            'passengers.*.phone' => 'nullable|string|max:30',
         ]);
 
         try {
+            if (! empty($data['passengers'])) {
+                $this->validateRegulerPassengersConsistency($data);
+            }
+
             $booking = $this->submissionService->submitReguler($data);
             return $this->buildBookingResponse(
                 $booking,
@@ -287,6 +295,10 @@ class ChatbotBridgeController extends Controller
             'notes' => 'nullable|string|max:1000',
             'source_event_id' => 'nullable|string|max:64',
             'source_meta' => 'nullable|array',
+            'passengers' => 'sometimes|array',
+            'passengers.*.name' => 'required_with:passengers|string|max:100',
+            'passengers.*.seat_no' => 'required_with:passengers|string|max:10',
+            'passengers.*.phone' => 'nullable|string|max:30',
         ]);
 
         try {
@@ -322,6 +334,10 @@ class ChatbotBridgeController extends Controller
             'notes' => 'nullable|string|max:1000',
             'source_event_id' => 'nullable|string|max:64',
             'source_meta' => 'nullable|array',
+            'passengers' => 'sometimes|array',
+            'passengers.*.name' => 'required_with:passengers|string|max:100',
+            'passengers.*.seat_no' => 'required_with:passengers|string|max:10',
+            'passengers.*.phone' => 'nullable|string|max:30',
         ]);
 
         try {
@@ -363,6 +379,10 @@ class ChatbotBridgeController extends Controller
             'notes' => 'nullable|string|max:1000',
             'source_event_id' => 'nullable|string|max:64',
             'source_meta' => 'nullable|array',
+            'passengers' => 'sometimes|array',
+            'passengers.*.name' => 'required_with:passengers|string|max:100',
+            'passengers.*.seat_no' => 'required_with:passengers|string|max:10',
+            'passengers.*.phone' => 'nullable|string|max:30',
         ]);
 
         try {
@@ -979,6 +999,46 @@ class ChatbotBridgeController extends Controller
             'source' => $booking->source?->source,
             'created_at' => $booking->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Sesi 97 PR-BUG-B-A — Cross-validation strict untuk Reguler passengers[]:
+     *   1. Count match passenger_count
+     *   2. Setiap seat_no harus exist di selected_seats[]
+     *   3. Distinct seat_no antar passengers
+     *
+     * Reguler-only (Dropping/Rental/Paket: skip — loose, future-proof).
+     */
+    protected function validateRegulerPassengersConsistency(array $data): void
+    {
+        $passengers = $data['passengers'];
+        $passengerCount = (int) $data['passenger_count'];
+        $selectedSeats = (array) $data['selected_seats'];
+
+        if (count($passengers) !== $passengerCount) {
+            throw ValidationException::withMessages([
+                'passengers' => [
+                    'Jumlah passengers (' . count($passengers) . ') harus sama dengan passenger_count (' . $passengerCount . ').',
+                ],
+            ]);
+        }
+
+        $passengerSeats = array_column($passengers, 'seat_no');
+
+        if (count($passengerSeats) !== count(array_unique($passengerSeats))) {
+            throw ValidationException::withMessages([
+                'passengers' => ['Setiap passenger harus punya seat_no yang unik (no duplicate).'],
+            ]);
+        }
+
+        $diff = array_diff($passengerSeats, $selectedSeats);
+        if (! empty($diff)) {
+            throw ValidationException::withMessages([
+                'passengers' => [
+                    'seat_no passenger harus subset selected_seats. Tidak valid: ' . implode(', ', $diff),
+                ],
+            ]);
+        }
     }
 
     private function logAndReturn500(\Throwable $e, array $payload, string $category): JsonResponse
