@@ -67,6 +67,72 @@ class BridgeReadService
      *   total_count: int
      * }>
      */
+    /**
+     * Sesi 99 PR-N5a — Fallback query: ambil occupied seats dari booking_seats
+     * langsung saat Trip schedule belum ada untuk tanggal+jam tersebut.
+     *
+     * Customer chatbot bisa book booking masa depan (H+1, H+2) sebelum admin
+     * generate Trip schedule. Tanpa fallback ini, getSeatAvailability return
+     * empty → chatbot kira kursi semua kosong → false UX.
+     *
+     * Default slot resolution match dengan PR-N4 submitReguler defaults:
+     *   route_via='BANGKINANG', armada_index=1.
+     * from_city/to_city default ke endpoint route (mayoritas customer chatbot):
+     *   PKB_TO_ROHUL → from='Pekanbaru', to='Pasirpengaraian'
+     *   ROHUL_TO_PKB → from='Pasirpengaraian', to='Pekanbaru'
+     *
+     * @return array<int, array{
+     *   trip_id: null,
+     *   trip_time: string,
+     *   mobil_plat: string,
+     *   route_via: string,
+     *   occupied_seats: array<int, string>,
+     *   available_count: int,
+     *   total_count: int
+     * }>
+     */
+    protected function getOccupiedSeatsFallback(string $tripDate, string $direction, string $tripTime): array
+    {
+        $bookingDirection = self::tripDirectionToBookingDirection($direction);
+
+        // Default endpoint route untuk fallback (mayoritas booking chatbot reguler).
+        if ($bookingDirection === 'to_pkb') {
+            $fromCity = 'Pasirpengaraian';
+            $toCity = 'Pekanbaru';
+        } else {
+            $fromCity = 'Pekanbaru';
+            $toCity = 'Pasirpengaraian';
+        }
+
+        $occupied = $this->seatLock->getOccupiedSeats([
+            'trip_date'    => $tripDate,
+            'trip_time'    => $tripTime,
+            'direction'    => $bookingDirection,
+            'route_via'    => 'BANGKINANG',
+            'armada_index' => 1,
+            'from_city'    => $fromCity,
+            'to_city'      => $toCity,
+        ]);
+
+        $occupiedList = $occupied->toArray();
+        sort($occupiedList);
+
+        // Total seats default 6 (capacity mobil JET standard) — kalau booking lain
+        // pakai armada_index berbeda atau cluster lain, fallback ini tidak akan
+        // tahu (limitation accepted, edge-case rare untuk MVP).
+        $totalSeats = 6;
+
+        return [[
+            'trip_id'         => null,
+            'trip_time'       => substr($tripTime, 0, 5),
+            'mobil_plat'      => '',
+            'route_via'       => 'BANGKINANG',
+            'occupied_seats'  => $occupiedList,
+            'available_count' => max(0, $totalSeats - count($occupiedList)),
+            'total_count'     => $totalSeats,
+        ]];
+    }
+
     public function getSeatAvailability(string $tripDate, string $direction, ?string $tripTime = null): array
     {
         $query = Trip::query()
@@ -80,6 +146,18 @@ class BridgeReadService
         }
 
         $trips = $query->orderBy('trip_time')->get();
+
+        // Sesi 99 PR-N5a: fallback path saat Trip schedule belum ada.
+        // Caller wajib specify tripTime supaya fallback bisa query slot specific.
+        // Tanpa tripTime kita tidak bisa tebak slot mana yg dimaksud → return [].
+        if ($trips->isEmpty() && $tripTime !== null) {
+            return $this->getOccupiedSeatsFallback(
+                tripDate: $tripDate,
+                direction: $direction,
+                tripTime: $this->normalizeTime($tripTime),
+            );
+        }
+
         $bookingDirection = self::tripDirectionToBookingDirection($direction);
 
         return $trips->map(function (Trip $trip) use ($bookingDirection): array {
